@@ -1,0 +1,503 @@
+<script setup lang="ts">
+import { ref, computed, useId, onMounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { ChevronDown, Brain, Calendar, FileText, Users, Repeat2, Sparkles, Zap, Shield, Eye, EyeOff } from 'lucide-vue-next'
+import { useAuthStore, type PortalRole } from '@/stores/auth'
+import LoginHeroArt from '@/components/login/LoginHeroArt.vue'
+
+/** 设计稿主按钮绿 */
+const sage = '#85A185'
+
+/** 输入框样式 - 优化后更精致 */
+const inputGradClass =
+  'w-full rounded-xl border border-[#c5d8d4]/80 bg-gradient-to-b from-white/80 to-[#F2FAF8] px-4 py-3.5 text-[14px] text-[#1a1a1a] placeholder:text-[#8a9a96]/70 outline-none transition-all duration-200 focus:border-[#85A185] focus:ring-2 focus:ring-[#85A185]/20 focus:bg-white'
+
+type RoleItem = { id: PortalRole; label: string; optionLabel: string; path: string }
+
+const roles: RoleItem[] = [
+  { id: 'hr', label: 'HR', optionLabel: 'HR（企业招聘）', path: '/hr' },
+  { id: 'candidate', label: '求职者', optionLabel: '求职者（候选人端）', path: '/candidate' },
+  { id: 'interviewer', label: '面试官', optionLabel: '面试官（评估端）', path: '/interviewer' },
+  { id: 'admin', label: '管理员', optionLabel: '系统管理员', path: '/admin/permissions' },
+]
+
+// 更新features列表，使其更丰富
+const features = [
+  { label: '智能匹配', icon: Brain, desc: 'AI精准推荐' },
+  { label: '流程自动化', icon: Calendar, desc: '高效流转' },
+  { label: '人才分析', icon: FileText, desc: '深度洞察' },
+  { label: '团队协同', icon: Users, desc: '无缝协作' },
+  { label: '循环优化', icon: Repeat2, desc: '持续迭代' },
+]
+
+const formId = useId()
+const roleFieldId = `login-role-${formId}`
+const accountFieldId = `login-account-${formId}`
+const passwordFieldId = `login-password-${formId}`
+const regAccountFieldId = `reg-ac-${formId}`
+const regPasswordFieldId = `reg-pw-${formId}`
+const regConfirmFieldId = `reg-cf-${formId}`
+
+// 统一统计数据，展示更全面
+const statsList = [
+  { num: '500+', label: '数据源数', icon: Zap },
+  { num: '200+', label: '人才源数', icon: Users },
+  { num: '300+', label: '人才基数', icon: Sparkles },
+  { num: '100+', label: '支援辅助', icon: Shield },
+]
+
+const router = useRouter()
+const route = useRoute()
+const auth = useAuthStore()
+const { selectedRole } = storeToRefs(auth)
+
+const roleSelectModel = computed({
+  get: (): PortalRole => selectedRole.value,
+  set: (v: PortalRole) => auth.setSelectedRole(v),
+})
+
+const authPanel = ref<'login' | 'register'>('login')
+const authCardRef = ref<HTMLElement | null>(null)
+
+const accountInput = ref('hr_admin@talentai.com')
+const passwordInput = ref('')
+const showPassword = ref(false)
+
+const registerAccountInput = ref('')
+const registerPasswordInput = ref('')
+const registerConfirmInput = ref('')
+const regShowPwd = ref(false)
+const regShowConfirm = ref(false)
+const registerFormError = ref('')
+
+onMounted(() => {
+  const q = route.query.account
+  if (typeof q === 'string' && q.trim()) accountInput.value = q.trim()
+})
+
+async function openRegisterPanel() {
+  authPanel.value = 'register'
+  await nextTick()
+  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+    authCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+}
+
+function closeRegisterPanel() {
+  authPanel.value = 'login'
+  registerFormError.value = ''
+}
+
+function handleRegisterSubmit() {
+  registerFormError.value = ''
+  if (!registerAccountInput.value.trim()) {
+    registerFormError.value = '请填写账号或邮箱'
+    return
+  }
+  if (registerPasswordInput.value.length < 6) {
+    registerFormError.value = '密码至少 6 位'
+    return
+  }
+  if (registerPasswordInput.value !== registerConfirmInput.value) {
+    registerFormError.value = '两次输入的密码不一致'
+    return
+  }
+  accountInput.value = registerAccountInput.value.trim()
+  passwordInput.value = registerPasswordInput.value
+  registerAccountInput.value = ''
+  registerPasswordInput.value = ''
+  registerConfirmInput.value = ''
+  regShowPwd.value = false
+  regShowConfirm.value = false
+  closeRegisterPanel()
+}
+
+function handleLogin() {
+  const role = roles.find((r) => r.id === selectedRole.value)
+  if (role) router.push(role.path)
+}
+
+function roleOptionLabel(id: PortalRole) {
+  return roles.find((r) => r.id === id)?.optionLabel ?? id
+}
+</script>
+
+<template>
+  <div
+    data-cmp="Login"
+    class="login-page login-page--fixed-viewport relative flex h-[100dvh] w-full flex-col overflow-hidden bg-gradient-to-br from-[#E9F5F3] to-[#F8F1E7] antialiased"
+  >
+    <!-- 顶栏：品牌标识 -->
+    <header class="relative z-40">
+      <div class="relative mx-auto w-full max-w-[min(1520px,calc(100vw-0.5rem))] px-2 sm:px-3 lg:px-4">
+        <div class="relative flex min-h-[4rem] items-center pt-4 pb-2 sm:min-h-[4.5rem] sm:pt-5 sm:pb-3">
+          <div class="flex shrink-0 items-baseline text-xl font-bold tracking-tight sm:text-2xl">
+            <span class="bg-gradient-to-r from-[#2a2a2a] to-[#5a8a82] bg-clip-text text-transparent">Talent</span>
+            <span class="text-[#5a8a82]">AI</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主内容区域优化 -->
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <main
+        class="relative z-10 mx-auto flex min-h-0 w-full max-w-[min(1520px,calc(100vw-0.5rem))] flex-1 flex-col overflow-hidden px-2 pb-4 pt-2 sm:px-3 sm:pb-6 lg:px-4 lg:pt-8"
+      >
+        <div
+          class="mx-auto flex min-h-0 w-full max-w-full flex-1 flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.14fr)] lg:items-center lg:gap-6 xl:gap-8"
+        >
+          <!-- 左侧内容优化 -->
+          <div class="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden pb-4 lg:pb-0">
+            <!-- 标题区域优化 -->
+            <div class="mb-6">
+              <div class="inline-flex items-center gap-2 rounded-full bg-[#85A185]/10 px-3 py-1 text-xs font-medium text-[#3d8b7a]">
+                <span class="relative flex h-2 w-2">
+                  <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3d8b7a] opacity-75"></span>
+                  <span class="relative inline-flex h-2 w-2 rounded-full bg-[#3d8b7a]"></span>
+                </span>
+                新一代智能招聘平台
+              </div>
+              <h1 class="mt-5 leading-tight">
+                <span class="block text-[clamp(2.2rem,5vw,3.5rem)] font-bold tracking-tight text-[#3d8b7a]">TalentAI</span>
+                <span class="mt-3 block text-[clamp(1.3rem,3vw,1.8rem)] font-semibold text-[#1a1a1a]">智能招聘与人才分析平台</span>
+              </h1>
+              <p class="mt-4 max-w-lg text-[15px] leading-relaxed text-[#6f6f6f] sm:text-[16px]">
+                全流程驱动，人才分析等，让招聘决策更智能、更高效。
+              </p>
+            </div>
+
+            <!-- Features 优化：增加描述文字，卡片感更强 -->
+            <div class="mb-8 grid max-w-full grid-cols-5 gap-3 sm:gap-4">
+              <div
+                v-for="(f, fi) in features"
+                :key="fi"
+                class="group flex flex-col items-center gap-2 rounded-2xl p-2 transition-all duration-300 hover:-translate-y-1 hover:bg-white/40"
+              >
+                <div
+                  class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#d8d8d8] to-[#c0c0c0] text-[#454545] shadow-sm transition-all duration-300 group-hover:shadow-md"
+                >
+                  <component :is="f.icon" :size="22" stroke-width="1.5" />
+                </div>
+                <div class="text-center">
+                  <span class="block text-[12px] font-semibold text-[#1a1a1a] sm:text-[13px]">{{ f.label }}</span>
+                  <span class="hidden text-[10px] text-[#8a9a96] sm:block">{{ f.desc }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧装饰图（仅移动端显示） -->
+            <div class="mb-6 flex max-h-[180px] justify-center overflow-hidden opacity-90 lg:hidden">
+              <div class="relative aspect-[4/3] w-[min(100%,260px)] shrink-0">
+                <LoginHeroArt />
+              </div>
+            </div>
+
+            <!-- 统一统计数据区域，更现代美观 -->
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+              <div
+                v-for="s in statsList"
+                :key="s.label"
+                class="group rounded-2xl border border-white/50 bg-white/60 p-4 text-center shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:bg-white/80 hover:shadow-md"
+              >
+                <component :is="s.icon" class="mx-auto mb-2 h-5 w-5 text-[#5a8a82]" />
+                <div class="text-2xl font-bold tracking-tight text-[#3d8b7a]">{{ s.num }}</div>
+                <div class="mt-1 text-[11px] font-medium text-[#6f6f6f]">{{ s.label }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 登录 / 注册：横向滑轨，整页切换 -->
+          <div class="mx-auto w-full min-w-0 shrink-0 lg:mx-0 lg:min-h-0">
+            <div
+              ref="authCardRef"
+              class="relative min-h-0 overflow-hidden rounded-3xl border border-white/50 bg-gradient-to-b from-[#FFFCF8] via-[#FFF8EC] to-[#F8E4B8] shadow-2xl backdrop-blur-sm lg:min-h-[min(460px,60vh)]"
+            >
+              <div
+                class="flex w-[200%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+                :class="authPanel === 'register' ? '-translate-x-1/2' : 'translate-x-0'"
+              >
+                <!-- 登录整页（左滑移出视野） -->
+                <div
+                  class="flex w-1/2 shrink-0 flex-col lg:min-h-[min(460px,60vh)] lg:flex-row lg:items-stretch"
+                  :class="authPanel === 'login' ? 'pointer-events-auto' : 'pointer-events-none'"
+                  :aria-hidden="authPanel === 'register'"
+                >
+                  <div class="min-w-0 shrink-0 p-6 sm:p-8 lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:px-10 xl:px-12">
+                <div class="mb-2 flex items-center gap-2">
+                  <div class="h-8 w-1 rounded-full bg-[#85A185]"></div>
+                  <h2 class="text-2xl font-bold tracking-tight text-[#1a1a1a]">欢迎回来</h2>
+                </div>
+                <p class="mb-6 text-[13px] text-[#6f6f6f] sm:mb-8 sm:text-[14px]">
+                  登录您的账户，开启智能招聘体验
+                </p>
+
+                <form class="space-y-5" @submit.prevent="handleLogin">
+                  <div>
+                    <label :for="roleFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">选择登录门户</label>
+                    <div class="relative">
+                      <select
+                        :id="roleFieldId"
+                        v-model="roleSelectModel"
+                        :class="[inputGradClass, 'cursor-pointer appearance-none pr-10']"
+                      >
+                        <option v-for="r in roles" :key="r.id" :value="r.id">{{ roleOptionLabel(r.id) }}</option>
+                      </select>
+                      <ChevronDown
+                        :size="18"
+                        class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#888]"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="space-y-4">
+                    <div>
+                      <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">账号</label>
+                      <input
+                        :id="accountFieldId"
+                        v-model="accountInput"
+                        type="text"
+                        name="account"
+                        autocomplete="username"
+                        :class="inputGradClass"
+                        placeholder="请输入账户名 / 邮箱"
+                      />
+                    </div>
+                    <div>
+                      <label :for="passwordFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">密码</label>
+                      <div class="relative">
+                        <input
+                          :id="passwordFieldId"
+                          v-model="passwordInput"
+                          :type="showPassword ? 'text' : 'password'"
+                          name="password"
+                          autocomplete="current-password"
+                          :class="[inputGradClass, 'pr-12']"
+                          placeholder="请输入密码"
+                        />
+                        <button
+                          type="button"
+                          class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#6f6f6f] transition-colors hover:bg-black/5 hover:text-[#1a1a1a]"
+                          :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                          @click="showPassword = !showPassword"
+                        >
+                          <EyeOff v-if="showPassword" :size="18" />
+                          <Eye v-else :size="18" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    class="group relative mt-6 w-full overflow-hidden rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 sm:mt-8 sm:text-[15px]"
+                    :style="{
+                      backgroundColor: sage,
+                      boxShadow: `0 8px 20px -6px ${sage}`,
+                    }"
+                  >
+                    <span class="relative z-10 flex items-center justify-center gap-2">
+                      立即登录
+                      <svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
+                    <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"></div>
+                  </button>
+
+                  <p class="text-center text-[13px] text-[#6f6f6f]">
+                    还没有账号？
+                    <button
+                      type="button"
+                      class="font-semibold text-[#5a8a82] underline-offset-2 transition-colors hover:text-[#3d8b7a] hover:underline"
+                      @click="openRegisterPanel"
+                    >
+                      立即注册
+                    </button>
+                  </p>
+                </form>
+                  </div>
+
+                  <div
+                    class="relative min-h-[200px] min-w-0 flex-1 overflow-hidden rounded-b-3xl bg-[#e8ecf0] lg:min-h-0 lg:w-1/2 lg:flex-none lg:rounded-b-none lg:rounded-r-3xl"
+                  >
+                    <img
+                      src="/images/login-hero.png"
+                      class="pointer-events-none absolute inset-0 h-full w-full select-none object-center"
+                      alt="TalentAI 智能招聘与人才分析平台"
+                      decoding="async"
+                      fetchpriority="high"
+                    />
+                  </div>
+                </div>
+
+                <!-- 注册整页（从右侧滑入；返回登录时整体右滑隐藏） -->
+                <div
+                  class="flex w-1/2 shrink-0 flex-col lg:min-h-[min(460px,60vh)] lg:flex-row lg:items-stretch"
+                  :class="authPanel === 'register' ? 'pointer-events-auto' : 'pointer-events-none'"
+                  :aria-hidden="authPanel === 'login'"
+                >
+                  <div class="min-w-0 shrink-0 p-6 sm:p-8 lg:flex lg:w-1/2 lg:flex-col lg:justify-center lg:px-10 xl:px-12">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                      <div class="flex items-center gap-2">
+                        <div class="h-8 w-1 rounded-full bg-[#85A185]"></div>
+                        <div>
+                          <h2 class="text-xl font-bold tracking-tight text-[#1a1a1a] sm:text-2xl">创建账号</h2>
+                          <p class="mt-1 text-[12px] text-[#6f6f6f]">门户与「选择登录门户」一致</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        class="shrink-0 rounded-lg px-2 py-1.5 text-[12px] font-medium text-[#5a8a82] transition-colors hover:bg-black/5 hover:text-[#3d8b7a] sm:text-[13px]"
+                        @click="closeRegisterPanel"
+                      >
+                        返回登录
+                      </button>
+                    </div>
+
+                    <form class="space-y-4" @submit.prevent="handleRegisterSubmit">
+                      <div>
+                        <label :for="regAccountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">账号 / 邮箱</label>
+                        <input
+                          :id="regAccountFieldId"
+                          v-model="registerAccountInput"
+                          type="text"
+                          name="reg-account"
+                          autocomplete="username"
+                          :class="inputGradClass"
+                          placeholder="请输入用户名或邮箱"
+                        />
+                      </div>
+                      <div>
+                        <label :for="regPasswordFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">密码</label>
+                        <div class="relative">
+                          <input
+                            :id="regPasswordFieldId"
+                            v-model="registerPasswordInput"
+                            :type="regShowPwd ? 'text' : 'password'"
+                            name="new-password"
+                            autocomplete="new-password"
+                            :class="[inputGradClass, 'pr-12']"
+                            placeholder="至少 6 位"
+                          />
+                          <button
+                            type="button"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#6f6f6f] transition-colors hover:bg-black/5 hover:text-[#1a1a1a]"
+                            :aria-label="regShowPwd ? '隐藏密码' : '显示密码'"
+                            @click="regShowPwd = !regShowPwd"
+                          >
+                            <EyeOff v-if="regShowPwd" :size="18" />
+                            <Eye v-else :size="18" />
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label :for="regConfirmFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">确认密码</label>
+                        <div class="relative">
+                          <input
+                            :id="regConfirmFieldId"
+                            v-model="registerConfirmInput"
+                            :type="regShowConfirm ? 'text' : 'password'"
+                            name="confirm-password"
+                            autocomplete="new-password"
+                            :class="[inputGradClass, 'pr-12']"
+                            placeholder="再次输入密码"
+                          />
+                          <button
+                            type="button"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[#6f6f6f] transition-colors hover:bg-black/5 hover:text-[#1a1a1a]"
+                            :aria-label="regShowConfirm ? '隐藏确认密码' : '显示确认密码'"
+                            @click="regShowConfirm = !regShowConfirm"
+                          >
+                            <EyeOff v-if="regShowConfirm" :size="18" />
+                            <Eye v-else :size="18" />
+                          </button>
+                        </div>
+                      </div>
+                      <p v-if="registerFormError" class="text-[13px] font-medium text-red-600" role="alert">{{ registerFormError }}</p>
+                      <button
+                        type="submit"
+                        class="mt-2 w-full rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:text-[15px]"
+                        :style="{
+                          backgroundColor: sage,
+                          boxShadow: `0 8px 20px -6px ${sage}`,
+                        }"
+                      >
+                        完成注册
+                      </button>
+                    </form>
+                  </div>
+
+                  <div
+                    class="relative min-h-[200px] min-w-0 flex-1 overflow-hidden rounded-b-3xl bg-[#e8ecf0] lg:min-h-0 lg:w-1/2 lg:flex-none lg:rounded-b-none lg:rounded-r-3xl"
+                  >
+                    <img
+                      src="/images/login-hero.png"
+                      class="pointer-events-none absolute inset-0 h-full w-full select-none object-center"
+                      alt=""
+                      decoding="async"
+                      fetchpriority="low"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- 底部优化 -->
+      <footer
+        class="relative z-10 mx-auto w-full max-w-[min(1520px,calc(100vw-0.5rem))] shrink-0 px-2 py-5 text-center sm:px-3 lg:px-4"
+      >
+        <p class="text-[11px] text-[#a8a8a8]/80 sm:text-[12px]">
+          Copyright © 2026 TalentAI, 智能招聘实训平台. All rights reserved.
+        </p>
+      </footer>
+    </div>
+  </div>
+</template>
+
+<style>
+  html:has(.login-page),
+  body:has(.login-page) {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background-color: #e9f5f3;
+  }
+
+  html:has(.login-page--fixed-viewport),
+  body:has(.login-page--fixed-viewport) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  html:has(.login-page:not(.login-page--fixed-viewport)),
+  body:has(.login-page:not(.login-page--fixed-viewport)) {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  #app:has(.login-page--fixed-viewport) {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  #app:has(.login-page:not(.login-page--fixed-viewport)) {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100dvh;
+  }
+
+  .login-page {
+    overscroll-behavior: none;
+  }
+</style>

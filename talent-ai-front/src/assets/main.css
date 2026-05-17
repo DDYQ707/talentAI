@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* TalentAI 品牌延展（与登录页一致：鼠尾草绿 #85A185、青绿 #3d8b7a、灰绿 #5a8a82、浅底渐变） */
+@theme inline {
+  --font-sans: var(--fontSans);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-x: var(--shadow-x);
+  --shadow-y: var(--shadow-y);
+  --shadow-blur: var(--shadow-blur);
+  --shadow-spread: var(--shadow-spread);
+  --shadow-color: var(--shadow-color);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-green: var(--brand-green);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-red: var(--brand-red);
+  --color-brand-bg: var(--brand-bg);
+  --color-brand-tint: var(--brand-tint);
+  --color-brand-tint-2: var(--brand-tint-2);
+  --color-brand-border: var(--brand-border-soft);
+}
+
+:root {
+  --fontSans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 输入 / 按钮圆角 16px */
+  --radius: 1rem;
+  /* 登录页主色体系 */
+  --brand-sage: #85a185;
+  --brand-teal: #3d8b7a;
+  --brand-teal-mid: #5a8a82;
+  --brand-warm-frame: #ac9c8a;
+  --brand-blue: var(--brand-teal);
+  --brand-dark: #2a3d38;
+  --brand-purple: var(--brand-teal-mid);
+  --brand-green: var(--brand-sage);
+  --brand-orange: #b8956a;
+  --brand-red: #c45c5c;
+  --brand-bg: #f4faf7;
+  --brand-tint: #e9f5f3;
+  --brand-tint-2: #dff0ea;
+  --brand-border-soft: #c5d8d4;
+  --background: #f4faf7;
+  --background-solid: #f4faf7;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  --primary: var(--brand-sage);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-tint);
+  --secondary-foreground: var(--brand-teal);
+  --muted: #eef5f2;
+  --muted-foreground: #6f7f7a;
+  --accent: #e9f5f3;
+  --accent-foreground: var(--brand-teal);
+  --destructive: var(--brand-red);
+  --border: rgba(197, 216, 212, 0.65);
+  --input: rgba(197, 216, 212, 0.55);
+  --ring: rgba(133, 161, 133, 0.35);
+  --chart-1: #3d8b7a;
+  --chart-2: #5a8a82;
+  --chart-3: #85a185;
+  --chart-4: #6ba898;
+  --chart-5: #ac9c8a;
+  --sidebar: transparent;
+  --sidebar-foreground: #2a3d38;
+  --sidebar-primary: var(--brand-sage);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.55);
+  --sidebar-accent-foreground: var(--brand-teal);
+  --sidebar-border: rgba(197, 216, 212, 0.5);
+  --sidebar-ring: rgba(61, 139, 122, 0.25);
+  --shadow-blur: 24px;
+  --shadow-color: rgba(61, 139, 125, 0.08);
+  --shadow-y: 8px;
+  --shadow-spread: 0px;
+  --shadow-x: 0px;
+  --talent-card-radius: 20px;
+  --talent-control-radius: 16px;
+  --talent-soft-shadow: 0 8px 24px rgba(61, 139, 125, 0.08);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply text-foreground font-sans antialiased;
+    background: var(--background-solid);
+    background-image: linear-gradient(165deg, #f4faf7 0%, #faf8f4 45%, #eef6f3 100%);
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .shadow-custom {
+    box-shadow: var(--talent-soft-shadow);
+  }
+  .shadow-card {
+    box-shadow: var(--talent-soft-shadow);
+    border-radius: var(--talent-card-radius);
+  }
+  .shadow-panel {
+    box-shadow: 0 12px 32px rgba(61, 139, 125, 0.1);
+    border-radius: var(--talent-card-radius);
+  }
+  .rounded-card {
+    border-radius: var(--talent-card-radius);
+  }
+  .rounded-control {
+    border-radius: var(--talent-control-radius);
+  }
+  /* 线性图标：统一描边 */
+  .icon-linear {
+    stroke-width: 1.75;
+  }
+  .gradient-blue {
+    background: linear-gradient(135deg, #3d8b7a 0%, #5a8a82 100%);
+  }
+  .gradient-purple {
+    background: linear-gradient(135deg, #5a8a82 0%, #85a185 100%);
+  }
+  .gradient-blue-purple {
+    background: linear-gradient(135deg, #3d8b7a 0%, #85a185 55%, #5a8a82 100%);
+  }
+  .gradient-dark {
+    background: linear-gradient(180deg, #2a3d38 0%, #3d524c 100%);
+  }
+  .text-gradient-blue {
+    background: linear-gradient(135deg, #3d8b7a, #5a8a82);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .gradient-purple-text {
+    background: linear-gradient(135deg, #5a8a82, #3d8b7a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  /* 浅绿渐变侧栏（与登录页同系） */
+  .sidebar-brand-gradient {
+    background: linear-gradient(180deg, #f0faf6 0%, #e4f2ec 42%, #d8ebe3 100%);
+    border-right: 1px solid rgba(197, 216, 212, 0.55);
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(90, 138, 130, 0.35);
+    border-radius: 999px;
+  }
+}
