@@ -8,10 +8,18 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="talent-gateway" />
-        <module name="talent-auth" />
-        <module name="talent-core-biz" />
+        <module name="talent-ai-agent" />
+        <module name="talent-analytics" />
+        <module name="talent-resume" />
         <module name="talent-common" />
+        <module name="talent-interview" />
+        <module name="talent-job" />
+        <module name="talent-auth" />
+        <module name="talent-talent-pool" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="talent-core-biz" target="17" />
+    </bytecodeTargetLevel>
   </component>
 </project>

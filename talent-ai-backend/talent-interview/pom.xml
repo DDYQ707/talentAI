@@ -9,8 +9,8 @@
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <groupId>com.talent.common</groupId>
-    <artifactId>talent-common</artifactId>
+    <groupId>com.talent.interview</groupId>
+    <artifactId>talent-interview</artifactId>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

@@ -4,7 +4,37 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="" />
+    <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/talent-ai-agent/pom.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/talent-analytics/pom.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/talent-interview/pom.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/talent-resume/pom.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/talent-talent-pool/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/AuthApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/LoginController.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/resources/application.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/target/classes/application.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/target/classes/com/talent/auth/AuthApplication.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/target/classes/com/talent/auth/controller/LoginController.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-common/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-common/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-common/src/main/java/com/talent/common/core/domain/Result.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-common/target/classes/com/talent/common/core/domain/Result.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-core-biz/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-core-biz/src/main/java/com/talent/Main.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-core-biz/target/classes/com/talent/Main.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-gateway/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-gateway/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-gateway/src/main/java/com/talent/gateway/GatewayApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-gateway/src/main/resources/application.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-gateway/target/classes/application.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-gateway/target/classes/com/talent/gateway/GatewayApplication.class" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -17,10 +47,13 @@
       </list>
     </option>
   </component>
-  <component name="ProjectColorInfo">{
-  &quot;customColor&quot;: &quot;&quot;,
-  &quot;associatedIndex&quot;: -1
-}</component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 1
+}]]></component>
   <component name="ProjectId" id="3DiJsbKKn06lG9uWfqGCnumLXqb" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -34,7 +67,9 @@
     "RequestMappingsPanelWidth1": "75",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "main",
     "jdk.selected.JAVA_MODULE": "17",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
@@ -57,6 +92,7 @@
       <updated>1778759166350</updated>
       <workItem from="1778759168930" duration="5300000" />
       <workItem from="1778844436766" duration="785000" />
+      <workItem from="1779067189890" duration="989000" />
     </task>
     <servers />
   </component>

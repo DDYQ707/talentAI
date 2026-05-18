@@ -12,7 +12,15 @@
         <module>talent-common</module>
         <module>talent-gateway</module>
         <module>talent-auth</module>
-        <module>talent-core-biz</module>
+        <module>talent-job</module>
+        <module>talent-resume</module>
+        <module>talent-ai-agent</module>
+        <module>talent-interview</module>
+        <module>talent-talent-pool</module>
+        <module>talent-analytics</module>
+        <module>talent-gateway</module>
+        <module>talent-auth</module>
+        <module>talent-common</module>
     </modules>
 
     <properties>
@@ -23,6 +31,9 @@
         <spring-boot.version>3.0.2</spring-boot.version>
         <spring-cloud.version>2022.0.0</spring-cloud.version>
         <spring-cloud-alibaba.version>2022.0.0.0-RC2</spring-cloud-alibaba.version>
+        <mybatis-plus.version>3.5.5</mybatis-plus.version>
+        <jjwt.version>0.12.3</jjwt.version>
+        <langchain4j.version>0.30.0</langchain4j.version>
     </properties>
 
     <dependencyManagement>
@@ -47,6 +58,22 @@
                 <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>8.0.33</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-boot-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.talent</groupId>
+                <artifactId>talent-common</artifactId>
+                <version>${project.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
