@@ -1,0 +1,7 @@
+docker/mysql/data/
+docker/redis/data/
+docker/minio/data/
+
+**/.idea/
+**/target/
+*.log
