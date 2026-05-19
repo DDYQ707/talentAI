@@ -5,3 +5,10 @@ declare module '*.vue' {
   const component: DefineComponent<object, object, unknown>
   export default component
 }
+
+declare module '@/utils/request' {
+  import type { AxiosInstance } from 'axios'
+
+  const request: AxiosInstance
+  export default request
+}

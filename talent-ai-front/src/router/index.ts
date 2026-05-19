@@ -35,6 +35,7 @@ const router = createRouter({
       redirect: '/admin/permissions',
       children: [
         { path: 'permissions', name: 'Permissions', component: () => import('@/views/admin/PermissionsView.vue') },
+        { path: 'accounts', name: 'AdminAccounts', component: () => import('@/views/admin/AccountManagementView.vue') },
         { path: 'ai-models', name: 'AIModels', component: () => import('@/views/admin/AIModelsView.vue') },
         { path: 'audit', name: 'Audit', component: () => import('@/views/admin/AuditView.vue') },
       ],
