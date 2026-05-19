@@ -1,37 +1,28 @@
 <script setup lang="ts">
-import { ref, computed, useId } from 'vue'
+import { ref, onMounted, useId } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { ChevronDown, Eye, EyeOff } from 'lucide-vue-next'
-import { useAuthStore, type PortalRole } from '@/stores/auth'
+import { Eye, EyeOff } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import { register as registerApi } from '@/api/auth'
+import { SELF_REGISTER_ROLE } from '@/constants/portal'
+import { AUTH_INPUT_CLASS, AUTH_SAGE } from '@/constants/auth-ui'
+import {
+  getErrorMessage,
+  validateAccount,
+  validatePassword,
+  validatePasswordConfirm,
+} from '@/utils/validators'
 
-const sage = '#85A185'
-const inputGradClass =
-  'w-full rounded-xl border border-[#c5d8d4]/80 bg-gradient-to-b from-white/80 to-[#F2FAF8] px-4 py-3.5 text-[14px] text-[#1a1a1a] placeholder:text-[#8a9a96]/70 outline-none transition-all duration-200 focus:border-[#85A185] focus:ring-2 focus:ring-[#85A185]/20 focus:bg-white'
-
-type RoleItem = { id: PortalRole; label: string; optionLabel: string }
-
-const roles: RoleItem[] = [
-  { id: 'hr', label: 'HR', optionLabel: 'HR（企业招聘）' },
-  { id: 'candidate', label: '求职者', optionLabel: '求职者（候选人端）' },
-  { id: 'interviewer', label: '面试官', optionLabel: '面试官（评估端）' },
-  { id: 'admin', label: '管理员', optionLabel: '系统管理员' },
-]
+const sage = AUTH_SAGE
+const inputGradClass = AUTH_INPUT_CLASS
 
 const formId = useId()
-const roleFieldId = `reg-role-${formId}`
 const accountFieldId = `reg-account-${formId}`
 const passwordFieldId = `reg-password-${formId}`
 const confirmFieldId = `reg-confirm-${formId}`
 
 const router = useRouter()
 const auth = useAuthStore()
-const { selectedRole } = storeToRefs(auth)
-
-const roleSelectModel = computed({
-  get: (): PortalRole => selectedRole.value,
-  set: (v: PortalRole) => auth.setSelectedRole(v),
-})
 
 const accountInput = ref('')
 const passwordInput = ref('')
@@ -39,33 +30,48 @@ const confirmPasswordInput = ref('')
 const showPassword = ref(false)
 const showConfirm = ref(false)
 const formError = ref('')
+const submitting = ref(false)
 
-function roleOptionLabel(id: PortalRole) {
-  return roles.find((r) => r.id === id)?.optionLabel ?? id
-}
+onMounted(() => {
+  auth.setSelectedRole(SELF_REGISTER_ROLE)
+})
 
-function handleRegister() {
+async function handleRegister() {
   formError.value = ''
-  if (!accountInput.value.trim()) {
-    formError.value = '请填写账号或邮箱'
+  const account = accountInput.value.trim()
+  const accountErr = validateAccount(account)
+  if (accountErr) {
+    formError.value = accountErr
     return
   }
-  if (passwordInput.value.length < 6) {
-    formError.value = '密码至少 6 位'
+  const pwdErr = validatePassword(passwordInput.value)
+  if (pwdErr) {
+    formError.value = pwdErr
     return
   }
-  if (passwordInput.value !== confirmPasswordInput.value) {
-    formError.value = '两次输入的密码不一致'
+  const confirmErr = validatePasswordConfirm(passwordInput.value, confirmPasswordInput.value)
+  if (confirmErr) {
+    formError.value = confirmErr
     return
   }
-  router.push({
-    path: '/login',
-    query: { account: accountInput.value.trim() },
-  })
+
+  submitting.value = true
+  try {
+    await registerApi(account, passwordInput.value)
+    router.push({
+      path: '/login',
+      query: { account, registered: '1' },
+    })
+  } catch (e) {
+    formError.value = getErrorMessage(e, '注册失败，请稍后重试')
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
 <template>
+  <!-- eslint-disable vue/no-multiple-template-root -->
   <div
     data-cmp="Register"
     class="login-page relative flex min-h-[100dvh] w-full flex-col bg-gradient-to-br from-[#E9F5F3] to-[#F8F1E7] antialiased"
@@ -92,32 +98,22 @@ function handleRegister() {
         class="w-full max-w-md rounded-3xl border border-white/50 bg-gradient-to-b from-[#FFFCF8] via-[#FFF8EC] to-[#F8E4B8] p-6 shadow-2xl backdrop-blur-sm sm:p-8"
       >
         <div class="mb-2 flex items-center gap-2">
-          <div class="h-8 w-1 rounded-full bg-[#85A185]"></div>
-          <h1 class="text-2xl font-bold tracking-tight text-[#1a1a1a]">创建账号</h1>
+          <div class="h-8 w-1 rounded-full bg-[#85A185]" />
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-[#1a1a1a]">创建求职者账号</h1>
+            <p class="mt-1 text-[13px] text-[#6f6f6f] sm:text-[14px]">注册成功后将跳转登录页，请使用求职者门户登录</p>
+          </div>
         </div>
-        <p class="mb-6 text-[13px] text-[#6f6f6f] sm:text-[14px]">填写信息完成注册，演示环境提交后将跳转至登录页</p>
+
+        <p
+          class="mb-5 inline-flex items-center gap-2 rounded-full bg-[#85A185]/12 px-3 py-1 text-[12px] font-medium text-[#3d8b7a]"
+        >
+          求职者（候选人端）
+        </p>
 
         <form class="space-y-5" @submit.prevent="handleRegister">
           <div>
-            <label :for="roleFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">注册门户类型</label>
-            <div class="relative">
-              <select
-                :id="roleFieldId"
-                v-model="roleSelectModel"
-                :class="[inputGradClass, 'cursor-pointer appearance-none pr-10']"
-              >
-                <option v-for="r in roles" :key="r.id" :value="r.id">{{ roleOptionLabel(r.id) }}</option>
-              </select>
-              <ChevronDown
-                :size="18"
-                class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#888]"
-                aria-hidden="true"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">账号 / 邮箱</label>
+            <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">手机号 / 邮箱</label>
             <input
               :id="accountFieldId"
               v-model="accountInput"
@@ -125,7 +121,7 @@ function handleRegister() {
               name="account"
               autocomplete="username"
               :class="inputGradClass"
-              placeholder="请输入用户名或邮箱"
+              placeholder="请输入手机号或邮箱"
             />
           </div>
 
@@ -181,16 +177,17 @@ function handleRegister() {
 
           <button
             type="submit"
-            class="group relative mt-2 w-full overflow-hidden rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 sm:text-[15px]"
+            class="group relative mt-2 w-full overflow-hidden rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 sm:text-[15px]"
+            :disabled="submitting"
             :style="{
               backgroundColor: sage,
               boxShadow: `0 8px 20px -6px ${sage}`,
             }"
           >
-            <span class="relative z-10">注册并前往登录</span>
+            <span class="relative z-10">{{ submitting ? '注册中…' : '注册并前往登录' }}</span>
             <div
               class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"
-            ></div>
+            />
           </button>
         </form>
 
@@ -218,28 +215,7 @@ function handleRegister() {
     background-color: #e9f5f3;
   }
 
-  html:has(.login-page--fixed-viewport),
-  body:has(.login-page--fixed-viewport) {
-    height: 100%;
-    overflow: hidden;
-  }
-
-  html:has(.login-page:not(.login-page--fixed-viewport)),
-  body:has(.login-page:not(.login-page--fixed-viewport)) {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  #app:has(.login-page--fixed-viewport) {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-  }
-
-  #app:has(.login-page:not(.login-page--fixed-viewport)) {
+  #app:has(.login-page) {
     margin: 0;
     padding: 0;
     width: 100%;

@@ -4,23 +4,21 @@ import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ChevronDown, Brain, Calendar, FileText, Users, Repeat2, Sparkles, Zap, Shield, Eye, EyeOff } from 'lucide-vue-next'
 import { useAuthStore, type PortalRole } from '@/stores/auth'
+import { loginByPassword, register as registerApi } from '@/api/auth'
+import { PORTAL_ROLES, SELF_REGISTER_ROLE, roleOptionLabel } from '@/constants/portal'
+import { AUTH_INPUT_CLASS, AUTH_SAGE, ENTERPRISE_ACCOUNT_HINT } from '@/constants/auth-ui'
+import {
+  getErrorMessage,
+  isPhoneOrEmail,
+  validateAccount,
+  validateLoginAccount,
+  validatePassword,
+  validatePasswordConfirm,
+} from '@/utils/validators'
 import LoginHeroArt from '@/components/login/LoginHeroArt.vue'
 
-/** 设计稿主按钮绿 */
-const sage = '#85A185'
-
-/** 输入框样式 - 优化后更精致 */
-const inputGradClass =
-  'w-full rounded-xl border border-[#c5d8d4]/80 bg-gradient-to-b from-white/80 to-[#F2FAF8] px-4 py-3.5 text-[14px] text-[#1a1a1a] placeholder:text-[#8a9a96]/70 outline-none transition-all duration-200 focus:border-[#85A185] focus:ring-2 focus:ring-[#85A185]/20 focus:bg-white'
-
-type RoleItem = { id: PortalRole; label: string; optionLabel: string; path: string }
-
-const roles: RoleItem[] = [
-  { id: 'hr', label: 'HR', optionLabel: 'HR（企业招聘）', path: '/hr' },
-  { id: 'candidate', label: '求职者', optionLabel: '求职者（候选人端）', path: '/candidate' },
-  { id: 'interviewer', label: '面试官', optionLabel: '面试官（评估端）', path: '/interviewer' },
-  { id: 'admin', label: '管理员', optionLabel: '系统管理员', path: '/admin/permissions' },
-]
+const sage = AUTH_SAGE
+const inputGradClass = AUTH_INPUT_CLASS
 
 // 更新features列表，使其更丰富
 const features = [
@@ -84,6 +82,12 @@ const regShowPwd = ref(false)
 const regShowConfirm = ref(false)
 const registerFormError = ref('')
 const loginFormError = ref('')
+const loginSubmitting = ref(false)
+const registerSubmitting = ref(false)
+const registerFormSuccess = ref('')
+const portalMismatchRole = ref<PortalRole | null>(null)
+
+const canSelfRegister = computed(() => selectedRole.value === SELF_REGISTER_ROLE)
 
 const otpSendDisabled = computed(
   () => otpCountdown.value > 0 || otpSending.value || !isPhoneOrEmail(otpAccountInput.value),
@@ -96,19 +100,15 @@ onMounted(() => {
     accountInput.value = v
     otpAccountInput.value = v
   }
+  if (route.query.registered === '1') {
+    auth.setSelectedRole(SELF_REGISTER_ROLE)
+    registerFormSuccess.value = '注册成功，请使用求职者门户登录'
+  }
 })
 
 onUnmounted(() => {
   if (otpTimer) clearInterval(otpTimer)
 })
-
-function isPhoneOrEmail(value: string) {
-  const v = value.trim()
-  if (!v) return false
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  const phoneRe = /^1[3-9]\d{9}$/
-  return emailRe.test(v) || phoneRe.test(v)
-}
 
 function startOtpCountdown() {
   otpCountdown.value = OTP_COUNTDOWN_SEC
@@ -140,6 +140,8 @@ async function handleSendOtp() {
 }
 
 async function openRegisterPanel() {
+  auth.setSelectedRole(SELF_REGISTER_ROLE)
+  registerFormError.value = ''
   authPanel.value = 'register'
   await nextTick()
   if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
@@ -152,42 +154,59 @@ function closeRegisterPanel() {
   registerFormError.value = ''
 }
 
-function handleRegisterSubmit() {
-  registerFormError.value = ''
-  if (!registerAccountInput.value.trim()) {
-    registerFormError.value = '请填写账号或邮箱'
-    return
-  }
-  if (registerPasswordInput.value.length < 6) {
-    registerFormError.value = '密码至少 6 位'
-    return
-  }
-  if (registerPasswordInput.value !== registerConfirmInput.value) {
-    registerFormError.value = '两次输入的密码不一致'
-    return
-  }
-  accountInput.value = registerAccountInput.value.trim()
-  passwordInput.value = registerPasswordInput.value
-  registerAccountInput.value = ''
-  registerPasswordInput.value = ''
-  registerConfirmInput.value = ''
-  regShowPwd.value = false
-  regShowConfirm.value = false
-  closeRegisterPanel()
+function applyPortalMismatch() {
+  if (!portalMismatchRole.value) return
+  auth.setSelectedRole(portalMismatchRole.value)
+  portalMismatchRole.value = null
+  loginFormError.value = ''
+  registerFormSuccess.value = `已切换为「${roleOptionLabel(selectedRole.value)}」，请再次登录`
 }
 
-function handleLogin() {
+async function handleRegisterSubmit() {
+  registerFormError.value = ''
+  registerFormSuccess.value = ''
+  const account = registerAccountInput.value.trim()
+  const accountErr = validateAccount(account)
+  if (accountErr) {
+    registerFormError.value = accountErr
+    return
+  }
+  const pwdErr = validatePassword(registerPasswordInput.value)
+  if (pwdErr) {
+    registerFormError.value = pwdErr
+    return
+  }
+  const confirmErr = validatePasswordConfirm(registerPasswordInput.value, registerConfirmInput.value)
+  if (confirmErr) {
+    registerFormError.value = confirmErr
+    return
+  }
+
+  registerSubmitting.value = true
+  try {
+    await registerApi(account, registerPasswordInput.value)
+    accountInput.value = account
+    passwordInput.value = registerPasswordInput.value
+    registerAccountInput.value = ''
+    registerPasswordInput.value = ''
+    registerConfirmInput.value = ''
+    regShowPwd.value = false
+    regShowConfirm.value = false
+    authPanel.value = 'login'
+    registerFormError.value = ''
+    auth.setSelectedRole(SELF_REGISTER_ROLE)
+    registerFormSuccess.value = '注册成功，请使用求职者门户登录'
+  } catch (e) {
+    registerFormError.value = getErrorMessage(e, '注册失败，请稍后重试')
+  } finally {
+    registerSubmitting.value = false
+  }
+}
+
+async function handleLogin() {
   loginFormError.value = ''
-  if (loginMethod.value === 'password') {
-    if (!accountInput.value.trim()) {
-      loginFormError.value = '请输入手机号或邮箱'
-      return
-    }
-    if (!passwordInput.value) {
-      loginFormError.value = '请输入密码'
-      return
-    }
-  } else {
+  portalMismatchRole.value = null
+  if (loginMethod.value === 'otp') {
     if (!isPhoneOrEmail(otpAccountInput.value)) {
       loginFormError.value = '请输入正确的手机号或邮箱'
       return
@@ -196,13 +215,47 @@ function handleLogin() {
       loginFormError.value = '请输入验证码'
       return
     }
+    loginFormError.value = '验证码登录暂未开放，请使用密码登录'
+    return
   }
-  const role = roles.find((r) => r.id === selectedRole.value)
-  if (role) router.push(role.path)
-}
 
-function roleOptionLabel(id: PortalRole) {
-  return roles.find((r) => r.id === id)?.optionLabel ?? id
+  const accountErr = validateLoginAccount(accountInput.value)
+  if (accountErr) {
+    loginFormError.value = accountErr
+    return
+  }
+  const pwdErr = validatePassword(passwordInput.value)
+  if (pwdErr) {
+    loginFormError.value = pwdErr
+    return
+  }
+
+  loginSubmitting.value = true
+  try {
+    const res = await loginByPassword(accountInput.value, passwordInput.value)
+    if (!res.token || !res.userInfo) {
+      loginFormError.value = res.msg || '登录失败，请重试'
+      return
+    }
+
+    const accountRole = auth.portalRoleFromUserType(res.userInfo.userType)
+    if (!accountRole) {
+      loginFormError.value = '账号类型未知，请联系管理员'
+      return
+    }
+    if (accountRole !== selectedRole.value) {
+      portalMismatchRole.value = accountRole
+      loginFormError.value = `该账号属于「${roleOptionLabel(accountRole)}」，与当前门户不一致`
+      return
+    }
+
+    auth.setSession(res.token, res.userInfo)
+    router.push(auth.pathForRole(accountRole))
+  } catch (e) {
+    loginFormError.value = getErrorMessage(e, '登录失败，请检查网络或稍后重试')
+  } finally {
+    loginSubmitting.value = false
+  }
 }
 </script>
 
@@ -325,7 +378,7 @@ function roleOptionLabel(id: PortalRole) {
                         v-model="roleSelectModel"
                         :class="[inputGradClass, 'cursor-pointer appearance-none pr-10']"
                       >
-                        <option v-for="r in roles" :key="r.id" :value="r.id">{{ roleOptionLabel(r.id) }}</option>
+                        <option v-for="r in PORTAL_ROLES" :key="r.id" :value="r.id">{{ r.optionLabel }}</option>
                       </select>
                       <ChevronDown
                         :size="18"
@@ -372,7 +425,7 @@ function roleOptionLabel(id: PortalRole) {
 
                   <div v-if="loginMethod === 'password'" class="space-y-4">
                     <div>
-                      <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">手机号 / 邮箱</label>
+                      <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">用户名 / 手机号 / 邮箱</label>
                       <input
                         :id="accountFieldId"
                         v-model="accountInput"
@@ -380,7 +433,7 @@ function roleOptionLabel(id: PortalRole) {
                         name="account"
                         autocomplete="username"
                         :class="inputGradClass"
-                        placeholder="请输入手机号或邮箱"
+                        placeholder="如 admin、手机号或邮箱"
                       />
                     </div>
                     <div>
@@ -449,18 +502,30 @@ function roleOptionLabel(id: PortalRole) {
                     </div>
                   </div>
 
-                  <p v-if="loginFormError" class="text-[13px] font-medium text-red-600" role="alert">{{ loginFormError }}</p>
+                  <p v-if="registerFormSuccess" class="text-[13px] font-medium text-[#3d8b7a]" role="status">{{ registerFormSuccess }}</p>
+                  <div v-if="loginFormError" class="space-y-2" role="alert">
+                    <p class="text-[13px] font-medium text-red-600">{{ loginFormError }}</p>
+                    <button
+                      v-if="portalMismatchRole"
+                      type="button"
+                      class="w-full rounded-lg border border-[#85A185]/50 bg-[#85A185]/10 py-2 text-[12px] font-semibold text-[#3d8b7a] transition-colors hover:bg-[#85A185]/20 sm:text-[13px]"
+                      @click="applyPortalMismatch"
+                    >
+                      切换为「{{ roleOptionLabel(portalMismatchRole) }}」并重新登录
+                    </button>
+                  </div>
 
                   <button
                     type="submit"
-                    class="group relative mt-6 w-full overflow-hidden rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 sm:mt-8 sm:text-[15px]"
+                    class="group relative mt-6 w-full overflow-hidden rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 sm:mt-8 sm:text-[15px]"
+                    :disabled="loginSubmitting"
                     :style="{
                       backgroundColor: sage,
                       boxShadow: `0 8px 20px -6px ${sage}`,
                     }"
                   >
                     <span class="relative z-10 flex items-center justify-center gap-2">
-                      立即登录
+                      {{ loginSubmitting ? '登录中…' : '立即登录' }}
                       <svg class="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
@@ -468,7 +533,7 @@ function roleOptionLabel(id: PortalRole) {
                     <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full"></div>
                   </button>
 
-                  <p class="text-center text-[13px] text-[#6f6f6f]">
+                  <p v-if="canSelfRegister" class="text-center text-[13px] text-[#6f6f6f]">
                     还没有账号？
                     <button
                       type="button"
@@ -477,6 +542,9 @@ function roleOptionLabel(id: PortalRole) {
                     >
                       立即注册
                     </button>
+                  </p>
+                  <p v-else class="text-center text-[12px] leading-relaxed text-[#8a9a96] sm:text-[13px]">
+                    {{ ENTERPRISE_ACCOUNT_HINT }}
                   </p>
                 </form>
                   </div>
@@ -506,7 +574,7 @@ function roleOptionLabel(id: PortalRole) {
                         <div class="h-8 w-1 rounded-full bg-[#85A185]"></div>
                         <div>
                           <h2 class="text-xl font-bold tracking-tight text-[#1a1a1a] sm:text-2xl">创建账号</h2>
-                          <p class="mt-1 text-[12px] text-[#6f6f6f]">门户与「选择登录门户」一致</p>
+                          <p class="mt-1 text-[12px] text-[#6f6f6f]">仅开放求职者自助注册，企业账号请联系管理员</p>
                         </div>
                       </div>
                       <button
@@ -580,13 +648,14 @@ function roleOptionLabel(id: PortalRole) {
                       <p v-if="registerFormError" class="text-[13px] font-medium text-red-600" role="alert">{{ registerFormError }}</p>
                       <button
                         type="submit"
-                        class="mt-2 w-full rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:text-[15px]"
+                        class="mt-2 w-full rounded-xl py-3.5 text-[14px] font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 sm:text-[15px]"
+                        :disabled="registerSubmitting"
                         :style="{
                           backgroundColor: sage,
                           boxShadow: `0 8px 20px -6px ${sage}`,
                         }"
                       >
-                        完成注册
+                        {{ registerSubmitting ? '注册中…' : '完成注册' }}
                       </button>
                     </form>
                   </div>

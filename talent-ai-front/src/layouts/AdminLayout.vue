@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { useRoute, useRouter, RouterView } from 'vue-router'
-import { Shield, Bot, ClipboardList, Bell, User, LogOut } from 'lucide-vue-next'
+import { Shield, Bot, ClipboardList, Bell, User, LogOut, Users } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 const navItems = [
+  { icon: Users, label: '账号管理', path: '/admin/accounts' },
   { icon: Shield, label: '权限管理', path: '/admin/permissions' },
   { icon: Bot, label: 'AI模型管理', path: '/admin/ai-models' },
   { icon: ClipboardList, label: 'AI审计中心', path: '/admin/audit' },
@@ -20,6 +24,7 @@ function isActive(path: string) {
 }
 
 function logout() {
+  auth.logout()
   router.push('/login')
 }
 </script>
