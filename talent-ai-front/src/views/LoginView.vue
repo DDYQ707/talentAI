@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, useId, onMounted, nextTick } from 'vue'
+import { ref, computed, useId, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ChevronDown, Brain, Calendar, FileText, Users, Repeat2, Sparkles, Zap, Shield, Eye, EyeOff } from 'lucide-vue-next'
@@ -35,6 +35,8 @@ const formId = useId()
 const roleFieldId = `login-role-${formId}`
 const accountFieldId = `login-account-${formId}`
 const passwordFieldId = `login-password-${formId}`
+const otpAccountFieldId = `login-otp-account-${formId}`
+const otpCodeFieldId = `login-otp-code-${formId}`
 const regAccountFieldId = `reg-ac-${formId}`
 const regPasswordFieldId = `reg-pw-${formId}`
 const regConfirmFieldId = `reg-cf-${formId}`
@@ -60,9 +62,20 @@ const roleSelectModel = computed({
 const authPanel = ref<'login' | 'register'>('login')
 const authCardRef = ref<HTMLElement | null>(null)
 
-const accountInput = ref('hr_admin@talentai.com')
+type LoginMethod = 'password' | 'otp'
+
+const loginMethod = ref<LoginMethod>('password')
+const accountInput = ref('')
 const passwordInput = ref('')
 const showPassword = ref(false)
+
+const otpAccountInput = ref('')
+const otpCodeInput = ref('')
+const otpCountdown = ref(0)
+const otpSending = ref(false)
+let otpTimer: ReturnType<typeof setInterval> | null = null
+
+const OTP_COUNTDOWN_SEC = 60
 
 const registerAccountInput = ref('')
 const registerPasswordInput = ref('')
@@ -70,11 +83,61 @@ const registerConfirmInput = ref('')
 const regShowPwd = ref(false)
 const regShowConfirm = ref(false)
 const registerFormError = ref('')
+const loginFormError = ref('')
+
+const otpSendDisabled = computed(
+  () => otpCountdown.value > 0 || otpSending.value || !isPhoneOrEmail(otpAccountInput.value),
+)
 
 onMounted(() => {
   const q = route.query.account
-  if (typeof q === 'string' && q.trim()) accountInput.value = q.trim()
+  if (typeof q === 'string' && q.trim()) {
+    const v = q.trim()
+    accountInput.value = v
+    otpAccountInput.value = v
+  }
 })
+
+onUnmounted(() => {
+  if (otpTimer) clearInterval(otpTimer)
+})
+
+function isPhoneOrEmail(value: string) {
+  const v = value.trim()
+  if (!v) return false
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const phoneRe = /^1[3-9]\d{9}$/
+  return emailRe.test(v) || phoneRe.test(v)
+}
+
+function startOtpCountdown() {
+  otpCountdown.value = OTP_COUNTDOWN_SEC
+  if (otpTimer) clearInterval(otpTimer)
+  otpTimer = setInterval(() => {
+    otpCountdown.value -= 1
+    if (otpCountdown.value <= 0 && otpTimer) {
+      clearInterval(otpTimer)
+      otpTimer = null
+    }
+  }, 1000)
+}
+
+async function handleSendOtp() {
+  loginFormError.value = ''
+  if (otpCountdown.value > 0 || otpSending.value) return
+  if (!isPhoneOrEmail(otpAccountInput.value)) {
+    loginFormError.value = '请输入正确的手机号或邮箱'
+    return
+  }
+  otpSending.value = true
+  try {
+    // TODO: 对接后端发送验证码接口
+    await new Promise((r) => setTimeout(r, 400))
+    startOtpCountdown()
+  } finally {
+    otpSending.value = false
+  }
+}
 
 async function openRegisterPanel() {
   authPanel.value = 'register'
@@ -114,6 +177,26 @@ function handleRegisterSubmit() {
 }
 
 function handleLogin() {
+  loginFormError.value = ''
+  if (loginMethod.value === 'password') {
+    if (!accountInput.value.trim()) {
+      loginFormError.value = '请输入手机号或邮箱'
+      return
+    }
+    if (!passwordInput.value) {
+      loginFormError.value = '请输入密码'
+      return
+    }
+  } else {
+    if (!isPhoneOrEmail(otpAccountInput.value)) {
+      loginFormError.value = '请输入正确的手机号或邮箱'
+      return
+    }
+    if (!/^\d{4,6}$/.test(otpCodeInput.value.trim())) {
+      loginFormError.value = '请输入验证码'
+      return
+    }
+  }
   const role = roles.find((r) => r.id === selectedRole.value)
   if (role) router.push(role.path)
 }
@@ -252,9 +335,44 @@ function roleOptionLabel(id: PortalRole) {
                     </div>
                   </div>
 
-                  <div class="space-y-4">
+                  <div
+                    class="flex rounded-xl border border-[#c5d8d4]/60 bg-white/50 p-1"
+                    role="tablist"
+                    aria-label="登录方式"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      :aria-selected="loginMethod === 'password'"
+                      class="flex-1 rounded-lg py-2 text-[13px] font-medium transition-all duration-200"
+                      :class="
+                        loginMethod === 'password'
+                          ? 'bg-white text-[#1a1a1a] shadow-sm'
+                          : 'text-[#6f6f6f] hover:text-[#3a3a3a]'
+                      "
+                      @click="loginMethod = 'password'; loginFormError = ''"
+                    >
+                      密码登录
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      :aria-selected="loginMethod === 'otp'"
+                      class="flex-1 rounded-lg py-2 text-[13px] font-medium transition-all duration-200"
+                      :class="
+                        loginMethod === 'otp'
+                          ? 'bg-white text-[#1a1a1a] shadow-sm'
+                          : 'text-[#6f6f6f] hover:text-[#3a3a3a]'
+                      "
+                      @click="loginMethod = 'otp'; loginFormError = ''"
+                    >
+                      验证码登录
+                    </button>
+                  </div>
+
+                  <div v-if="loginMethod === 'password'" class="space-y-4">
                     <div>
-                      <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">账号</label>
+                      <label :for="accountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">手机号 / 邮箱</label>
                       <input
                         :id="accountFieldId"
                         v-model="accountInput"
@@ -262,7 +380,7 @@ function roleOptionLabel(id: PortalRole) {
                         name="account"
                         autocomplete="username"
                         :class="inputGradClass"
-                        placeholder="请输入账户名 / 邮箱"
+                        placeholder="请输入手机号或邮箱"
                       />
                     </div>
                     <div>
@@ -289,6 +407,49 @@ function roleOptionLabel(id: PortalRole) {
                       </div>
                     </div>
                   </div>
+
+                  <div v-else class="space-y-4">
+                    <div>
+                      <label :for="otpAccountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">手机号 / 邮箱</label>
+                      <input
+                        :id="otpAccountFieldId"
+                        v-model="otpAccountInput"
+                        type="text"
+                        name="otp-account"
+                        autocomplete="username"
+                        :class="inputGradClass"
+                        placeholder="请输入手机号或邮箱"
+                      />
+                    </div>
+                    <div>
+                      <label :for="otpCodeFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">验证码</label>
+                      <div class="flex gap-2">
+                        <input
+                          :id="otpCodeFieldId"
+                          v-model="otpCodeInput"
+                          type="text"
+                          inputmode="numeric"
+                          maxlength="6"
+                          name="otp-code"
+                          autocomplete="one-time-code"
+                          :class="[inputGradClass, 'min-w-0 flex-1']"
+                          placeholder="请输入验证码"
+                        />
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-xl border border-[#85A185]/50 px-3 py-3.5 text-[12px] font-semibold text-[#5a8a82] transition-all duration-200 hover:border-[#85A185] hover:bg-[#85A185]/10 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-[13px]"
+                          :disabled="otpSendDisabled"
+                          @click="handleSendOtp"
+                        >
+                          <span v-if="otpSending">发送中…</span>
+                          <span v-else-if="otpCountdown > 0">{{ otpCountdown }}s 后重发</span>
+                          <span v-else>获取验证码</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p v-if="loginFormError" class="text-[13px] font-medium text-red-600" role="alert">{{ loginFormError }}</p>
 
                   <button
                     type="submit"
@@ -359,7 +520,7 @@ function roleOptionLabel(id: PortalRole) {
 
                     <form class="space-y-4" @submit.prevent="handleRegisterSubmit">
                       <div>
-                        <label :for="regAccountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">账号 / 邮箱</label>
+                        <label :for="regAccountFieldId" class="mb-2 block text-[12px] font-medium text-[#3a3a3a]">手机号 / 邮箱</label>
                         <input
                           :id="regAccountFieldId"
                           v-model="registerAccountInput"
@@ -367,7 +528,7 @@ function roleOptionLabel(id: PortalRole) {
                           name="reg-account"
                           autocomplete="username"
                           :class="inputGradClass"
-                          placeholder="请输入用户名或邮箱"
+                          placeholder="请输入手机号或邮箱"
                         />
                       </div>
                       <div>
