@@ -25,9 +25,9 @@ function logout() {
 </script>
 
 <template>
-  <div data-cmp="InterviewerLayout" class="flex min-h-screen w-full min-w-0 bg-background text-foreground">
-    <aside class="sidebar-brand-gradient flex w-56 shrink-0 flex-col min-h-screen [&_svg]:stroke-[1.75]">
-      <div class="flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border px-4">
+  <div data-cmp="InterviewerLayout" class="flex h-screen w-full min-w-0 overflow-hidden bg-background text-foreground">
+    <aside class="sidebar-brand-gradient flex h-full w-52 shrink-0 flex-col overflow-hidden [&_svg]:stroke-[1.75]">
+      <div class="flex h-16 shrink-0 items-center gap-2.5 border-b border-sidebar-border px-3">
         <div class="flex h-9 w-9 items-center justify-center rounded-control shadow-card gradient-blue-purple">
           <Bot :size="17" class="text-primary-foreground" stroke-width="1.75" />
         </div>
@@ -36,7 +36,7 @@ function logout() {
           <div class="truncate text-xs text-muted-foreground">面试官端</div>
         </div>
       </div>
-      <div class="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
+      <div class="flex shrink-0 items-center gap-3 border-b border-sidebar-border px-3 py-4">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/90 shadow-card gradient-purple">
           <User :size="15" class="text-primary-foreground" stroke-width="1.75" />
         </div>
@@ -45,16 +45,16 @@ function logout() {
           <div class="truncate text-xs text-muted-foreground">技术总监</div>
         </div>
       </div>
-      <nav class="flex-1 py-3">
+      <nav class="flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-3">
         <button
           v-for="item in navItems"
           :key="item.path"
           type="button"
-          class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-200"
+          class="flex w-full min-w-0 items-center gap-2.5 py-2.5 text-left text-sm transition-all duration-200"
           :class="
             isActive(item.path)
-              ? 'mx-2 rounded-control bg-white/95 font-medium text-[#3d8b7a] shadow-card'
-              : 'text-muted-foreground hover:bg-white/55 hover:text-sidebar-foreground'
+              ? 'rounded-control bg-white/95 px-2 font-medium text-[#3d8b7a] shadow-card'
+              : 'px-2 text-muted-foreground hover:bg-white/55 hover:text-sidebar-foreground'
           "
           @click="go(item.path)"
         >
@@ -62,10 +62,10 @@ function logout() {
           <span class="truncate">{{ item.label }}</span>
         </button>
       </nav>
-      <div class="border-t border-sidebar-border pb-4 pt-2">
+      <div class="shrink-0 border-t border-sidebar-border px-2 pb-4 pt-2">
         <button
           type="button"
-          class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-white/55 hover:text-sidebar-foreground"
+          class="flex w-full min-w-0 items-center gap-2.5 px-2 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-white/55 hover:text-sidebar-foreground"
           @click="logout"
         >
           <LogOut :size="18" stroke-width="1.75" />
@@ -73,7 +73,7 @@ function logout() {
         </button>
       </div>
     </aside>
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header
         class="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 shadow-card backdrop-blur-md sm:gap-4 sm:px-6"
       >
@@ -93,7 +93,7 @@ function logout() {
           </button>
         </div>
       </header>
-      <div class="scrollbar-thin flex-1 overflow-auto" data-px-slot>
+      <div class="scrollbar-thin min-h-0 flex-1 overflow-auto" data-px-slot>
         <RouterView />
       </div>
     </div>

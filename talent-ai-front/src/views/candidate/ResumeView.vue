@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Plus, Sparkles, Edit, GraduationCap, Briefcase, Code, Download, Eye } from 'lucide-vue-next'
 
 const sections = [
@@ -27,7 +27,7 @@ const sections = [
 </script>
 
 <template>
-  <div data-cmp="Resume" class="h-full flex flex-col bg-background">
+  <div data-cmp="Resume" class="flex h-full flex-col bg-[#EBF4F0]">
     <div class="px-4 pt-4 pb-3 bg-card border-b border-border flex-shrink-0">
       <div class="flex items-center justify-between mb-1">
         <h1 class="text-base font-bold text-foreground">我的简历</h1>

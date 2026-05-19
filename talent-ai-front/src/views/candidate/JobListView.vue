@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { Search, Sparkles, MapPin, Briefcase, Clock, Bookmark } from 'lucide-vue-next'
 
@@ -16,7 +16,7 @@ const router = useRouter()
 </script>
 
 <template>
-  <div data-cmp="JobList" class="h-full flex flex-col bg-background overflow-hidden">
+  <div data-cmp="JobList" class="flex h-full flex-col overflow-hidden bg-[#EBF4F0]">
     <div class="p-4 bg-card border-b border-border">
       <div class="flex items-center gap-2 bg-muted rounded-2xl px-3 py-2.5">
         <Search :size="15" class="text-muted-foreground flex-shrink-0" />

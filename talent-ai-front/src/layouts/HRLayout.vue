@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Bell,
   Search,
-  Settings,
   LogOut,
   User,
   Building2,
@@ -31,10 +30,7 @@ const navItems = [
   { icon: BarChart3, label: '数据驾驶舱', path: '/hr/dashboard' },
 ]
 
-const bottomNavItems = [
-  { icon: Settings, label: '系统管理', path: '/admin/permissions' },
-  { icon: LogOut, label: '退出登录', path: '/login' },
-]
+const bottomNavItems = [{ icon: LogOut, label: '退出登录', path: '/login' }]
 
 const collapsed = ref(false)
 const router = useRouter()
@@ -52,13 +48,13 @@ function isActive(path: string) {
 <template>
   <div
     data-cmp="HRLayout"
-    class="flex min-h-screen w-full min-w-0 bg-background text-foreground"
+    class="flex h-screen w-full min-w-0 overflow-hidden bg-background text-foreground"
   >
     <aside
-      class="sidebar-brand-gradient flex shrink-0 flex-col transition-[width] duration-300 ease-out [&_svg]:stroke-[1.75]"
-      :class="collapsed ? 'w-16' : 'w-60'"
+      class="sidebar-brand-gradient flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-300 ease-out [&_svg]:stroke-[1.75]"
+      :class="collapsed ? 'w-16' : 'w-52'"
     >
-      <div class="flex h-16 shrink-0 items-center border-b border-sidebar-border px-3 sm:px-4">
+      <div class="flex h-16 shrink-0 items-center border-b border-sidebar-border px-3">
         <div class="flex min-w-0 items-center gap-2.5">
           <div
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-control shadow-card gradient-blue-purple"
@@ -84,7 +80,7 @@ function isActive(path: string) {
       </div>
 
       <div
-        class="flex shrink-0 items-center gap-3 border-b border-sidebar-border px-3 py-4 sm:px-4"
+        class="flex shrink-0 items-center gap-3 border-b border-sidebar-border px-3 py-4"
         :class="collapsed ? 'justify-center' : ''"
       >
         <div
@@ -98,16 +94,16 @@ function isActive(path: string) {
         </div>
       </div>
 
-      <nav class="scrollbar-thin flex-1 overflow-y-auto py-3 [&_svg]:stroke-[1.75]">
+      <nav class="flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-3 [&_svg]:stroke-[1.75]">
         <button
           v-for="item in navItems"
           :key="item.path"
           type="button"
-          class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-all duration-200 sm:px-4"
+          class="flex w-full min-w-0 items-center gap-2.5 py-2.5 text-left text-sm transition-all duration-200"
           :class="[
             isActive(item.path)
-              ? 'mx-2 rounded-control bg-white/95 font-medium text-[#3d8b7a] shadow-card'
-              : 'text-muted-foreground hover:bg-white/55 hover:text-sidebar-foreground',
+              ? 'rounded-control bg-white/95 px-2 font-medium text-[#3d8b7a] shadow-card'
+              : 'px-2 text-muted-foreground hover:bg-white/55 hover:text-sidebar-foreground',
             collapsed ? 'justify-center px-0' : '',
           ]"
           @click="go(item.path)"
@@ -117,13 +113,13 @@ function isActive(path: string) {
         </button>
       </nav>
 
-      <div class="border-t border-sidebar-border pb-4 pt-2">
+      <div class="shrink-0 border-t border-sidebar-border px-2 pb-4 pt-2">
         <button
           v-for="item in bottomNavItems"
           :key="item.path"
           type="button"
-          class="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-white/55 hover:text-sidebar-foreground sm:px-4"
-          :class="collapsed ? 'justify-center' : ''"
+          class="flex w-full min-w-0 items-center gap-2.5 px-2 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-white/55 hover:text-sidebar-foreground"
+          :class="collapsed ? 'justify-center px-0' : ''"
           @click="go(item.path)"
         >
           <component :is="item.icon" :size="18" class="shrink-0" stroke-width="1.75" />
@@ -132,7 +128,7 @@ function isActive(path: string) {
       </div>
     </aside>
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header
         class="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 shadow-card backdrop-blur-md sm:gap-4 sm:px-6"
       >
@@ -169,7 +165,7 @@ function isActive(path: string) {
         </div>
       </header>
 
-      <div class="scrollbar-thin flex-1 overflow-auto" data-px-slot>
+      <div class="scrollbar-thin min-h-0 flex-1 overflow-auto" data-px-slot>
         <RouterView />
       </div>
     </div>

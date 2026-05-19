@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { User, Edit, ChevronRight, Bell, Star, Shield, Settings, HelpCircle, LogOut, Sparkles } from 'lucide-vue-next'
 
@@ -14,8 +14,8 @@ const router = useRouter()
 </script>
 
 <template>
-  <div data-cmp="Profile" class="h-full flex flex-col bg-background">
-    <div class="gradient-blue-purple pt-8 pb-16 px-4 relative flex-shrink-0">
+  <div data-cmp="Profile" class="flex h-full flex-col bg-[#EBF4F0]">
+    <div class="gradient-blue-purple relative shrink-0 px-4 pb-6 pt-8">
       <div class="text-center">
         <div class="w-20 h-20 rounded-full bg-white/20 border-4 border-white/40 flex items-center justify-center mx-auto mb-3">
           <User :size="36" class="text-white" />
@@ -33,8 +33,8 @@ const router = useRouter()
         <Edit :size="16" class="text-white" />
       </button>
     </div>
-    <div class="flex-1 overflow-y-auto scrollbar-thin -mt-8 px-4 pb-4 space-y-4">
-      <div class="bg-card shadow-card p-4 border border-border">
+    <div class="flex-1 space-y-4 overflow-y-auto px-4 pb-6 pt-4 scrollbar-thin">
+      <div class="relative z-10 rounded-2xl border border-border bg-card p-4 shadow-card">
         <div class="flex items-center gap-2 mb-3">
           <Sparkles :size="14" class="text-brand-purple" />
           <span class="text-sm font-semibold text-foreground">AI职业画像</span>
@@ -44,7 +44,7 @@ const router = useRouter()
           <span v-for="tag in ['前端专家', '高成长性', '稳定性佳', '名企经历', '开源活跃']" :key="tag" class="text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground border border-brand-border/50">{{ tag }}</span>
         </div>
       </div>
-      <div class="bg-card shadow-card border border-border overflow-hidden">
+      <div class="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
         <div
           v-for="(item, i) in menuItems"
           :key="item.label"
@@ -63,7 +63,7 @@ const router = useRouter()
       </div>
       <button
         type="button"
-        class="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-border text-sm text-muted-foreground hover:border-brand-red/30 hover:text-brand-red"
+        class="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 text-sm text-muted-foreground shadow-card hover:border-brand-red/30 hover:text-brand-red"
         @click="router.push('/login')"
       >
         <LogOut :size="16" />

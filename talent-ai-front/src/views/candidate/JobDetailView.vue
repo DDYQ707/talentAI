@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { ChevronLeft, MapPin, Briefcase, Users, Building2, Sparkles, CheckCircle, Share, Bookmark } from 'lucide-vue-next'
 
@@ -6,7 +6,7 @@ const router = useRouter()
 </script>
 
 <template>
-  <div data-cmp="JobDetail" class="h-full flex flex-col bg-background">
+  <div data-cmp="JobDetail" class="flex h-full flex-col bg-[#EBF4F0]">
     <div class="flex items-center gap-3 px-4 py-3 border-b border-border bg-card flex-shrink-0">
       <button type="button" class="p-1.5 rounded-lg hover:bg-muted" @click="router.push('/candidate')">
         <ChevronLeft :size="20" class="text-foreground" />

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Clock, CheckCircle, XCircle, Calendar, Sparkles, ChevronRight } from 'lucide-vue-next'
 
 const apps = [
@@ -18,7 +18,7 @@ const stages = ['简历投递', 'AI初筛', 'HR初面', '技术面试', '终面'
 </script>
 
 <template>
-  <div data-cmp="Applications" class="h-full flex flex-col bg-background">
+  <div data-cmp="Applications" class="flex h-full flex-col bg-[#EBF4F0]">
     <div class="px-4 py-4 bg-card border-b border-border flex-shrink-0">
       <h1 class="text-base font-bold text-foreground">投递状态</h1>
       <p class="text-xs text-muted-foreground mt-0.5">共 {{ apps.length }} 条投递记录</p>
