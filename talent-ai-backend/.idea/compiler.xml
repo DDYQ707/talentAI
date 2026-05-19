@@ -22,4 +22,18 @@
       <module name="talent-core-biz" target="17" />
     </bytecodeTargetLevel>
   </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="talent-ai-agent" options="-parameters" />
+      <module name="talent-ai-backend" options="-parameters" />
+      <module name="talent-analytics" options="-parameters" />
+      <module name="talent-auth" options="-parameters" />
+      <module name="talent-common" options="-parameters" />
+      <module name="talent-gateway" options="-parameters" />
+      <module name="talent-interview" options="-parameters" />
+      <module name="talent-job" options="-parameters" />
+      <module name="talent-resume" options="-parameters" />
+      <module name="talent-talent-pool" options="-parameters" />
+    </option>
+  </component>
 </project>

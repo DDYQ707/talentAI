@@ -5,35 +5,26 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/talent-ai-agent/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/talent-analytics/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/talent-interview/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/talent-resume/pom.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/talent-talent-pool/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docker/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../docker/docker-compose.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-auth/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/AuthApplication.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/LoginController.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/resources/application.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/target/classes/application.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/target/classes/com/talent/auth/AuthApplication.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/target/classes/com/talent/auth/controller/LoginController.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/Main.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-common/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-common/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-common/src/main/java/com/talent/common/core/domain/Result.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-common/target/classes/com/talent/common/core/domain/Result.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-core-biz/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-core-biz/src/main/java/com/talent/Main.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-core-biz/target/classes/com/talent/Main.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-gateway/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-gateway/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-gateway/src/main/java/com/talent/gateway/GatewayApplication.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-gateway/src/main/resources/application.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-gateway/target/classes/application.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-gateway/target/classes/com/talent/gateway/GatewayApplication.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-gateway/src/main/java/com/talent/gateway/Main.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/Main.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/env.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/env.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/layouts/AdminLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/layouts/AdminLayout.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/router/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/router/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/stores/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/stores/auth.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/LoginView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/RegisterView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/RegisterView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/vite.config.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,38 +41,95 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "customColor": "",
-  "associatedIndex": 1
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 1
+}</component>
   <component name="ProjectId" id="3DiJsbKKn06lG9uWfqGCnumLXqb" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "main",
-    "jdk.selected.JAVA_MODULE": "17",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "project.structure.last.edited": "模块",
-    "project.structure.proportion": "0.15",
-    "project.structure.side.proportion": "0.32988507",
-    "spring.configuration.checksum": "e712c3e607dbfec22424cce9fe3a89fa",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;jdk.selected.JAVA_MODULE&quot;: &quot;17&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/32805/Desktop/智能招聘与人才画像分析系统/talent-ai-system/talent-ai-backend/talent-common/src/main/java/com/talent/common&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;模块&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.32988507&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;MavenSettings&quot;,
+    &quot;spring.configuration.checksum&quot;: &quot;ba4872a0d92ec6ec580c48a60c4312ae&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\32805\Desktop\智能招聘与人才画像分析系统\talent-ai-system\talent-ai-backend\talent-common\src\main\java\com\talent\common" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Spring Boot.GatewayApplication">
+    <configuration name="CodeGenerator (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="CodeGenerator" />
+      <module name="talent-job" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CodeGenerator" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.talent.auth.test.CodeGenerator" />
+      <module name="talent-auth" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.talent.auth.test.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="AuthApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-auth" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.auth.AuthApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="GatewayApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-gateway" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.gateway.GatewayApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="TalentJobApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-job" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.job.TalentJobApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="应用程序.CodeGenerator (1)" />
+        <item itemvalue="应用程序.CodeGenerator" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="默认任务">
@@ -92,11 +140,45 @@
       <updated>1778759166350</updated>
       <workItem from="1778759168930" duration="5300000" />
       <workItem from="1778844436766" duration="785000" />
-      <workItem from="1779067189890" duration="989000" />
+      <workItem from="1779067189890" duration="5112000" />
+      <workItem from="1779087693243" duration="264000" />
+      <workItem from="1779089369615" duration="7000" />
+      <workItem from="1779089399928" duration="84000" />
+      <workItem from="1779089495281" duration="7093000" />
+      <workItem from="1779162145374" duration="952000" />
+      <workItem from="1779173323289" duration="10831000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="dependencySupport" implementationName="java:org.springframework:spring-core" />
+    <option featureType="dependencySupport" implementationName="executable:docker" />
+    <option featureType="dependencySupport" implementationName="java:jakarta.validation:jakarta.validation-api" />
+    <option featureType="dependencySupport" implementationName="java:io.projectreactor:reactor-core" />
+    <option featureType="dependencySupport" implementationName="executable:kubectl" />
+    <option featureType="dependencySupport" implementationName="java:org.springframework.cloud:spring-cloud-context" />
+    <option featureType="dependencySupport" implementationName="java:org.hibernate.validator:hibernate-validator" />
+    <option featureType="dependencySupport" implementationName="java:org.springframework.boot:spring-boot" />
+    <option featureType="dependencySupport" implementationName="java:org.springframework:spring-webmvc" />
+    <option featureType="dependencySupport" implementationName="java:org.projectlombok:lombok" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/test/CodeGenerator.java</url>
+          <line>34</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/test/CodeGenerator.java</url>
+          <line>8</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

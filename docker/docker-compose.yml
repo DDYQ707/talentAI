@@ -32,16 +32,11 @@ services:
     restart: always
     environment:
       MODE: standalone
-      SPRING_DATASOURCE_PLATFORM: mysql
-      MYSQL_SERVICE_HOST: mysql
-      MYSQL_SERVICE_PORT: 3306
-      MYSQL_SERVICE_DB_NAME: talent_ai_db
-      MYSQL_SERVICE_USER: root
-      MYSQL_SERVICE_PASSWORD: root123
+      # 砍掉 MySQL 依赖，使用轻量级内嵌数据库，实现秒级启动且不报错
     ports:
       - "8848:8848"
-    depends_on:
-      - mysql
+      - "9848:9848" # ⚠️ 核心修复：Nacos 2.x 必需的 gRPC 端口
+      - "9849:9849" # ⚠️ 核心修复：Nacos 2.x 必需的 gRPC 端口
 
   minio:
     image: minio/minio

@@ -1,0 +1,18 @@
+package com.talent.job.controller;
+
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * <p>
+ * 投递阶段流转日志 前端控制器
+ * </p>
+ *
+ * @author TalentAI
+ * @since 2026-05-19
+ */
+@RestController
+@RequestMapping("/applicationStageLog")
+public class ApplicationStageLogController {
+
+}

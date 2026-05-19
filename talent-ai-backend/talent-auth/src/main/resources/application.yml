@@ -1,0 +1,15 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 注意这里使用了你 docker-compose 映射的 3307 端口
+    url: jdbc:mysql://127.0.0.1:3306/talent_auth_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: dyq!
+  data:
+    redis:
+      # 注意这里使用了你 docker-compose 映射的 6380 端口
+      host: 127.0.0.1
+      port: 6380
