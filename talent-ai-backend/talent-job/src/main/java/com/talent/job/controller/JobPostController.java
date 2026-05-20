@@ -1,5 +1,6 @@
 package com.talent.job.controller;
 
+import com.talent.job.dto.JobPostUpdateRequest;
 import com.talent.job.entity.JobPost;
 import com.talent.job.service.IJobPostService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +48,21 @@ public class JobPostController {
 
         jobPost.setPublisherName(realName); // <--- 填入真实的姓名
 
-        jobPost.setDeptId(1L);
-        jobPost.setDeptName("技术部");
+        if (jobPost.getDeptId() == null) {
+            jobPost.setDeptId(1L);
+        }
+        if (!StringUtils.hasText(jobPost.getDeptName())) {
+            jobPost.setDeptName("技术部");
+        }
+        if (jobPost.getEmploymentType() == null) {
+            jobPost.setEmploymentType((byte) 1);
+        }
+        if (jobPost.getHeadcount() == null) {
+            jobPost.setHeadcount(1);
+        }
+        if (jobPost.getPriority() == null) {
+            jobPost.setPriority((byte) 2);
+        }
         jobPost.setStatus((byte) 1);
         jobPost.setPublishedAt(LocalDateTime.now());
 
@@ -108,6 +122,158 @@ public class JobPostController {
 
         result.put("data", data);
 
+        return result;
+    }
+
+    @GetMapping("/detail")
+    public Map<String, Object> getJobDetail(@RequestParam("id") Long id) {
+        Map<String, Object> result = new HashMap<>();
+
+        if (id == null) {
+            result.put("code", 400);
+            result.put("msg", "岗位 ID 不能为空");
+            return result;
+        }
+
+        JobPost jobPost = jobPostService.getById(id);
+        if (jobPost == null) {
+            result.put("code", 404);
+            result.put("msg", "岗位不存在");
+            return result;
+        }
+
+        result.put("code", 200);
+        result.put("msg", "查询成功");
+        result.put("data", jobPost);
+        return result;
+    }
+
+    /**
+     * HR 更新岗位
+     */
+    @PutMapping("/{id}")
+    public Map<String, Object> updateJob(
+            @PathVariable("id") Long id,
+            @RequestBody JobPostUpdateRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (userId == null) {
+            result.put("code", 401);
+            result.put("msg", "未检测到登录用户信息！");
+            return result;
+        }
+        if (id == null) {
+            result.put("code", 400);
+            result.put("msg", "岗位 ID 不能为空");
+            return result;
+        }
+        if (request == null || !StringUtils.hasText(request.getTitle())) {
+            result.put("code", 400);
+            result.put("msg", "岗位名称不能为空");
+            return result;
+        }
+
+        JobPost existing = jobPostService.getById(id);
+        if (existing == null) {
+            result.put("code", 404);
+            result.put("msg", "岗位不存在");
+            return result;
+        }
+
+        existing.setTitle(request.getTitle().trim());
+        if (StringUtils.hasText(request.getDeptName())) {
+            existing.setDeptName(request.getDeptName().trim());
+        }
+        if (StringUtils.hasText(request.getWorkCity())) {
+            existing.setWorkCity(request.getWorkCity().trim());
+        }
+        if (request.getEmploymentType() != null) {
+            existing.setEmploymentType(request.getEmploymentType());
+        }
+        if (request.getHeadcount() != null) {
+            existing.setHeadcount(request.getHeadcount());
+        }
+        if (request.getPriority() != null) {
+            existing.setPriority(request.getPriority());
+        }
+        if (request.getStatus() != null) {
+            existing.setStatus(request.getStatus());
+        }
+        if (request.getSalaryNegotiable() != null) {
+            existing.setSalaryNegotiable(request.getSalaryNegotiable());
+            if (Boolean.TRUE.equals(request.getSalaryNegotiable())) {
+                existing.setSalaryMin(null);
+                existing.setSalaryMax(null);
+            }
+        }
+        if (!Boolean.TRUE.equals(existing.getSalaryNegotiable())) {
+            if (request.getSalaryMin() != null) {
+                existing.setSalaryMin(request.getSalaryMin());
+            }
+            if (request.getSalaryMax() != null) {
+                existing.setSalaryMax(request.getSalaryMax());
+            }
+        }
+        if (request.getJobDescription() != null) {
+            existing.setJobDescription(request.getJobDescription());
+        }
+        if (request.getJobRequirements() != null) {
+            existing.setJobRequirements(request.getJobRequirements());
+        }
+        if (request.getSkillTags() != null) {
+            existing.setSkillTags(request.getSkillTags());
+        }
+
+        boolean success = jobPostService.updateById(existing);
+        if (success) {
+            result.put("code", 200);
+            result.put("msg", "岗位更新成功");
+            result.put("data", existing);
+        } else {
+            result.put("code", 500);
+            result.put("msg", "岗位更新失败");
+        }
+        return result;
+    }
+
+    /**
+     * HR 删除岗位（逻辑删除）
+     */
+    @DeleteMapping("/{id}")
+    public Map<String, Object> deleteJob(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (userId == null) {
+            result.put("code", 401);
+            result.put("msg", "未检测到登录用户信息！");
+            return result;
+        }
+        if (id == null) {
+            result.put("code", 400);
+            result.put("msg", "岗位 ID 不能为空");
+            return result;
+        }
+
+        JobPost existing = jobPostService.getById(id);
+        if (existing == null) {
+            result.put("code", 404);
+            result.put("msg", "岗位不存在");
+            return result;
+        }
+
+        boolean success = jobPostService.removeById(id);
+        if (success) {
+            result.put("code", 200);
+            result.put("msg", "岗位已删除");
+        } else {
+            result.put("code", 500);
+            result.put("msg", "岗位删除失败");
+        }
         return result;
     }
 }

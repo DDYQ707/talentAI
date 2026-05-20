@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: talent-resume
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: talent-ai-dev
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: talent-ai-dev
+        file-extension: yaml

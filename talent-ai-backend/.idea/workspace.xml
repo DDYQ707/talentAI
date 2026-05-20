@@ -5,26 +5,28 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../docker/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../docker/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docs/sql/seed_admin_user.sql" beforeDir="false" afterPath="$PROJECT_DIR$/../docs/sql/seed_admin_user.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/Main.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-common/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-common/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-gateway/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-gateway/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-gateway/src/main/java/com/talent/gateway/Main.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/Main.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/env.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/env.d.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/layouts/AdminLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/layouts/AdminLayout.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/router/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/router/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/stores/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/stores/auth.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/LoginView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/RegisterView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/RegisterView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/vite.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/config/MybatisPlusConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/config/MybatisPlusConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/dto/AdminAccountSaveRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/dto/AdminAccountSaveRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/service/AdminAccountService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/service/AdminAccountService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/AdminAccountVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/AdminAccountVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobPostController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobPostController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/Main.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/adminAccount.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/adminAccount.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/auth.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/auth-ui.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/auth-ui.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/portal.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/portal.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/utils/validators.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/utils/validators.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/admin/AccountManagementView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/admin/AccountManagementView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplicationsView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplicationsView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplyView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplyView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobDetailView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobDetailView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobListView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobListView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/hr/JobsManagementView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/hr/JobsManagementView.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,38 +52,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
-    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
-    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
-    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;jdk.selected.JAVA_MODULE&quot;: &quot;17&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/32805/Desktop/智能招聘与人才画像分析系统/talent-ai-system/talent-ai-backend/talent-common/src/main/java/com/talent/common&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;模块&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.32988507&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;MavenSettings&quot;,
-    &quot;spring.configuration.checksum&quot;: &quot;ba4872a0d92ec6ec580c48a60c4312ae&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "main",
+    "jdk.selected.JAVA_MODULE": "17",
+    "last_opened_file_path": "C:/Users/32805/Desktop/智能招聘与人才画像分析系统/talent-ai-system/talent-ai-backend/talent-common/src/main/java/com/talent/common",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "模块",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.32988507",
+    "settings.editor.selected.configurable": "MavenSettings",
+    "spring.configuration.checksum": "fafd67a52dcfa4d6b791c15977b24502",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\32805\Desktop\智能招聘与人才画像分析系统\talent-ai-system\talent-ai-backend\talent-common\src\main\java\com\talent\common" />
     </key>
   </component>
-  <component name="RunManager" selected="Spring Boot.GatewayApplication">
+  <component name="RunManager" selected="Spring Boot.TalentResumeApplication">
     <configuration name="CodeGenerator (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="CodeGenerator" />
       <module name="talent-job" />
@@ -123,6 +125,13 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="TalentResumeApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-resume" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.resume.TalentResumeApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <recent_temporary>
       <list>
         <item itemvalue="应用程序.CodeGenerator (1)" />
@@ -146,7 +155,8 @@
       <workItem from="1779089399928" duration="84000" />
       <workItem from="1779089495281" duration="7093000" />
       <workItem from="1779162145374" duration="952000" />
-      <workItem from="1779173323289" duration="10831000" />
+      <workItem from="1779173323289" duration="11543000" />
+      <workItem from="1779244405658" duration="9580000" />
     </task>
     <servers />
   </component>
