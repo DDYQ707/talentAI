@@ -5,28 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../docs/sql/seed_admin_user.sql" beforeDir="false" afterPath="$PROJECT_DIR$/../docs/sql/seed_admin_user.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/config/MybatisPlusConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/config/MybatisPlusConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/dto/AdminAccountSaveRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/dto/AdminAccountSaveRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/service/AdminAccountService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/service/AdminAccountService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/AdminAccountVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/AdminAccountVO.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobPostController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobPostController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/CandidateProfileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/CandidateProfileController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/feign/AuthFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/feign/AuthFeignClient.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/Main.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/adminAccount.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/adminAccount.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/auth.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/auth-ui.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/auth-ui.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/portal.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/portal.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/utils/validators.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/utils/validators.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/admin/AccountManagementView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/admin/AccountManagementView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplicationsView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplicationsView.vue" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplyView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplyView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobDetailView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobDetailView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobListView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/JobListView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/hr/JobsManagementView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/hr/JobsManagementView.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -156,7 +139,7 @@
       <workItem from="1779089495281" duration="7093000" />
       <workItem from="1779162145374" duration="952000" />
       <workItem from="1779173323289" duration="11543000" />
-      <workItem from="1779244405658" duration="9580000" />
+      <workItem from="1779244405658" duration="12219000" />
     </task>
     <servers />
   </component>

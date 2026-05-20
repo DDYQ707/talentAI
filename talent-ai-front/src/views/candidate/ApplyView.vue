@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft, FileText, Sparkles, CheckCircle, Upload, X, PenLine } from 'lucide-vue-next'
+import { fetchProfileCompleteness } from '@/api/candidateProfile'
 import { submitApplication } from '@/api/delivery'
 import { fetchOnlineResumeList, type OnlineResumeListItem } from '@/api/onlineResume'
 import { deleteResume, fetchAttachmentResumes, uploadResumeFile, type ResumeListItem } from '@/api/resume'
@@ -26,6 +27,9 @@ const loadingResumes = ref(false)
 const uploading = ref(false)
 const deletingId = ref<number | null>(null)
 const submitting = ref(false)
+const profileComplete = ref(true)
+const profileMissing = ref<string[]>([])
+const checkingProfile = ref(true)
 const errorMsg = ref('')
 const successMsg = ref('')
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -79,8 +83,47 @@ async function loadResumes(keepSelection = true) {
 }
 
 function selectResume(id: number) {
+  if (!profileComplete.value) return
   selectedResumeId.value = selectedResumeId.value === id ? null : id
 }
+
+function syncSelectionForActiveTab() {
+  if (activeTab.value === 'attachment') {
+    if (!resumes.value.some((r) => r.id === selectedResumeId.value)) {
+      selectedResumeId.value = resumes.value[0]?.id ?? null
+    }
+  } else if (!onlineResumes.value.some((o) => o.id === selectedResumeId.value)) {
+    selectedResumeId.value = onlineResumes.value[0]?.id ?? null
+  }
+}
+
+const hasSelectedResume = computed(() => selectedResumeId.value != null)
+
+const canSubmit = computed(
+  () =>
+    profileComplete.value &&
+    !checkingProfile.value &&
+    !!jobId.value &&
+    hasSelectedResume.value &&
+    !pendingFile.value &&
+    !uploading.value &&
+    !submitting.value,
+)
+
+const submitButtonLabel = computed(() => {
+  if (checkingProfile.value) return '校验中...'
+  if (!profileComplete.value) return '请先完善个人信息'
+  if (!jobId.value) return '缺少岗位信息'
+  if (activeTab.value === 'attachment' && !resumes.value.length && !pendingFile.value) {
+    return '请上传附件简历'
+  }
+  if (activeTab.value === 'online' && !onlineResumes.value.length) {
+    return '请先创建在线简历'
+  }
+  if (!hasSelectedResume.value) return '请选择一份简历'
+  if (submitting.value) return '投递中...'
+  return '确认投递'
+})
 
 function triggerUpload() {
   if (uploading.value) return
@@ -116,6 +159,10 @@ function onFileSelected(ev: Event) {
 
 async function confirmUpload() {
   if (!pendingFile.value || uploading.value) return
+  if (!profileComplete.value) {
+    errorMsg.value = '请先完善个人信息后再上传简历'
+    return
+  }
 
   uploading.value = true
   errorMsg.value = ''
@@ -159,9 +206,35 @@ async function handleRemoveResume(id: number) {
   }
 }
 
+async function loadProfileGate() {
+  checkingProfile.value = true
+  try {
+    const c = await fetchProfileCompleteness()
+    profileComplete.value = c.complete === true
+    profileMissing.value = c.missingFields ?? []
+  } catch {
+    profileComplete.value = false
+    profileMissing.value = []
+  } finally {
+    checkingProfile.value = false
+  }
+}
+
+function goCompleteProfile() {
+  router.push('/candidate/profile/edit')
+}
+
 async function handleSubmit() {
   errorMsg.value = ''
   successMsg.value = ''
+
+  if (!profileComplete.value) {
+    errorMsg.value =
+      profileMissing.value.length > 0
+        ? `请先完善个人信息：${profileMissing.value.join('、')}`
+        : '请先完善个人信息后再投递简历'
+    return
+  }
 
   if (!jobId.value) {
     errorMsg.value = '缺少岗位信息，请从岗位详情进入'
@@ -172,7 +245,8 @@ async function handleSubmit() {
     return
   }
   if (!selectedResumeId.value) {
-    errorMsg.value = '请先上传或选择一份简历'
+    errorMsg.value =
+      activeTab.value === 'online' ? '请选择一份在线简历' : '请上传或选择一份附件简历'
     return
   }
 
@@ -198,6 +272,9 @@ async function loadOnlineResumes() {
   loadingOnline.value = true
   try {
     onlineResumes.value = (await fetchOnlineResumeList()) ?? []
+    if (activeTab.value === 'online') {
+      syncSelectionForActiveTab()
+    }
   } catch {
     onlineResumes.value = []
   } finally {
@@ -205,13 +282,23 @@ async function loadOnlineResumes() {
   }
 }
 
-function switchTab(tab: 'attachment' | 'online') {
+async function switchTab(tab: 'attachment' | 'online') {
   activeTab.value = tab
-  if (tab === 'online') loadOnlineResumes()
+  if (tab === 'online') {
+    await loadOnlineResumes()
+  } else {
+    syncSelectionForActiveTab()
+  }
 }
 
-onMounted(() => {
-  loadResumes(false)
+onMounted(async () => {
+  await loadProfileGate()
+  await loadResumes(false)
+  await loadOnlineResumes()
+  if (resumes.value.length === 0 && onlineResumes.value.length > 0) {
+    activeTab.value = 'online'
+    syncSelectionForActiveTab()
+  }
 })
 </script>
 
@@ -229,6 +316,17 @@ onMounted(() => {
         缺少岗位信息，请返回岗位列表选择岗位
       </div>
 
+      <div
+        v-if="!checkingProfile && !profileComplete"
+        class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-3"
+      >
+        <p class="font-medium mb-1">投递前需完善个人信息</p>
+        <p v-if="profileMissing.length" class="text-amber-700 mb-2">
+          待补充：{{ profileMissing.join('、') }}
+        </p>
+        <button type="button" class="text-brand-blue font-medium" @click="goCompleteProfile">去完善个人信息</button>
+      </div>
+
       <div class="bg-card p-4 shadow-card border border-border">
         <div class="text-xs text-muted-foreground mb-1">投递岗位</div>
         <div class="flex items-center justify-between">
@@ -243,8 +341,14 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="bg-card p-4 shadow-card border border-border">
+      <div
+        class="bg-card p-4 shadow-card border border-border"
+        :class="!profileComplete && !checkingProfile ? 'opacity-90' : ''"
+      >
         <h3 class="text-sm font-semibold text-foreground mb-2">选择简历</h3>
+        <p v-if="!checkingProfile && !profileComplete" class="text-xs text-amber-700 mb-2">
+          完善个人信息后，方可选择附件或在线简历进行投递。
+        </p>
         <div class="flex border border-border rounded-lg overflow-hidden mb-3">
           <button
             type="button"
@@ -296,7 +400,10 @@ onMounted(() => {
           v-for="r in resumes"
           :key="r.id"
           class="flex items-center gap-3 p-3 rounded-xl mb-2 border transition-colors cursor-pointer"
-          :class="selectedResumeId === r.id ? 'border-brand-blue bg-brand-tint' : 'border-border hover:border-brand-blue/30'"
+          :class="[
+            selectedResumeId === r.id ? 'border-brand-blue bg-brand-tint' : 'border-border hover:border-brand-blue/30',
+            !profileComplete ? 'opacity-60 pointer-events-none' : 'cursor-pointer',
+          ]"
           @click="selectResume(r.id)"
         >
           <FileText :size="16" :class="selectedResumeId === r.id ? 'text-brand-blue' : 'text-muted-foreground'" />
@@ -349,34 +456,48 @@ onMounted(() => {
           v-else
           type="button"
           class="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-border rounded-xl text-xs text-muted-foreground hover:border-brand-blue/40 mt-1 disabled:opacity-50"
-          :disabled="uploading"
-          @click="triggerUpload"
-        >
+            :disabled="uploading || !profileComplete"
+            @click="triggerUpload"
+          >
           <Upload :size="14" />
           <span>上传新简历</span>
         </button>
         </template>
 
         <template v-else>
-          <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
-            在线简历仅供编辑完善，岗位投递请切换到「附件简历」并选择已上传的文件。
+          <p v-if="profileComplete" class="text-xs text-muted-foreground mb-3">
+            选择一份在线简历即可投递；也可在「我的简历」中继续编辑完善。
           </p>
           <p v-if="loadingOnline" class="text-xs text-muted-foreground py-2">加载中...</p>
           <p v-else-if="!onlineResumes.length" class="text-xs text-muted-foreground py-2">
-            暂无在线简历，请前往「我的简历 → 在线简历」创建
+            暂无在线简历，请前往「我的简历」创建并完善
           </p>
           <div
             v-for="o in onlineResumes"
             :key="o.id"
-            class="flex items-center gap-3 p-3 rounded-xl mb-2 border border-border opacity-75"
+            class="flex items-center gap-3 p-3 rounded-xl mb-2 border transition-colors"
+            :class="[
+              selectedResumeId === o.id ? 'border-brand-blue bg-brand-tint' : 'border-border hover:border-brand-blue/30',
+              !profileComplete ? 'opacity-60 pointer-events-none' : 'cursor-pointer',
+            ]"
+            @click="selectResume(o.id)"
           >
-            <PenLine :size="16" class="text-muted-foreground" />
+            <PenLine :size="16" :class="selectedResumeId === o.id ? 'text-brand-blue' : 'text-muted-foreground'" />
             <div class="flex-1 min-w-0">
-              <div class="text-xs font-medium text-foreground truncate">{{ o.resumeName }}</div>
+              <div
+                :class="[
+                  'text-xs font-medium truncate',
+                  selectedResumeId === o.id ? 'text-brand-blue' : 'text-foreground',
+                ]"
+              >
+                {{ o.resumeName }}
+              </div>
               <div class="text-[11px] text-muted-foreground">
-                完整度 {{ o.completeness ?? 0 }}% · 不可用于投递
+                完整度 {{ o.completeness ?? 0 }}%
+                <span v-if="profileComplete"> · 可用于投递</span>
               </div>
             </div>
+            <CheckCircle v-if="selectedResumeId === o.id" :size="16" class="text-brand-blue flex-shrink-0" />
           </div>
         </template>
       </div>
@@ -400,10 +521,10 @@ onMounted(() => {
       <button
         type="button"
         class="w-full py-3.5 rounded-control gradient-blue text-white text-sm font-bold shadow-custom disabled:opacity-60"
-        :disabled="submitting || uploading || !!pendingFile || !jobId || !selectedResumeId || activeTab !== 'attachment'"
+        :disabled="!canSubmit"
         @click="handleSubmit"
       >
-        {{ submitting ? '投递中...' : '确认投递' }}
+        {{ submitButtonLabel }}
       </button>
     </div>
   </div>

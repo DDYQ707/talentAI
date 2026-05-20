@@ -1,18 +1,41 @@
 package com.talent.auth.controller;
 
+import com.talent.auth.dto.CandidateProfileSaveRequest;
+import com.talent.auth.service.CandidateMyProfileService;
+import com.talent.auth.vo.CandidateProfileCompletenessVO;
+import com.talent.auth.vo.CandidateProfileVO;
+import com.talent.common.api.R;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * <p>
- * 候选人扩展档案表 前端控制器
- * </p>
- *
- * @author TalentAI
- * @since 2026-05-19
- */
 @RestController
-@RequestMapping("/candidateProfile")
+@RequestMapping("/api/auth/candidate/profile")
+@RequiredArgsConstructor
 public class CandidateProfileController {
 
+    private final CandidateMyProfileService candidateMyProfileService;
+
+    @GetMapping("/my")
+    public R<CandidateProfileVO> myProfile(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return candidateMyProfileService.getMyProfile(userId);
+    }
+
+    @PutMapping("/my")
+    public R<CandidateProfileVO> saveMyProfile(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestBody CandidateProfileSaveRequest request) {
+        return candidateMyProfileService.saveMyProfile(userId, request);
+    }
+
+    @GetMapping("/complete")
+    public R<CandidateProfileCompletenessVO> completeness(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return candidateMyProfileService.getCompleteness(userId);
+    }
 }

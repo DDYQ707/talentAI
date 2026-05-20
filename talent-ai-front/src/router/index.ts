@@ -51,6 +51,7 @@ const router = createRouter({
         { path: 'resume', name: 'Resume', component: () => import('@/views/candidate/ResumeView.vue') },
         { path: 'resume/edit', name: 'ResumeEdit', component: () => import('@/views/candidate/ResumeEditView.vue') },
         { path: 'profile', name: 'Profile', component: () => import('@/views/candidate/ProfileView.vue') },
+        { path: 'profile/edit', name: 'ProfileEdit', component: () => import('@/views/candidate/ProfileEditView.vue') },
       ],
     },
     {

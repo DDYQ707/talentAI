@@ -65,6 +65,12 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
             return result;
         }
 
+        if (!isCandidateProfileComplete(candidateId)) {
+            result.put("code", 400);
+            result.put("msg", "请先完善个人信息后再投递简历");
+            return result;
+        }
+
         if (request == null || request.getJobId() == null || request.getResumeId() == null) {
             result.put("code", 400);
             result.put("msg", "岗位 ID 与简历 ID 不能为空");
@@ -241,6 +247,29 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean isCandidateProfileComplete(Long candidateId) {
+        try {
+            Map<String, Object> res = authFeignClient.getProfileCompleteness(candidateId);
+            if (res == null) {
+                return false;
+            }
+            Object code = res.get("code");
+            long codeNum = code instanceof Number n ? n.longValue() : -1L;
+            if (codeNum != 200L) {
+                return false;
+            }
+            Object data = res.get("data");
+            if (data instanceof Map<?, ?> map) {
+                Object complete = map.get("complete");
+                return Boolean.TRUE.equals(complete);
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+        return false;
     }
 
     private String generateApplicationNo() {
