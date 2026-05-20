@@ -1,5 +1,6 @@
-﻿<script setup lang="ts">
-import { computed } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import type { EChartsOption } from 'echarts'
 import {
   User,
@@ -16,21 +17,41 @@ import {
   Bookmark,
   TrendingUp,
   Zap,
+  FileText,
+  Eye,
 } from 'lucide-vue-next'
+import { fetchHrResumeDetail, fetchHrResumePreview, type HrResumeDetail } from '@/api/hrResume'
+import { openResumePreview } from '@/api/resume'
+import { screenStatusLabel } from '@/constants/resume'
+import { getErrorMessage } from '@/utils/validators'
 
-const candidate = {
-  name: '张三',
-  title: '高级前端工程师',
-  exp: '6年工作经验',
-  edu: '本科·清华大学·计算机科学与技术',
-  location: '北京',
-  phone: '138****8888',
-  email: 'zhangsan@example.com',
-  match: 96,
-  status: '待初筛',
-  appliedJob: '高级前端工程师',
-  appliedDate: '2024-06-12',
-}
+const route = useRoute()
+const detail = ref<HrResumeDetail | null>(null)
+const loading = ref(true)
+const errorMsg = ref('')
+const pdfPreviewUrl = ref('')
+const previewLoading = ref(false)
+
+const resumeId = computed(() => {
+  const id = Number(route.query.id)
+  return Number.isFinite(id) && id > 0 ? id : null
+})
+
+const candidate = computed(() => ({
+  name: detail.value?.candidateName ?? '—',
+  title: detail.value?.resumeName ?? '—',
+  exp: detail.value?.fileType ? `附件 · ${detail.value.fileType.toUpperCase()}` : '暂无附件',
+  edu: '—',
+  location: '—',
+  phone: '—',
+  email: '—',
+  match: 0,
+  status: screenStatusLabel(detail.value?.screenStatus),
+  appliedJob: detail.value?.resumeName ?? '—',
+  appliedDate: detail.value?.updatedAt?.slice(0, 10) ?? '—',
+  fileName: detail.value?.fileName,
+  attachmentId: detail.value?.attachmentId,
+}))
 
 const radarData = [
   { subject: '技术能力', value: 95 },
@@ -69,6 +90,50 @@ const interviews = [
   { round: '技术面试', score: 0, status: '未开始', time: '—' },
   { round: '总监面试', score: 0, status: '未开始', time: '—' },
 ]
+
+async function loadDetail() {
+  if (!resumeId.value) {
+    errorMsg.value = '缺少简历 ID'
+    loading.value = false
+    return
+  }
+  loading.value = true
+  errorMsg.value = ''
+  pdfPreviewUrl.value = ''
+  try {
+    detail.value = await fetchHrResumeDetail(resumeId.value)
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '简历详情加载失败')
+    detail.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handlePreviewInline() {
+  if (!candidate.value.attachmentId) {
+    errorMsg.value = '该简历暂无附件'
+    return
+  }
+  previewLoading.value = true
+  errorMsg.value = ''
+  try {
+    const preview = await fetchHrResumePreview(candidate.value.attachmentId)
+    if (preview.fileType === 'pdf') {
+      pdfPreviewUrl.value = preview.presignedUrl
+    } else {
+      openResumePreview(preview)
+    }
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '预览失败')
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadDetail()
+})
 
 const radarOption = computed<EChartsOption>(() => ({
   radar: {
@@ -146,6 +211,36 @@ const radarOption = computed<EChartsOption>(() => ({
     </div>
 
     <div class="flex-1 overflow-y-auto scrollbar-thin p-6 min-w-0">
+      <p v-if="errorMsg" class="text-xs text-red-600 mb-4">{{ errorMsg }}</p>
+      <p v-if="loading" class="text-sm text-muted-foreground mb-4">加载中...</p>
+
+      <div v-if="candidate.attachmentId" class="mb-6 bg-card border border-border rounded-xl p-4 shadow-card">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <FileText :size="16" class="text-brand-blue" />
+            <h2 class="text-sm font-bold text-foreground">简历附件</h2>
+          </div>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg gradient-blue text-white text-xs disabled:opacity-50"
+            :disabled="previewLoading"
+            @click="handlePreviewInline"
+          >
+            <Eye :size="14" />
+            {{ previewLoading ? '加载中...' : pdfPreviewUrl ? '刷新预览' : '在线预览' }}
+          </button>
+        </div>
+        <p class="text-xs text-muted-foreground mb-3 truncate">{{ candidate.fileName }}</p>
+        <iframe
+          v-if="pdfPreviewUrl"
+          :src="pdfPreviewUrl"
+          class="w-full rounded-lg border border-border bg-white"
+          style="height: min(70vh, 720px)"
+          title="简历预览"
+        />
+        <p v-else class="text-xs text-muted-foreground">点击「在线预览」在页面内查看 PDF；Word 文档将在新窗口打开。</p>
+      </div>
+
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-4">
           <Briefcase :size="16" class="text-brand-blue" />

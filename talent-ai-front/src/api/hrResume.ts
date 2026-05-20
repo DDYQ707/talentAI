@@ -1,0 +1,69 @@
+import request from '@/utils/request'
+import type { ResumePreviewResult } from '@/api/resume'
+
+export interface HrResumeListItem {
+  id: number
+  candidateId: number
+  candidateName: string
+  resumeName: string
+  screenStatus: number
+  parseStatus?: number
+  attachmentId?: number
+  fileName?: string
+  fileType?: string
+  fileSize?: number
+  updatedAt?: string
+}
+
+export interface HrResumePageData {
+  total: number
+  current: number
+  pages: number
+  records: HrResumeListItem[]
+}
+
+export interface HrResumeDetail {
+  id: number
+  candidateId: number
+  candidateName: string
+  resumeName: string
+  summary?: string
+  isDefault?: number
+  parseStatus?: number
+  screenStatus: number
+  attachmentId?: number
+  fileName?: string
+  fileType?: string
+  fileSize?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface HrResumeListParams {
+  current?: number
+  size?: number
+  keyword?: string
+  /** 1-待初筛 2-面试中 3-已录用 4-已淘汰 */
+  screenStatus?: number
+}
+
+/** HR 简历分页列表 */
+export function fetchHrResumePage(params: HrResumeListParams = {}) {
+  const query: Record<string, string | number> = {
+    current: params.current ?? 1,
+    size: params.size ?? 20,
+  }
+  if (params.keyword) query.keyword = params.keyword
+  if (params.screenStatus != null) query.screenStatus = params.screenStatus
+  return request.get<HrResumePageData>('/api/resume/hr/page', { params: query }) as Promise<HrResumePageData>
+}
+
+/** HR 简历详情 */
+export function fetchHrResumeDetail(resumeId: number) {
+  return request.get<HrResumeDetail>(`/api/resume/hr/${resumeId}`) as Promise<HrResumeDetail>
+}
+
+/** HR 预览附件（预签名） */
+export function fetchHrResumePreview(attachmentId: number) {
+  return request.get<ResumePreviewResult>(`/api/resume/file/preview/${attachmentId}`) as Promise<ResumePreviewResult>
+}

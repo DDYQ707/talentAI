@@ -49,6 +49,7 @@ const router = createRouter({
         { path: 'apply', name: 'Apply', component: () => import('@/views/candidate/ApplyView.vue') },
         { path: 'applications', name: 'Applications', component: () => import('@/views/candidate/ApplicationsView.vue') },
         { path: 'resume', name: 'Resume', component: () => import('@/views/candidate/ResumeView.vue') },
+        { path: 'resume/edit', name: 'ResumeEdit', component: () => import('@/views/candidate/ResumeEditView.vue') },
         { path: 'profile', name: 'Profile', component: () => import('@/views/candidate/ProfileView.vue') },
       ],
     },
