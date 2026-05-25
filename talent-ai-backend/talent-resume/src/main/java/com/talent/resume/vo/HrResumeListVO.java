@@ -14,6 +14,16 @@ public class HrResumeListVO {
 
     private String resumeName;
 
+    private String resumeType;
+
+    private String phone;
+
+    private String city;
+
+    private String currentTitle;
+
+    private Byte highestEdu;
+
     private Integer screenStatus;
 
     private Integer parseStatus;

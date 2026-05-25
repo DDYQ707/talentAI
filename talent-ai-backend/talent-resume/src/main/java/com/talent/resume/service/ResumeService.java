@@ -1,20 +1,33 @@
 package com.talent.resume.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.talent.resume.constant.ResumeConstants;
 import com.talent.resume.entity.Resume;
 import com.talent.resume.entity.ResumeAttachment;
+import com.talent.resume.entity.ResumeEducation;
+import com.talent.resume.entity.ResumeSkill;
+import com.talent.resume.entity.ResumeWorkExperience;
 import com.talent.resume.feign.AuthFeignClient;
+import com.talent.resume.feign.JobFeignClient;
 import com.talent.resume.mapper.ResumeAttachmentMapper;
+import com.talent.resume.mapper.ResumeEducationMapper;
 import com.talent.resume.mapper.ResumeMapper;
+import com.talent.resume.mapper.ResumeSkillMapper;
+import com.talent.resume.mapper.ResumeWorkExperienceMapper;
 import com.talent.resume.service.MinioStorageService.StoredObject;
 import com.talent.resume.vo.HrResumeDetailVO;
 import com.talent.resume.vo.HrResumeListVO;
 import com.talent.resume.vo.ResumeListVO;
 import com.talent.resume.vo.ResumePreviewVO;
 import com.talent.resume.vo.ResumeUploadVO;
+import com.talent.resume.dto.OnlineResumeEducationDTO;
+import com.talent.resume.dto.OnlineResumeSkillDTO;
+import com.talent.resume.dto.OnlineResumeWorkDTO;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -35,29 +48,27 @@ public class ResumeService {
 
     private final ResumeMapper resumeMapper;
     private final ResumeAttachmentMapper attachmentMapper;
+    private final ResumeEducationMapper educationMapper;
+    private final ResumeWorkExperienceMapper workExperienceMapper;
+    private final ResumeSkillMapper skillMapper;
     private final MinioStorageService minioStorageService;
     private final AuthFeignClient authFeignClient;
+    private final JobFeignClient jobFeignClient;
+    private final ResumeConsolidationService consolidationService;
 
-    /** 仅返回已上传附件的简历（用于投递选择） */
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+    /** 仅返回已上传附件的简历（用于投递选择，一账号一条） */
     public List<ResumeListVO> listAttachmentResumes(Long candidateId) {
-        List<Resume> resumes = resumeMapper.selectList(
-                new LambdaQueryWrapper<Resume>()
-                        .eq(Resume::getCandidateId, candidateId)
-                        .orderByDesc(Resume::getUpdatedAt));
-        if (resumes.isEmpty()) {
+        Resume primary = consolidationService.getPrimaryResume(candidateId);
+        if (primary == null) {
             return List.of();
         }
-        Map<Long, ResumeAttachment> latestByResume = loadLatestAttachments(
-                resumes.stream().map(Resume::getId).toList());
-        List<ResumeListVO> result = new ArrayList<>();
-        for (Resume resume : resumes) {
-            ResumeAttachment att = latestByResume.get(resume.getId());
-            if (att == null) {
-                continue;
-            }
-            result.add(toListVo(resume, att));
+        ResumeAttachment att = getLatestAttachment(primary.getId());
+        if (att == null) {
+            return List.of();
         }
-        return result;
+        return List.of(toListVo(primary, att));
     }
 
     public List<ResumeListVO> listMyResumes(Long candidateId) {
@@ -76,14 +87,15 @@ public class ResumeService {
                 throw new IllegalArgumentException("简历不存在或无权访问");
             }
         } else {
-            resume = new Resume();
-            resume.setCandidateId(candidateId);
-            resume.setResumeName(resolveResumeName(file, resumeName));
-            resume.setIsDefault(0);
-            resume.setParseStatus(0);
-            resume.setScreenStatus(1);
-            resumeMapper.insert(resume);
+            resume = consolidationService.getOrCreatePrimaryResume(candidateId);
         }
+
+        consolidationService.clearAttachments(resume.getId());
+
+        resume.setResumeName(resolveResumeName(file, resumeName));
+        resume.setScreenStatus(1);
+        resume.setUpdatedAt(LocalDateTime.now());
+        resumeMapper.updateById(resume);
 
         StoredObject stored = minioStorageService.upload(file, candidateId);
         String ext = extractExtension(file.getOriginalFilename());
@@ -98,6 +110,8 @@ public class ResumeService {
         attachment.setFileUrl(stored.fileUrl());
         attachment.setUploadStatus(ResumeConstants.UPLOAD_STATUS_SUCCESS);
         attachmentMapper.insert(attachment);
+
+        consolidationService.consolidateCandidateResumes(candidateId, resume.getId());
 
         ResumeUploadVO vo = new ResumeUploadVO();
         vo.setResumeId(resume.getId());
@@ -139,6 +153,12 @@ public class ResumeService {
             String role, Integer current, Integer size, String keyword, Integer screenStatus) {
         assertHrRole(role);
 
+        try {
+            consolidationService.consolidateAllDuplicateCandidatesInDatabase();
+        } catch (Exception e) {
+            // 合并失败时仍返回去重列表，避免整页不可用
+        }
+
         int pageNum = current != null && current > 0 ? current : 1;
         int pageSize = size != null && size > 0 ? Math.min(size, 50) : 20;
 
@@ -151,34 +171,60 @@ public class ResumeService {
         }
         wrapper.orderByDesc(Resume::getUpdatedAt);
 
-        Page<Resume> page = resumeMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
-        List<Long> resumeIds = page.getRecords().stream().map(Resume::getId).toList();
+        List<Resume> allMatching = resumeMapper.selectList(wrapper);
+        List<Long> allIds = allMatching.stream().map(Resume::getId).toList();
+        Map<Long, ResumeAttachment> allAttMap = loadLatestAttachments(allIds);
+        List<Resume> deduped = consolidationService.dedupeForHrList(allMatching, allAttMap);
+        deduped.sort((a, b) -> {
+            if (a.getUpdatedAt() == null && b.getUpdatedAt() == null) {
+                return Long.compare(b.getId(), a.getId());
+            }
+            if (a.getUpdatedAt() == null) {
+                return 1;
+            }
+            if (b.getUpdatedAt() == null) {
+                return -1;
+            }
+            int cmp = b.getUpdatedAt().compareTo(a.getUpdatedAt());
+            return cmp != 0 ? cmp : Long.compare(b.getId(), a.getId());
+        });
+
+        int total = deduped.size();
+        int pages = total == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
+        int from = Math.min((pageNum - 1) * pageSize, total);
+        int to = Math.min(from + pageSize, total);
+        List<Resume> pageRecords = deduped.subList(from, to);
+
+        List<Long> resumeIds = pageRecords.stream().map(Resume::getId).toList();
         Map<Long, ResumeAttachment> latestMap = loadLatestAttachments(resumeIds);
 
         List<HrResumeListVO> records = new ArrayList<>();
-        for (Resume resume : page.getRecords()) {
+        for (Resume resume : pageRecords) {
             HrResumeListVO vo = new HrResumeListVO();
             vo.setId(resume.getId());
             vo.setCandidateId(resume.getCandidateId());
-            vo.setCandidateName(resolveCandidateName(resume.getCandidateId()));
             vo.setResumeName(resume.getResumeName());
             vo.setScreenStatus(resume.getScreenStatus());
             vo.setParseStatus(resume.getParseStatus());
             vo.setUpdatedAt(resume.getUpdatedAt());
             ResumeAttachment att = latestMap.get(resume.getId());
             if (att != null) {
+                vo.setResumeType("attachment");
                 vo.setAttachmentId(att.getId());
                 vo.setFileName(att.getFileName());
                 vo.setFileType(att.getFileType());
                 vo.setFileSize(att.getFileSize());
+            } else {
+                vo.setResumeType("online");
             }
+            applyCandidateProfileToListVo(vo, resume.getCandidateId());
             records.add(vo);
         }
 
         Map<String, Object> data = new HashMap<>();
-        data.put("total", page.getTotal());
-        data.put("current", page.getCurrent());
-        data.put("pages", page.getPages());
+        data.put("total", total);
+        data.put("current", pageNum);
+        data.put("pages", pages);
         data.put("records", records);
         return data;
     }
@@ -189,10 +235,16 @@ public class ResumeService {
         if (resume == null) {
             throw new IllegalArgumentException("简历不存在");
         }
+        Resume primary = consolidationService.getPrimaryResume(resume.getCandidateId());
+        if (primary == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+        resumeId = primary.getId();
+        resume = primary;
+
         HrResumeDetailVO vo = new HrResumeDetailVO();
         vo.setId(resume.getId());
         vo.setCandidateId(resume.getCandidateId());
-        vo.setCandidateName(resolveCandidateName(resume.getCandidateId()));
         vo.setResumeName(resume.getResumeName());
         vo.setSummary(resume.getSummary());
         vo.setIsDefault(resume.getIsDefault());
@@ -200,14 +252,251 @@ public class ResumeService {
         vo.setScreenStatus(resume.getScreenStatus());
         vo.setCreatedAt(resume.getCreatedAt());
         vo.setUpdatedAt(resume.getUpdatedAt());
+
         ResumeAttachment att = getLatestAttachment(resumeId);
         if (att != null) {
+            vo.setResumeType("attachment");
             vo.setAttachmentId(att.getId());
             vo.setFileName(att.getFileName());
             vo.setFileType(att.getFileType());
             vo.setFileSize(att.getFileSize());
+        } else {
+            vo.setResumeType("online");
+        }
+
+        fillCandidateProfile(vo, resume.getCandidateId());
+        fillOnlineContentAggregated(vo, resume.getCandidateId());
+        fillLatestApplicationForCandidate(vo, resume.getCandidateId());
+
+        if (!StringUtils.hasText(vo.getCandidateName())) {
+            vo.setCandidateName(resolveCandidateName(resume.getCandidateId()));
         }
         return vo;
+    }
+
+    private void fillCandidateProfile(HrResumeDetailVO vo, Long candidateId) {
+        Map<String, Object> brief = loadCandidateProfileBrief(candidateId);
+        if (brief.isEmpty()) {
+            return;
+        }
+        Object realName = brief.get("realName");
+        if (realName instanceof String s && StringUtils.hasText(s)) {
+            vo.setCandidateName(s.trim());
+        }
+        if (brief.get("phone") instanceof String phone) {
+            vo.setPhone(phone);
+        }
+        if (brief.get("email") instanceof String email) {
+            vo.setEmail(email);
+        }
+        if (brief.get("city") instanceof String city) {
+            vo.setCity(city);
+        }
+        if (brief.get("currentTitle") instanceof String title) {
+            vo.setCurrentTitle(title);
+        }
+        if (brief.get("highestEdu") instanceof Number edu) {
+            vo.setHighestEdu(edu.byteValue());
+        }
+        if (brief.get("aiScore") instanceof Number score) {
+            vo.setMatchScore(score.byteValue());
+        }
+    }
+
+    private void applyCandidateProfileToListVo(HrResumeListVO vo, Long candidateId) {
+        Map<String, Object> brief = loadCandidateProfileBrief(candidateId);
+        if (brief.isEmpty()) {
+            vo.setCandidateName(resolveCandidateName(candidateId));
+            return;
+        }
+        Object realName = brief.get("realName");
+        if (realName instanceof String s && StringUtils.hasText(s)) {
+            vo.setCandidateName(s.trim());
+        } else {
+            vo.setCandidateName(resolveCandidateName(candidateId));
+        }
+        if (brief.get("phone") instanceof String phone) {
+            vo.setPhone(phone);
+        }
+        if (brief.get("city") instanceof String city) {
+            vo.setCity(city);
+        }
+        if (brief.get("currentTitle") instanceof String title) {
+            vo.setCurrentTitle(title);
+        }
+        if (brief.get("highestEdu") instanceof Number edu) {
+            vo.setHighestEdu(edu.byteValue());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> loadCandidateProfileBrief(Long candidateId) {
+        if (candidateId == null) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> res = authFeignClient.getCandidateProfileBrief(candidateId);
+            if (res == null || res.isEmpty()) {
+                return Map.of();
+            }
+            if (res.containsKey("code") && res.get("data") instanceof Map<?, ?> data) {
+                return (Map<String, Object>) data;
+            }
+            return res;
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
+    /**
+     * 聚合该候选人名下所有简历子表（解决附件简历 id 与在线简历 id 不一致导致详情空白）。
+     */
+    private void fillOnlineContentAggregated(HrResumeDetailVO vo, Long candidateId) {
+        List<Resume> resumes = resumeMapper.selectList(
+                new LambdaQueryWrapper<Resume>().eq(Resume::getCandidateId, candidateId));
+        if (resumes.isEmpty()) {
+            return;
+        }
+        List<Long> resumeIds = resumes.stream().map(Resume::getId).toList();
+
+        Long richestResumeId = resumeIds.stream()
+                .max(Comparator.comparingLong(this::onlineContentScore))
+                .orElse(resumeIds.get(0));
+        fillOnlineContent(vo, richestResumeId);
+
+        Resume richest = resumeMapper.selectById(richestResumeId);
+        if (richest != null && StringUtils.hasText(richest.getSummary())) {
+            vo.setSummary(richest.getSummary());
+        }
+
+        ResumeAttachment bestAtt = null;
+        for (Long rid : resumeIds) {
+            ResumeAttachment att = getLatestAttachment(rid);
+            if (att == null) {
+                continue;
+            }
+            if (bestAtt == null
+                    || (att.getCreatedAt() != null
+                            && (bestAtt.getCreatedAt() == null
+                                    || att.getCreatedAt().isAfter(bestAtt.getCreatedAt())))) {
+                bestAtt = att;
+            }
+        }
+        if (bestAtt != null) {
+            vo.setResumeType("attachment");
+            vo.setAttachmentId(bestAtt.getId());
+            vo.setFileName(bestAtt.getFileName());
+            vo.setFileType(bestAtt.getFileType());
+            vo.setFileSize(bestAtt.getFileSize());
+        }
+    }
+
+    private long onlineContentScore(Long resumeId) {
+        Long edu = educationMapper.selectCount(
+                new LambdaQueryWrapper<ResumeEducation>().eq(ResumeEducation::getResumeId, resumeId));
+        Long work = workExperienceMapper.selectCount(
+                new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
+        Long skill = skillMapper.selectCount(
+                new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
+        return (edu == null ? 0 : edu) + (work == null ? 0 : work) + (skill == null ? 0 : skill);
+    }
+
+    private void fillOnlineContent(HrResumeDetailVO vo, Long resumeId) {
+        List<ResumeEducation> educations = educationMapper.selectList(
+                new LambdaQueryWrapper<ResumeEducation>()
+                        .eq(ResumeEducation::getResumeId, resumeId)
+                        .orderByAsc(ResumeEducation::getSortOrder));
+        vo.setEducations(educations.stream().map(this::toEducationDto).toList());
+
+        List<ResumeWorkExperience> works = workExperienceMapper.selectList(
+                new LambdaQueryWrapper<ResumeWorkExperience>()
+                        .eq(ResumeWorkExperience::getResumeId, resumeId)
+                        .orderByAsc(ResumeWorkExperience::getSortOrder));
+        vo.setWorkExperiences(works.stream().map(this::toWorkDto).toList());
+
+        List<ResumeSkill> skills = skillMapper.selectList(
+                new LambdaQueryWrapper<ResumeSkill>()
+                        .eq(ResumeSkill::getResumeId, resumeId)
+                        .orderByAsc(ResumeSkill::getSortOrder));
+        vo.setSkills(skills.stream().map(this::toSkillDto).toList());
+    }
+
+    private void fillLatestApplicationForCandidate(HrResumeDetailVO vo, Long candidateId) {
+        try {
+            Map<String, Object> app = jobFeignClient.getLatestApplicationByCandidate(candidateId);
+            applyApplicationBrief(vo, app);
+        } catch (Exception ignored) {
+            // job 服务不可用时忽略
+        }
+    }
+
+    private void applyApplicationBrief(HrResumeDetailVO vo, Map<String, Object> app) {
+        if (app == null || app.isEmpty()) {
+            return;
+        }
+        if (app.get("jobTitle") instanceof String title) {
+            vo.setAppliedJobTitle(title);
+        }
+        if (app.get("appliedAt") instanceof LocalDateTime appliedAt) {
+            vo.setAppliedAt(appliedAt);
+        } else if (app.get("appliedAt") instanceof String appliedAtStr) {
+            vo.setAppliedAt(LocalDateTime.parse(appliedAtStr));
+        }
+        if (app.get("matchScore") instanceof Number score) {
+            vo.setMatchScore(score.byteValue());
+        }
+    }
+
+    private void fillLatestApplication(HrResumeDetailVO vo, Long resumeId) {
+        try {
+            Map<String, Object> app = jobFeignClient.getLatestApplicationByResume(resumeId);
+            applyApplicationBrief(vo, app);
+        } catch (Exception ignored) {
+            // job 服务不可用时忽略
+        }
+    }
+
+    public int hrConsolidateDuplicates(String role) {
+        assertHrRole(role);
+        return consolidationService.consolidateAllDuplicateCandidatesInDatabase();
+    }
+
+    private OnlineResumeEducationDTO toEducationDto(ResumeEducation e) {
+        OnlineResumeEducationDTO dto = new OnlineResumeEducationDTO();
+        dto.setId(e.getId());
+        dto.setSchoolName(e.getSchoolName());
+        dto.setMajor(e.getMajor());
+        dto.setDegree(e.getDegree());
+        dto.setStartDate(formatDate(e.getStartDate()));
+        dto.setEndDate(formatDate(e.getEndDate()));
+        dto.setDescription(e.getDescription());
+        dto.setSortOrder(e.getSortOrder());
+        return dto;
+    }
+
+    private OnlineResumeWorkDTO toWorkDto(ResumeWorkExperience w) {
+        OnlineResumeWorkDTO dto = new OnlineResumeWorkDTO();
+        dto.setId(w.getId());
+        dto.setCompanyName(w.getCompanyName());
+        dto.setJobTitle(w.getJobTitle());
+        dto.setStartDate(formatDate(w.getStartDate()));
+        dto.setEndDate(formatDate(w.getEndDate()));
+        dto.setJobDescription(w.getJobDescription());
+        dto.setSortOrder(w.getSortOrder());
+        return dto;
+    }
+
+    private OnlineResumeSkillDTO toSkillDto(ResumeSkill s) {
+        OnlineResumeSkillDTO dto = new OnlineResumeSkillDTO();
+        dto.setId(s.getId());
+        dto.setSkillName(s.getSkillName());
+        dto.setProficiencyLevel(s.getProficiencyLevel());
+        dto.setSortOrder(s.getSortOrder());
+        return dto;
+    }
+
+    private String formatDate(LocalDate date) {
+        return date == null ? null : date.format(DATE_FMT);
     }
 
     public ResumeListVO getAttachmentBriefByResumeId(Long resumeId) {
@@ -237,6 +526,9 @@ public class ResumeService {
     }
 
     private ResumePreviewVO buildPreviewVo(ResumeAttachment att) throws Exception {
+        if (!StringUtils.hasText(att.getBucketName()) || !StringUtils.hasText(att.getObjectKey())) {
+            throw new IllegalArgumentException("附件存储路径缺失，请重新上传简历");
+        }
         String url = minioStorageService.getPresignedPreviewUrl(
                 att.getBucketName(),
                 att.getObjectKey(),
@@ -281,7 +573,11 @@ public class ResumeService {
     }
 
     private boolean isHrOrAdmin(String role) {
-        return ResumeConstants.ROLE_HR.equals(role) || ResumeConstants.ROLE_ADMIN.equals(role);
+        if (role == null) {
+            return false;
+        }
+        String r = role.trim();
+        return ResumeConstants.ROLE_HR.equalsIgnoreCase(r) || ResumeConstants.ROLE_ADMIN.equalsIgnoreCase(r);
     }
 
     private void assertHrRole(String role) {

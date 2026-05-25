@@ -9,4 +9,8 @@ public interface AuthFeignClient {
 
     @GetMapping("/api/auth/getUserName")
     String getUserName(@RequestParam("id") Long id);
+
+  /** 内部：候选人档案摘要（HR 简历详情） */
+    @GetMapping("/api/auth/internal/candidateBrief")
+    java.util.Map<String, Object> getCandidateProfileBrief(@RequestParam("userId") Long userId);
 }

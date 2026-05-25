@@ -168,7 +168,8 @@ async function confirmUpload() {
   errorMsg.value = ''
   const file = pendingFile.value
   try {
-    const result = await uploadResumeFile(file)
+    const existingId = resumes.value[0]?.id
+    const result = await uploadResumeFile(file, existingId != null ? { resumeId: existingId } : undefined)
     clearPendingFile()
     await loadResumes(false)
     selectedResumeId.value = result.resumeId

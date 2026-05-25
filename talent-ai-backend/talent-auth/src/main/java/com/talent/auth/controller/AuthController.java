@@ -5,6 +5,7 @@ import com.talent.auth.entity.CandidateProfile;
 import com.talent.auth.entity.SysUser;
 import com.talent.auth.dto.AdminAccountSaveRequest;
 import com.talent.auth.service.AdminAccountService;
+import com.talent.auth.service.CandidateMyProfileService;
 import com.talent.auth.service.ICandidateProfileService;
 import com.talent.auth.service.ISysUserService;
 import com.talent.common.utils.JwtUtil; // 如果你把它移到了 common，注意改一下导入路径
@@ -31,12 +32,31 @@ public class AuthController {
 
     @Autowired
     private AdminAccountService adminAccountService;
+
+    @Autowired
+    private CandidateMyProfileService candidateMyProfileService;
+
     @GetMapping("/getUserName")
     public String getUserName(@RequestParam("id") Long id) {
         SysUser user = sysUserService.getById(id);
-        // 如果查到了，返回真实姓名/昵称，否则返回"未知用户"
-        return user != null ? user.getNickname() : "未知用户";
+        if (user == null) {
+            return "未知用户";
+        }
+        LambdaQueryWrapper<CandidateProfile> w = new LambdaQueryWrapper<>();
+        w.eq(CandidateProfile::getUserId, id);
+        CandidateProfile profile = candidateProfileService.getOne(w);
+        if (profile != null && profile.getRealName() != null && !profile.getRealName().isBlank()) {
+            return profile.getRealName().trim();
+        }
+        return user.getNickname() != null ? user.getNickname() : "未知用户";
     }
+
+    /** 微服务内部：候选人档案摘要（与 getUserName 同路径风格，供 Feign 调用） */
+    @GetMapping("/internal/candidateBrief")
+    public Map<String, Object> internalCandidateBrief(@RequestParam("userId") Long userId) {
+        return candidateMyProfileService.getProfileBrief(userId);
+    }
+
     @PostMapping("/login")
     public Map<String, Object> login(@RequestParam("username") String username,
                                      @RequestParam("password") String password) {

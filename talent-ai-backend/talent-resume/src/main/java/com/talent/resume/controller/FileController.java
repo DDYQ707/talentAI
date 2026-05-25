@@ -60,8 +60,8 @@ public class FileController {
             return R.ok(resumeService.getPreviewByAttachmentId(userId, role, attachmentId));
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
-        } catch (Exception e) {
-            return R.fail("获取预览链接失败：" + e.getMessage());
+        } catch (Throwable e) {
+            return R.fail("获取预览链接失败：" + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -80,8 +80,8 @@ public class FileController {
             return R.ok(resumeService.getPreviewByResumeId(userId, role, resumeId));
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
-        } catch (Exception e) {
-            return R.fail("获取预览链接失败：" + e.getMessage());
+        } catch (Throwable e) {
+            return R.fail("获取预览链接失败：" + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -98,8 +98,8 @@ public class FileController {
             return R.ok(resumeService.getDownloadUrl(userId, role, attachmentId));
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
-        } catch (Exception e) {
-            return R.fail("获取下载链接失败：" + e.getMessage());
+        } catch (Throwable e) {
+            return R.fail("获取下载链接失败：" + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 }

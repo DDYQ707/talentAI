@@ -42,33 +42,21 @@ public class OnlineResumeService {
     private final ResumeEducationMapper educationMapper;
     private final ResumeWorkExperienceMapper workExperienceMapper;
     private final ResumeSkillMapper skillMapper;
+    private final ResumeConsolidationService consolidationService;
 
     public List<OnlineResumeListVO> listMyOnlineResumes(Long candidateId) {
-        List<Resume> resumes = resumeMapper.selectList(
-                new LambdaQueryWrapper<Resume>()
-                        .eq(Resume::getCandidateId, candidateId)
-                        .orderByDesc(Resume::getUpdatedAt));
-        if (resumes.isEmpty()) {
+        Resume primary = consolidationService.getPrimaryResume(candidateId);
+        if (primary == null) {
             return List.of();
         }
-        Set<Long> withAttachment = loadResumeIdsWithAttachment(
-                resumes.stream().map(Resume::getId).toList());
-
-        List<OnlineResumeListVO> result = new ArrayList<>();
-        for (Resume resume : resumes) {
-            if (withAttachment.contains(resume.getId())) {
-                continue;
-            }
-            OnlineResumeListVO vo = new OnlineResumeListVO();
-            vo.setId(resume.getId());
-            vo.setResumeName(resume.getResumeName());
-            vo.setSummary(resume.getSummary());
-            vo.setIsDefault(resume.getIsDefault());
-            vo.setUpdatedAt(resume.getUpdatedAt());
-            vo.setCompleteness(calcCompleteness(resume.getId()));
-            result.add(vo);
-        }
-        return result;
+        OnlineResumeListVO vo = new OnlineResumeListVO();
+        vo.setId(primary.getId());
+        vo.setResumeName(primary.getResumeName());
+        vo.setSummary(primary.getSummary());
+        vo.setIsDefault(primary.getIsDefault());
+        vo.setUpdatedAt(primary.getUpdatedAt());
+        vo.setCompleteness(calcCompleteness(primary.getId()));
+        return List.of(vo);
     }
 
     public OnlineResumeDetailVO getDetail(Long candidateId, Long resumeId) {
@@ -78,21 +66,23 @@ public class OnlineResumeService {
 
     @Transactional(rollbackFor = Exception.class)
     public OnlineResumeDetailVO create(Long candidateId, OnlineResumeSaveRequest request) {
-        Resume resume = new Resume();
-        resume.setCandidateId(candidateId);
+        Resume resume = consolidationService.getOrCreatePrimaryResume(candidateId);
+        consolidationService.clearOnlineContent(resume.getId());
+
         resume.setResumeName(resolveResumeName(request, "我的在线简历"));
         resume.setSummary(trimToNull(request.getSummary()));
-        resume.setIsDefault(request.getIsDefault() != null ? request.getIsDefault() : 0);
-        resume.setParseStatus(0);
+        resume.setIsDefault(request.getIsDefault() != null ? request.getIsDefault() : 1);
         resume.setScreenStatus(1);
-        resumeMapper.insert(resume);
+        resumeMapper.updateById(resume);
+
         saveChildren(resume.getId(), request);
+        consolidationService.consolidateCandidateResumes(candidateId, resume.getId());
         return buildDetailVo(resumeMapper.selectById(resume.getId()));
     }
 
     @Transactional(rollbackFor = Exception.class)
     public OnlineResumeDetailVO update(Long candidateId, Long resumeId, OnlineResumeSaveRequest request) {
-        Resume resume = requireOnlineResume(candidateId, resumeId);
+        Resume resume = requireOwnedResume(candidateId, resumeId);
         if (StringUtils.hasText(request.getResumeName())) {
             resume.setResumeName(request.getResumeName().trim());
         }
@@ -104,28 +94,29 @@ public class OnlineResumeService {
         }
         resumeMapper.updateById(resume);
         replaceChildren(resumeId, request);
+        consolidationService.consolidateCandidateResumes(candidateId, resumeId);
         return buildDetailVo(resumeMapper.selectById(resumeId));
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long candidateId, Long resumeId) {
-        requireOnlineResume(candidateId, resumeId);
-        resumeMapper.deleteById(resumeId);
-        educationMapper.delete(new LambdaQueryWrapper<ResumeEducation>().eq(ResumeEducation::getResumeId, resumeId));
-        workExperienceMapper.delete(
-                new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
-        skillMapper.delete(new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
+        requireOwnedResume(candidateId, resumeId);
+        consolidationService.clearOnlineContent(resumeId);
+        if (!consolidationService.hasAttachment(resumeId)) {
+            resumeMapper.deleteById(resumeId);
+        }
+    }
+
+    private Resume requireOwnedResume(Long candidateId, Long resumeId) {
+        Resume resume = resumeMapper.selectById(resumeId);
+        if (resume == null || !candidateId.equals(resume.getCandidateId())) {
+            throw new IllegalArgumentException("简历不存在或无权访问");
+        }
+        return resume;
     }
 
     private Resume requireOnlineResume(Long candidateId, Long resumeId) {
-        Resume resume = resumeMapper.selectById(resumeId);
-        if (resume == null || !candidateId.equals(resume.getCandidateId())) {
-            throw new IllegalArgumentException("在线简历不存在或无权访问");
-        }
-        if (hasAttachment(resumeId)) {
-            throw new IllegalArgumentException("该简历为附件简历，请使用附件管理");
-        }
-        return resume;
+        return requireOwnedResume(candidateId, resumeId);
     }
 
     private boolean hasAttachment(Long resumeId) {

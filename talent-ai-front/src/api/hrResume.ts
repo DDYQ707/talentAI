@@ -1,11 +1,21 @@
 import request from '@/utils/request'
 import type { ResumePreviewResult } from '@/api/resume'
+import type {
+  OnlineEducation,
+  OnlineSkill,
+  OnlineWorkExperience,
+} from '@/api/onlineResume'
 
 export interface HrResumeListItem {
   id: number
   candidateId: number
   candidateName: string
   resumeName: string
+  resumeType?: 'attachment' | 'online'
+  phone?: string
+  city?: string
+  currentTitle?: string
+  highestEdu?: number
   screenStatus: number
   parseStatus?: number
   attachmentId?: number
@@ -28,6 +38,7 @@ export interface HrResumeDetail {
   candidateName: string
   resumeName: string
   summary?: string
+  resumeType?: 'attachment' | 'online'
   isDefault?: number
   parseStatus?: number
   screenStatus: number
@@ -37,6 +48,17 @@ export interface HrResumeDetail {
   fileSize?: number
   createdAt?: string
   updatedAt?: string
+  phone?: string
+  email?: string
+  city?: string
+  currentTitle?: string
+  highestEdu?: number
+  matchScore?: number
+  appliedJobTitle?: string
+  appliedAt?: string
+  educations?: OnlineEducation[]
+  workExperiences?: OnlineWorkExperience[]
+  skills?: OnlineSkill[]
 }
 
 export interface HrResumeListParams {
@@ -45,6 +67,13 @@ export interface HrResumeListParams {
   keyword?: string
   /** 1-待初筛 2-面试中 3-已录用 4-已淘汰 */
   screenStatus?: number
+}
+
+/** 合并库中重复简历（同一候选人只保留一条） */
+export function consolidateHrResumes() {
+  return request.post<{ mergedDuplicates: number }>('/api/resume/hr/consolidate') as Promise<{
+    mergedDuplicates: number
+  }>
 }
 
 /** HR 简历分页列表 */

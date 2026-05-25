@@ -11,7 +11,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,33 @@ public class CandidateMyProfileService {
         }
         CandidateProfile profile = getOrCreateProfile(userId);
         return R.ok(evaluateCompleteness(userResult.getData(), profile));
+    }
+
+    /** 微服务内部：候选人档案摘要 */
+    public Map<String, Object> getProfileBrief(Long userId) {
+        Map<String, Object> brief = new HashMap<>();
+        if (userId == null) {
+            return brief;
+        }
+        SysUser user = sysUserService.getById(userId);
+        if (user == null) {
+            return brief;
+        }
+        LambdaQueryWrapper<CandidateProfile> w = new LambdaQueryWrapper<>();
+        w.eq(CandidateProfile::getUserId, userId);
+        CandidateProfile profile = candidateProfileService.getOne(w);
+
+        String realName = profile != null && StringUtils.hasText(profile.getRealName())
+                ? profile.getRealName().trim()
+                : user.getNickname();
+        brief.put("realName", realName);
+        brief.put("phone", user.getPhone());
+        brief.put("email", user.getEmail());
+        brief.put("city", profile != null ? profile.getCity() : null);
+        brief.put("currentTitle", profile != null ? profile.getCurrentTitle() : null);
+        brief.put("highestEdu", profile != null ? profile.getHighestEdu() : null);
+        brief.put("aiScore", profile != null ? profile.getAiScore() : null);
+        return brief;
     }
 
     @Transactional(rollbackFor = Exception.class)

@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth/candidate/profile")
@@ -37,5 +40,11 @@ public class CandidateProfileController {
     public R<CandidateProfileCompletenessVO> completeness(
             @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         return candidateMyProfileService.getCompleteness(userId);
+    }
+
+    /** 微服务内部：档案摘要 */
+    @GetMapping("/brief")
+    public Map<String, Object> profileBrief(@RequestParam("userId") Long userId) {
+        return candidateMyProfileService.getProfileBrief(userId);
     }
 }

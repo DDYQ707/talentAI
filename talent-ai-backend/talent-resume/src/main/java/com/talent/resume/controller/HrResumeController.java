@@ -7,6 +7,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,6 +22,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class HrResumeController {
 
     private final ResumeService resumeService;
+
+    /** 手动触发：合并库中同一候选人的重复简历 */
+    @PostMapping("/consolidate")
+    public R<Map<String, Object>> consolidate(
+            @RequestHeader(value = "X-User-Role", required = false) String role) {
+        try {
+            int removed = resumeService.hrConsolidateDuplicates(role);
+            return R.ok(Map.of("mergedDuplicates", removed));
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
 
     @GetMapping("/page")
     public R<Map<String, Object>> page(

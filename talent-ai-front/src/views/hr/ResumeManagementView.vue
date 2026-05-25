@@ -11,9 +11,11 @@ import {
   Eye,
   FileText,
 } from 'lucide-vue-next'
-import { fetchHrResumePage, fetchHrResumePreview, type HrResumeListItem } from '@/api/hrResume'
+import { consolidateHrResumes, fetchHrResumePage, fetchHrResumePreview, type HrResumeListItem } from '@/api/hrResume'
+import { fetchHrCandidateBrief } from '@/api/hrCandidate'
 import { openResumePreview } from '@/api/resume'
 import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
+import { formatDegree } from '@/utils/resumeFormat'
 import { getErrorMessage } from '@/utils/validators'
 
 const router = useRouter()
@@ -47,18 +49,43 @@ function screenStatusForItem(item: HrResumeListItem) {
   return screenStatusLabel(item.screenStatus)
 }
 
+async function enrichListProfile(items: HrResumeListItem[]) {
+  const out = [...items]
+  await Promise.all(
+    out.map(async (item) => {
+      if (item.phone && item.highestEdu != null) return
+      try {
+        const brief = await fetchHrCandidateBrief(item.candidateId)
+        if (brief.realName) item.candidateName = brief.realName
+        if (brief.phone) item.phone = brief.phone
+        if (brief.city) item.city = brief.city
+        if (brief.currentTitle) item.currentTitle = brief.currentTitle
+        if (brief.highestEdu != null) item.highestEdu = brief.highestEdu
+      } catch {
+        /* 档案接口不可用时保留列表基础字段 */
+      }
+    }),
+  )
+  return out
+}
+
 async function loadList() {
   loading.value = true
   errorMsg.value = ''
   const tag = filterTags.find((t) => t.label === activeFilter.value)
   try {
+    try {
+      await consolidateHrResumes()
+    } catch {
+      /* 合并接口失败时仍尝试加载列表 */
+    }
     const data = await fetchHrResumePage({
       current: 1,
       size: 50,
       keyword: keyword.value.trim() || undefined,
       screenStatus: tag?.value,
     })
-    candidates.value = data.records ?? []
+    candidates.value = await enrichListProfile(data.records ?? [])
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '简历列表加载失败')
     candidates.value = []
@@ -170,7 +197,13 @@ onMounted(() => {
                   </div>
                   <div>
                     <div class="text-sm font-semibold text-foreground">{{ c.candidateName }}</div>
-                    <div class="text-xs text-muted-foreground truncate max-w-[140px]">{{ c.resumeName }}</div>
+                    <div class="text-xs text-muted-foreground truncate max-w-[140px]">
+                      {{ c.currentTitle || c.resumeName }}
+                    </div>
+                    <div v-if="c.phone || c.highestEdu" class="text-[11px] text-muted-foreground mt-0.5 flex gap-2">
+                      <span v-if="c.phone">{{ c.phone }}</span>
+                      <span v-if="c.highestEdu">{{ formatDegree(c.highestEdu) }}</span>
+                    </div>
                   </div>
                 </div>
                 <Star :size="16" class="text-muted-foreground/40" />

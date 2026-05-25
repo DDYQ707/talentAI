@@ -59,7 +59,8 @@ async function onFileSelected(ev: Event) {
   errorMsg.value = ''
   message.value = ''
   try {
-    await uploadResumeFile(file)
+    const existingId = attachments.value[0]?.id
+    await uploadResumeFile(file, existingId != null ? { resumeId: existingId } : undefined)
     message.value = '上传成功'
     await loadAttachments()
   } catch (e) {

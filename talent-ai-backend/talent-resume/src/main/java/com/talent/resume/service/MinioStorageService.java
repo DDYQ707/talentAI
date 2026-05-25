@@ -62,21 +62,10 @@ public class MinioStorageService {
      */
     public String getPresignedPreviewUrl(
             String bucket, String objectKey, String fileName, String fileType, int expireHours) throws Exception {
-        String disposition = "inline; filename=\"" + encodeFilename(fileName) + "\"";
-        Map<String, String> extra = new HashMap<>();
-        extra.put("response-content-disposition", disposition);
-        String contentType = resolveContentType(fileType);
-        if (StringUtils.hasText(contentType)) {
-            extra.put("response-content-type", contentType);
+        if (!StringUtils.hasText(bucket) || !StringUtils.hasText(objectKey)) {
+            throw new IllegalArgumentException("附件存储信息不完整，无法预览");
         }
-        return minioClient.getPresignedObjectUrl(
-                GetPresignedObjectUrlArgs.builder()
-                        .method(Method.GET)
-                        .bucket(bucket)
-                        .object(objectKey)
-                        .expiry(expireHours, TimeUnit.HOURS)
-                        .extraQueryParams(extra)
-                        .build());
+        return getPresignedUrl(bucket, objectKey, expireHours);
     }
 
     private String encodeFilename(String fileName) {
