@@ -10,6 +10,7 @@ import {
   Star,
   Eye,
   FileText,
+  Briefcase,
 } from 'lucide-vue-next'
 import { consolidateHrResumes, fetchHrResumePage, fetchHrResumePreview, type HrResumeListItem } from '@/api/hrResume'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
@@ -47,6 +48,10 @@ const filtered = computed(() => candidates.value)
 
 function screenStatusForItem(item: HrResumeListItem) {
   return screenStatusLabel(item.screenStatus)
+}
+
+function appliedJobLabel(item: HrResumeListItem) {
+  return item.appliedJobTitle || '暂无投递记录'
 }
 
 async function enrichListProfile(items: HrResumeListItem[]) {
@@ -208,10 +213,16 @@ onMounted(() => {
                 </div>
                 <Star :size="16" class="text-muted-foreground/40" />
               </div>
-              <div v-if="c.fileName" class="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+              <div v-if="c.fileName" class="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                 <FileText :size="12" class="text-brand-blue" />
                 <span class="truncate flex-1">{{ c.fileName }}</span>
                 <span v-if="c.fileType" class="uppercase">{{ c.fileType }}</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                <Briefcase :size="12" class="text-brand-purple flex-shrink-0" />
+                <span class="truncate" :class="c.appliedJobTitle ? 'text-foreground' : 'text-muted-foreground'">
+                  应聘：{{ appliedJobLabel(c) }}
+                </span>
               </div>
               <div class="flex items-center justify-between">
                 <span :class="['text-xs px-2 py-0.5 rounded-full border', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">

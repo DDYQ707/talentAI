@@ -36,7 +36,7 @@ public class OnlineResumeController {
     @GetMapping("/{id}")
     public R<OnlineResumeDetailVO> detail(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
-            @PathVariable Long id) {
+            @PathVariable("id") Long id) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
         }
@@ -64,7 +64,7 @@ public class OnlineResumeController {
     @PutMapping("/{id}")
     public R<OnlineResumeDetailVO> update(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody OnlineResumeSaveRequest request) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
@@ -82,7 +82,7 @@ public class OnlineResumeController {
     @DeleteMapping("/{id}")
     public R<Void> delete(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
-            @PathVariable Long id) {
+            @PathVariable("id") Long id) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
         }

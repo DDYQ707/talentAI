@@ -40,7 +40,7 @@ public class ResumeController {
     }
 
     @GetMapping("/brief/{resumeId}")
-    public R<ResumeListVO> brief(@PathVariable Long resumeId) {
+    public R<ResumeListVO> brief(@PathVariable("resumeId") Long resumeId) {
         ResumeListVO vo = resumeService.getAttachmentBriefByResumeId(resumeId);
         if (vo == null) {
             return R.fail("简历不存在");
@@ -51,7 +51,7 @@ public class ResumeController {
     @DeleteMapping("/{id}")
     public R<Void> delete(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
-            @PathVariable Long id) {
+            @PathVariable("id") Long id) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
         }

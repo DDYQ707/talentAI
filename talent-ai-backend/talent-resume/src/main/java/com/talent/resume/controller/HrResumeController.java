@@ -1,13 +1,16 @@
 package com.talent.resume.controller;
 
 import com.talent.common.api.R;
+import com.talent.resume.dto.ScreenStatusUpdateRequest;
 import com.talent.resume.service.ResumeService;
 import com.talent.resume.vo.HrResumeDetailVO;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -52,9 +55,25 @@ public class HrResumeController {
     @GetMapping("/{resumeId}")
     public R<HrResumeDetailVO> detail(
             @RequestHeader(value = "X-User-Role", required = false) String role,
-            @PathVariable Long resumeId) {
+            @PathVariable("resumeId") Long resumeId) {
         try {
             return R.ok(resumeService.getHrResumeDetail(role, resumeId));
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
+    /** HR 更新简历筛选状态，并同步最近一条投递记录 */
+    @PatchMapping("/{resumeId}/screen-status")
+    public R<HrResumeDetailVO> updateScreenStatus(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-User-Id", required = false) Long operatorId,
+            @PathVariable("resumeId") Long resumeId,
+            @RequestBody ScreenStatusUpdateRequest body) {
+        try {
+            Integer screenStatus = body != null ? body.getScreenStatus() : null;
+            String remark = body != null ? body.getRemark() : null;
+            return R.ok(resumeService.updateHrScreenStatus(role, operatorId, resumeId, screenStatus, remark));
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
         }

@@ -5,26 +5,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../docs/sql/seed_candidate_13800138099.sql" beforeDir="false" afterPath="$PROJECT_DIR$/../docs/sql/seed_candidate_13800138099.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/AuthController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/CandidateProfileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/controller/CandidateProfileController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/dto/CandidateProfileSaveRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/dto/CandidateProfileSaveRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/service/CandidateMyProfileService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/service/CandidateMyProfileService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/CandidateProfileCompletenessVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/CandidateProfileCompletenessVO.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/CandidateProfileVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/vo/CandidateProfileVO.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/config/MinioConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/config/MinioConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/constant/JobApplicationConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/constant/JobApplicationConstants.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobInternalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobInternalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/feign/ResumeFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/feign/ResumeFeignClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/constant/ResumeConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/constant/ResumeConstants.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/FileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/FileController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/HrResumeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/HrResumeController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/feign/AuthFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/feign/AuthFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/MinioStorageService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/MinioStorageService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/OnlineResumeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/OnlineResumeService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/OnlineResumeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/OnlineResumeController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/ResumeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/ResumeController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/feign/JobFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/feign/JobFeignClient.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/ResumeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/ResumeService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/vo/HrResumeDetailVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/vo/HrResumeDetailVO.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/vo/HrResumeListVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/vo/HrResumeListVO.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/candidateProfile.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/candidateProfile.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/candidateProfile.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/candidateProfile.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ProfileEditView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ProfileEditView.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -81,7 +76,7 @@
       <recent name="C:\Users\32805\Desktop\智能招聘与人才画像分析系统\talent-ai-system\talent-ai-backend\talent-common\src\main\java\com\talent\common" />
     </key>
   </component>
-  <component name="RunManager" selected="Spring Boot.AuthApplication">
+  <component name="RunManager" selected="Spring Boot.TalentResumeApplication">
     <configuration name="CodeGenerator (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="CodeGenerator" />
       <module name="talent-job" />
@@ -156,7 +151,8 @@
       <workItem from="1779173323289" duration="11543000" />
       <workItem from="1779244405658" duration="12832000" />
       <workItem from="1779335481049" duration="1046000" />
-      <workItem from="1779705120512" duration="3920000" />
+      <workItem from="1779705120512" duration="4524000" />
+      <workItem from="1779787377194" duration="2067000" />
     </task>
     <servers />
   </component>

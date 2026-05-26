@@ -37,4 +37,8 @@ public class HrResumeListVO {
     private Long fileSize;
 
     private LocalDateTime updatedAt;
+
+    private String appliedJobTitle;
+
+    private LocalDateTime appliedAt;
 }

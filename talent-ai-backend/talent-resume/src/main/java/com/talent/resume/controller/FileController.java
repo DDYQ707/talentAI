@@ -52,7 +52,7 @@ public class FileController {
     public R<ResumePreviewVO> preview(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @RequestHeader(value = "X-User-Role", required = false) String role,
-            @PathVariable Long attachmentId) {
+            @PathVariable("attachmentId") Long attachmentId) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
         }
@@ -72,7 +72,7 @@ public class FileController {
     public R<ResumePreviewVO> previewByResume(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @RequestHeader(value = "X-User-Role", required = false) String role,
-            @PathVariable Long resumeId) {
+            @PathVariable("resumeId") Long resumeId) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
         }
@@ -90,7 +90,7 @@ public class FileController {
     public R<String> download(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @RequestHeader(value = "X-User-Role", required = false) String role,
-            @PathVariable Long attachmentId) {
+            @PathVariable("attachmentId") Long attachmentId) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");
         }

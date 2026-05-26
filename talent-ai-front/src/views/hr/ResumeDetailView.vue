@@ -18,9 +18,9 @@ import {
   Eye,
 } from 'lucide-vue-next'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
-import { fetchHrResumeDetail, fetchHrResumePreview, type HrResumeDetail } from '@/api/hrResume'
+import { fetchHrResumeDetail, fetchHrResumePreview, updateHrScreenStatus, type HrResumeDetail } from '@/api/hrResume'
 import { openResumePreview } from '@/api/resume'
-import { screenStatusLabel } from '@/constants/resume'
+import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
 import { formatDegree, formatResumePeriod } from '@/utils/resumeFormat'
 import { getErrorMessage } from '@/utils/validators'
 
@@ -30,6 +30,8 @@ const loading = ref(true)
 const errorMsg = ref('')
 const pdfPreviewUrl = ref('')
 const previewLoading = ref(false)
+const statusUpdating = ref(false)
+const statusSuccessMsg = ref('')
 
 const resumeId = computed(() => {
   const id = Number(route.query.id)
@@ -58,6 +60,61 @@ const candidate = computed(() => ({
   fileName: detail.value?.fileName,
   attachmentId: detail.value?.attachmentId,
 }))
+
+const currentScreenStatus = computed(() => detail.value?.screenStatus ?? RESUME_SCREEN_STATUS.PENDING)
+
+interface ScreenAction {
+  label: string
+  status: number
+  variant: 'primary' | 'success' | 'danger' | 'muted'
+}
+
+const screenActions = computed<ScreenAction[]>(() => {
+  const current = currentScreenStatus.value
+  const actions: ScreenAction[] = []
+  if (current === RESUME_SCREEN_STATUS.PENDING) {
+    actions.push({ label: '进入面试', status: RESUME_SCREEN_STATUS.INTERVIEWING, variant: 'primary' })
+    actions.push({ label: '直接录用', status: RESUME_SCREEN_STATUS.HIRED, variant: 'success' })
+    actions.push({ label: '淘汰', status: RESUME_SCREEN_STATUS.REJECTED, variant: 'danger' })
+  } else if (current === RESUME_SCREEN_STATUS.INTERVIEWING) {
+    actions.push({ label: '录用', status: RESUME_SCREEN_STATUS.HIRED, variant: 'success' })
+    actions.push({ label: '淘汰', status: RESUME_SCREEN_STATUS.REJECTED, variant: 'danger' })
+    actions.push({ label: '退回待初筛', status: RESUME_SCREEN_STATUS.PENDING, variant: 'muted' })
+  } else if (current === RESUME_SCREEN_STATUS.HIRED || current === RESUME_SCREEN_STATUS.REJECTED) {
+    actions.push({ label: '恢复待初筛', status: RESUME_SCREEN_STATUS.PENDING, variant: 'muted' })
+  }
+  return actions
+})
+
+function actionButtonClass(variant: ScreenAction['variant']) {
+  switch (variant) {
+    case 'primary':
+      return 'gradient-blue text-white border-transparent'
+    case 'success':
+      return 'bg-brand-green/10 text-brand-green border-brand-green/30 hover:bg-brand-green/20'
+    case 'danger':
+      return 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+    default:
+      return 'border-border text-muted-foreground hover:bg-muted'
+  }
+}
+
+async function handleUpdateScreenStatus(targetStatus: number) {
+  if (!resumeId.value || statusUpdating.value) return
+  if (targetStatus === currentScreenStatus.value) return
+  statusUpdating.value = true
+  errorMsg.value = ''
+  statusSuccessMsg.value = ''
+  try {
+    await updateHrScreenStatus(resumeId.value, targetStatus)
+    await loadDetail()
+    statusSuccessMsg.value = `已更新为「${screenStatusLabel(targetStatus)}」`
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '筛选状态更新失败')
+  } finally {
+    statusUpdating.value = false
+  }
+}
 
 const workExp = computed(() =>
   (detail.value?.workExperiences ?? []).map((w) => ({
@@ -215,6 +272,23 @@ const radarOption = computed<EChartsOption>(() => ({
             <div class="text-xs text-muted-foreground">{{ item.label }}</div>
             <div class="text-xs text-foreground font-medium truncate">{{ item.value }}</div>
           </div>
+        </div>
+      </div>
+      <div class="mb-4">
+        <div class="text-xs font-semibold text-muted-foreground mb-2">筛选操作</div>
+        <p v-if="statusSuccessMsg" class="text-xs text-brand-green mb-2">{{ statusSuccessMsg }}</p>
+        <div class="flex flex-col gap-2">
+          <button
+            v-for="action in screenActions"
+            :key="action.status"
+            type="button"
+            class="w-full py-2 rounded-xl border text-sm font-medium disabled:opacity-50"
+            :class="actionButtonClass(action.variant)"
+            :disabled="statusUpdating"
+            @click="handleUpdateScreenStatus(action.status)"
+          >
+            {{ statusUpdating ? '更新中...' : action.label }}
+          </button>
         </div>
       </div>
       <div class="flex flex-col gap-2">

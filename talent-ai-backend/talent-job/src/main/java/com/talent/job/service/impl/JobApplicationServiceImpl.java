@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.talent.job.constant.JobApplicationConstants;
 import com.talent.job.dto.JobApplicationSubmitRequest;
+import com.talent.job.dto.SyncScreenStatusRequest;
 import com.talent.job.entity.ApplicationStageLog;
 import com.talent.job.entity.JobApplication;
 import com.talent.job.entity.JobPost;
@@ -77,6 +78,24 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
             return result;
         }
 
+        Long resumeId = request.getResumeId();
+        Map<String, Object> ownership = resumeFeignClient.getResumeOwnership(resumeId);
+        if (ownership == null || !Boolean.TRUE.equals(ownership.get("valid"))) {
+            result.put("code", 400);
+            result.put("msg", "简历不存在或已失效");
+            return result;
+        }
+        Object ownerId = ownership.get("candidateId");
+        if (!(ownerId instanceof Number ownerNum) || ownerNum.longValue() != candidateId) {
+            result.put("code", 403);
+            result.put("msg", "无权使用该简历投递");
+            return result;
+        }
+        Object primaryResumeId = ownership.get("primaryResumeId");
+        if (primaryResumeId instanceof Number primaryNum) {
+            resumeId = primaryNum.longValue();
+        }
+
         JobPost jobPost = jobPostService.getById(request.getJobId());
         if (jobPost == null) {
             result.put("code", 404);
@@ -113,7 +132,7 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         application.setJobTitle(jobPost.getTitle());
         application.setCandidateId(candidateId);
         application.setCandidateName(candidateName);
-        application.setResumeId(request.getResumeId());
+        application.setResumeId(resumeId);
         application.setChannel(channel);
         application.setCurrentStage(JobApplicationConstants.STAGE_RESUME_SUBMITTED);
         application.setStatus(JobApplicationConstants.STATUS_IN_PROGRESS);
@@ -144,6 +163,8 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
             throw new IllegalStateException("岗位投递数更新失败");
         }
 
+        markResumePendingOnDelivery(resumeId, candidateId);
+
         JobApplicationSubmitVO vo = new JobApplicationSubmitVO();
         vo.setId(application.getId());
         vo.setApplicationNo(application.getApplicationNo());
@@ -158,6 +179,26 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         result.put("msg", "投递成功");
         result.put("data", vo);
         return result;
+    }
+
+    private void markResumePendingOnDelivery(Long resumeId, Long candidateId) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("resumeId", resumeId);
+            body.put("candidateId", candidateId);
+            Map<String, Object> res = resumeFeignClient.markPendingOnDelivery(body);
+            if (res == null) {
+                return;
+            }
+            Object code = res.get("code");
+            if (code instanceof Number n && n.intValue() != 200) {
+                throw new IllegalStateException(String.valueOf(res.getOrDefault("msg", "简历状态更新失败")));
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("简历状态更新失败，请稍后重试");
+        }
     }
 
     @Override
@@ -198,6 +239,90 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         result.put("code", 200);
         result.put("msg", "查询成功");
         result.put("data", data);
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> syncLatestApplicationByScreenStatus(SyncScreenStatusRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        if (request == null || request.getCandidateId() == null) {
+            result.put("code", 400);
+            result.put("msg", "candidateId 不能为空");
+            return result;
+        }
+        Integer screenStatus = request.getScreenStatus();
+        if (screenStatus == null || screenStatus < 1 || screenStatus > 4) {
+            result.put("code", 400);
+            result.put("msg", "screenStatus 无效");
+            return result;
+        }
+
+        JobApplication app = getOne(
+                new LambdaQueryWrapper<JobApplication>()
+                        .eq(JobApplication::getCandidateId, request.getCandidateId())
+                        .orderByDesc(JobApplication::getAppliedAt)
+                        .last("LIMIT 1"),
+                false);
+        if (app == null) {
+            result.put("code", 200);
+            result.put("msg", "无投递记录，已跳过同步");
+            result.put("data", Map.of("synced", false));
+            return result;
+        }
+
+        Byte fromStage = app.getCurrentStage();
+        Byte toStage = JobApplicationConstants.stageForScreenStatus(screenStatus);
+        Byte newStatus = JobApplicationConstants.applicationStatusForScreenStatus(screenStatus);
+        LocalDateTime now = LocalDateTime.now();
+
+        app.setCurrentStage(toStage);
+        app.setStatus(newStatus);
+        app.setUpdatedAt(now);
+        if (newStatus == JobApplicationConstants.STATUS_HIRED) {
+            app.setHiredAt(now);
+            app.setRejectedAt(null);
+        } else if (newStatus == JobApplicationConstants.STATUS_REJECTED) {
+            app.setRejectedAt(now);
+            app.setHiredAt(null);
+        } else {
+            app.setHiredAt(null);
+            app.setRejectedAt(null);
+        }
+        if (StringUtils.hasText(request.getRemark())) {
+            app.setRemark(request.getRemark().trim());
+        }
+        if (!updateById(app)) {
+            result.put("code", 500);
+            result.put("msg", "投递状态更新失败");
+            return result;
+        }
+
+        String operatorName = StringUtils.hasText(request.getOperatorName())
+                ? request.getOperatorName().trim()
+                : "HR";
+        ApplicationStageLog stageLog = new ApplicationStageLog();
+        stageLog.setApplicationId(app.getId());
+        stageLog.setFromStage(fromStage);
+        stageLog.setToStage(toStage);
+        stageLog.setOperatorId(request.getOperatorId());
+        stageLog.setOperatorName(operatorName);
+        String note = JobApplicationConstants.actionNoteForScreenStatus(screenStatus);
+        if (StringUtils.hasText(request.getRemark())) {
+            note = note + "：" + request.getRemark().trim();
+        }
+        stageLog.setActionNote(note);
+        if (!applicationStageLogService.save(stageLog)) {
+            throw new IllegalStateException("阶段流转日志保存失败");
+        }
+
+        result.put("code", 200);
+        result.put("msg", "同步成功");
+        result.put("data", Map.of(
+                "synced", true,
+                "applicationId", app.getId(),
+                "currentStage", toStage,
+                "status", newStatus));
         return result;
     }
 

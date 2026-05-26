@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -220,6 +221,8 @@ public class ResumeService {
             applyCandidateProfileToListVo(vo, resume.getCandidateId());
             records.add(vo);
         }
+
+        fillLatestApplicationsForList(records);
 
         Map<String, Object> data = new HashMap<>();
         data.put("total", total);
@@ -459,6 +462,181 @@ public class ResumeService {
     public int hrConsolidateDuplicates(String role) {
         assertHrRole(role);
         return consolidationService.consolidateAllDuplicateCandidatesInDatabase();
+    }
+
+    /** 内部：校验简历归属，返回 candidateId 与主简历 ID */
+    public Map<String, Object> getResumeOwnership(Long resumeId) {
+        Map<String, Object> result = new HashMap<>();
+        if (resumeId == null) {
+            result.put("valid", false);
+            return result;
+        }
+        Resume resume = resumeMapper.selectById(resumeId);
+        if (resume == null || resume.getCandidateId() == null) {
+            result.put("valid", false);
+            return result;
+        }
+        Resume primary = consolidationService.getPrimaryResume(resume.getCandidateId());
+        result.put("valid", true);
+        result.put("candidateId", resume.getCandidateId());
+        result.put("primaryResumeId", primary != null ? primary.getId() : resume.getId());
+        return result;
+    }
+
+    /** 内部：候选人投递成功后，将主简历设为待初筛 */
+    @Transactional(rollbackFor = Exception.class)
+    public Long markPendingOnDelivery(Long resumeId, Long candidateId) {
+        Resume resume = resumeMapper.selectById(resumeId);
+        if (resume == null || !candidateId.equals(resume.getCandidateId())) {
+            throw new IllegalArgumentException("简历不存在或不属于当前候选人");
+        }
+        Resume primary = consolidationService.getPrimaryResume(candidateId);
+        if (primary == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+        primary.setScreenStatus(ResumeConstants.SCREEN_PENDING);
+        primary.setUpdatedAt(LocalDateTime.now());
+        resumeMapper.updateById(primary);
+        return primary.getId();
+    }
+
+    private void fillLatestApplicationsForList(List<HrResumeListVO> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> candidateIds = records.stream()
+                .map(HrResumeListVO::getCandidateId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidateIds.isEmpty()) {
+            return;
+        }
+        Map<Long, Map<String, Object>> appMap = loadLatestApplicationsByCandidates(candidateIds);
+        for (HrResumeListVO vo : records) {
+            Map<String, Object> app = appMap.get(vo.getCandidateId());
+            if (app == null || app.isEmpty()) {
+                continue;
+            }
+            if (app.get("jobTitle") instanceof String title) {
+                vo.setAppliedJobTitle(title);
+            }
+            if (app.get("appliedAt") instanceof LocalDateTime appliedAt) {
+                vo.setAppliedAt(appliedAt);
+            } else if (app.get("appliedAt") instanceof String appliedAtStr) {
+                vo.setAppliedAt(LocalDateTime.parse(appliedAtStr));
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, Map<String, Object>> loadLatestApplicationsByCandidates(List<Long> candidateIds) {
+        Map<Long, Map<String, Object>> result = new HashMap<>();
+        if (candidateIds == null || candidateIds.isEmpty()) {
+            return result;
+        }
+        try {
+            Map<String, Object> res = jobFeignClient.getLatestApplicationsByCandidates(
+                    Map.of("candidateIds", candidateIds));
+            if (res == null || !res.containsKey("items")) {
+                return result;
+            }
+            Object items = res.get("items");
+            if (!(items instanceof Map<?, ?> itemMap)) {
+                return result;
+            }
+            for (Map.Entry<?, ?> entry : itemMap.entrySet()) {
+                Long candidateId = parseLongKey(entry.getKey());
+                if (candidateId == null || !(entry.getValue() instanceof Map<?, ?> brief)) {
+                    continue;
+                }
+                result.put(candidateId, (Map<String, Object>) brief);
+            }
+        } catch (Exception ignored) {
+            // job 服务不可用时列表仍可用
+        }
+        return result;
+    }
+
+    private static Long parseLongKey(Object key) {
+        if (key instanceof Number n) {
+            return n.longValue();
+        }
+        if (key == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(String.valueOf(key));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public HrResumeDetailVO updateHrScreenStatus(
+            String role, Long operatorId, Long resumeId, Integer screenStatus, String remark) {
+        assertHrRole(role);
+        if (!ResumeConstants.isValidScreenStatus(screenStatus)) {
+            throw new IllegalArgumentException("筛选状态无效，应为 1～4");
+        }
+
+        Resume resume = resumeMapper.selectById(resumeId);
+        if (resume == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+
+        Resume primary = consolidationService.getPrimaryResume(resume.getCandidateId());
+        if (primary != null) {
+            resumeId = primary.getId();
+            resume = primary;
+        }
+
+        if (!screenStatus.equals(resume.getScreenStatus())) {
+            resume.setScreenStatus(screenStatus);
+            resume.setUpdatedAt(LocalDateTime.now());
+            resumeMapper.updateById(resume);
+            syncApplicationScreenStatus(resume.getCandidateId(), screenStatus, operatorId, remark);
+        }
+
+        return getHrResumeDetail(role, resumeId);
+    }
+
+    private void syncApplicationScreenStatus(
+            Long candidateId, Integer screenStatus, Long operatorId, String remark) {
+        if (candidateId == null) {
+            return;
+        }
+        Map<String, Object> body = new HashMap<>();
+        body.put("candidateId", candidateId);
+        body.put("screenStatus", screenStatus);
+        if (operatorId != null) {
+            body.put("operatorId", operatorId);
+        }
+        body.put("operatorName", resolveOperatorName(operatorId));
+        if (StringUtils.hasText(remark)) {
+            body.put("remark", remark.trim());
+        }
+        Map<String, Object> res = jobFeignClient.syncApplicationByScreenStatus(body);
+        if (res == null) {
+            return;
+        }
+        Object code = res.get("code");
+        if (code instanceof Number n && n.intValue() != 200) {
+            Object msg = res.get("msg");
+            throw new IllegalStateException(msg != null ? String.valueOf(msg) : "投递状态同步失败");
+        }
+    }
+
+    private String resolveOperatorName(Long operatorId) {
+        if (operatorId == null) {
+            return "HR";
+        }
+        try {
+            String name = authFeignClient.getUserName(operatorId);
+            return StringUtils.hasText(name) ? name.trim() : "HR";
+        } catch (Exception e) {
+            return "HR";
+        }
     }
 
     private OnlineResumeEducationDTO toEducationDto(ResumeEducation e) {
