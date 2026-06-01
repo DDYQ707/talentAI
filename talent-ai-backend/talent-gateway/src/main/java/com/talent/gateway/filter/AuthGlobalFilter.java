@@ -26,7 +26,8 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     // 1. 设置白名单：不需要携带 Token 就能直接访问的接口
     private static final List<String> WHITE_LIST = Arrays.asList(
             "/api/auth/login",
-            "/api/auth/register"
+            "/api/auth/register",
+            "/internal/ai/**"
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

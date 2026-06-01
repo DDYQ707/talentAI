@@ -32,3 +32,13 @@ spring:
           uri: lb://talent-resume
           predicates:
             - Path=/api/resume/**
+        # AI 智能体对外路由
+        - id: ai_route
+          uri: lb://talent-ai-agent
+          predicates:
+            - Path=/api/ai/**
+        # AI 智能体服务间内部路由
+        - id: ai_internal_route
+          uri: lb://talent-ai-agent
+          predicates:
+            - Path=/internal/ai/**

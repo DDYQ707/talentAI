@@ -76,7 +76,7 @@
       <recent name="C:\Users\32805\Desktop\智能招聘与人才画像分析系统\talent-ai-system\talent-ai-backend\talent-common\src\main\java\com\talent\common" />
     </key>
   </component>
-  <component name="RunManager" selected="Spring Boot.TalentResumeApplication">
+  <component name="RunManager" selected="Spring Boot.AuthApplication">
     <configuration name="CodeGenerator (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="CodeGenerator" />
       <module name="talent-job" />
@@ -152,7 +152,7 @@
       <workItem from="1779244405658" duration="12832000" />
       <workItem from="1779335481049" duration="1046000" />
       <workItem from="1779705120512" duration="4524000" />
-      <workItem from="1779787377194" duration="2067000" />
+      <workItem from="1779787377194" duration="2673000" />
     </task>
     <servers />
   </component>
