@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,6 +33,18 @@ public class AiResumeParseResult implements Serializable {
     private String workJson;
 
     private String skillsJson;
+
+    private String projectJson;
+
+    private String certificateJson;
+
+    private BigDecimal totalYears;
+
+    private String industryKeywords;
+
+    private String targetPosition;
+
+    private Integer rawTextLength;
 
     private LocalDateTime createdAt;
 

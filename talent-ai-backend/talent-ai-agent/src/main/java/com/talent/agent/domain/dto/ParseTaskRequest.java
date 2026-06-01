@@ -9,5 +9,13 @@ public class ParseTaskRequest {
 
     private Long resumeId;
 
+    private Long applicationId;
+
+    private Long candidateId;
+
     private Long modelId;
+
+    private String fileName;
+
+    private String fileType;
 }

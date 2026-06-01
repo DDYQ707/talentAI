@@ -27,8 +27,13 @@ public class AiParseServiceImpl implements AiParseService {
         AiParseTask task = new AiParseTask();
         task.setResumeId(request.getResumeId());
         task.setAttachmentId(request.getAttachmentId());
+        task.setApplicationId(request.getApplicationId());
+        task.setCandidateId(request.getCandidateId());
         task.setModelId(request.getModelId());
+        task.setFileName(request.getFileName());
+        task.setFileType(request.getFileType());
         task.setTaskStatus(STATUS_PENDING);
+        task.setRawTextLength(0);
         parseTaskMapper.insert(task);
         return toVO(task);
     }
@@ -64,8 +69,13 @@ public class AiParseServiceImpl implements AiParseService {
         vo.setTaskId(task.getId());
         vo.setResumeId(task.getResumeId());
         vo.setAttachmentId(task.getAttachmentId());
+        vo.setApplicationId(task.getApplicationId());
+        vo.setCandidateId(task.getCandidateId());
         vo.setTaskStatus(task.getTaskStatus());
         vo.setErrorMessage(task.getErrorMessage());
+        vo.setRawTextLength(task.getRawTextLength());
+        vo.setFileName(task.getFileName());
+        vo.setFileType(task.getFileType());
         vo.setStartedAt(task.getStartedAt());
         vo.setFinishedAt(task.getFinishedAt());
         return vo;

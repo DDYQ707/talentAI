@@ -5,21 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/../docs/sql/consolidate_duplicate_resumes.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docs/sql/fix_merge_duplicate_resumes.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docs/sql/talent_resume_db_init.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docs/sql/talent_resume_online_tables.sql" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/constant/JobApplicationConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/constant/JobApplicationConstants.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobInternalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobInternalController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/feign/ResumeFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/feign/ResumeFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IJobApplicationService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/constant/ResumeConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/constant/ResumeConstants.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/FileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/FileController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/HrResumeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/HrResumeController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/OnlineResumeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/OnlineResumeController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/ResumeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/controller/ResumeController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/feign/JobFeignClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/feign/JobFeignClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/ResumeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/service/ResumeService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/vo/HrResumeListVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-resume/src/main/java/com/talent/resume/vo/HrResumeListVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/dto/ParseTaskRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/dto/ParseTaskRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiMatchRecord.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiMatchRecord.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiParseTask.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiParseTask.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiResumeParseResult.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiResumeParseResult.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/MatchResultVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/MatchResultVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/ParseTaskVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/ParseTaskVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiMatchServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiMatchServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiParseServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiParseServiceImpl.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,38 +43,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
-    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
-    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
-    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;jdk.selected.JAVA_MODULE&quot;: &quot;17&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/32805/Desktop/智能招聘与人才画像分析系统/talent-ai-system/talent-ai-backend/talent-common/src/main/java/com/talent/common&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;模块&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.32988507&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;MavenSettings&quot;,
-    &quot;spring.configuration.checksum&quot;: &quot;e9c68ecc29c964efe5b6e0e4dc5b3c69&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "WebServerToolWindowFactoryState": "false",
+    "git-widget-placeholder": "sprint1-ai-match",
+    "jdk.selected.JAVA_MODULE": "17",
+    "last_opened_file_path": "C:/Users/32805/Desktop/智能招聘与人才画像分析系统/talent-ai-system/talent-ai-backend/talent-common/src/main/java/com/talent/common",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "模块",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.32988507",
+    "settings.editor.selected.configurable": "MavenSettings",
+    "spring.configuration.checksum": "e9c68ecc29c964efe5b6e0e4dc5b3c69",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\32805\Desktop\智能招聘与人才画像分析系统\talent-ai-system\talent-ai-backend\talent-common\src\main\java\com\talent\common" />
     </key>
   </component>
-  <component name="RunManager" selected="Spring Boot.AuthApplication">
+  <component name="RunManager">
     <configuration name="CodeGenerator (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="CodeGenerator" />
       <module name="talent-job" />
@@ -93,6 +91,13 @@
           <option name="ENABLED" value="true" />
         </pattern>
       </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="AiAgentApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-ai-agent" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.agent.AiAgentApplication" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -153,6 +158,7 @@
       <workItem from="1779335481049" duration="1046000" />
       <workItem from="1779705120512" duration="4524000" />
       <workItem from="1779787377194" duration="2673000" />
+      <workItem from="1780294729408" duration="1437000" />
     </task>
     <servers />
   </component>

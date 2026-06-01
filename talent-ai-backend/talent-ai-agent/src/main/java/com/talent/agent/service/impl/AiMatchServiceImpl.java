@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AiMatchServiceImpl implements AiMatchService {
 
+    private static final int MATCH_STATUS_PENDING = 0;
+
     private final AiMatchRecordMapper matchRecordMapper;
 
     @Override
@@ -27,6 +29,7 @@ public class AiMatchServiceImpl implements AiMatchService {
         record.setResumeId(request.getResumeId());
         record.setModelId(request.getModelId());
         record.setMatchScore(0);
+        record.setMatchStatus(MATCH_STATUS_PENDING);
         record.setTokenUsed(0);
         matchRecordMapper.insert(record);
         return toVO(record);
@@ -68,9 +71,16 @@ public class AiMatchServiceImpl implements AiMatchService {
         vo.setJobId(record.getJobId());
         vo.setResumeId(record.getResumeId());
         vo.setMatchScore(record.getMatchScore());
+        vo.setMatchStatus(record.getMatchStatus());
+        vo.setMatchLevel(record.getMatchLevel());
+        vo.setMatchReason(record.getMatchReason());
         vo.setAdvantages(record.getAdvantages());
         vo.setDisadvantages(record.getDisadvantages());
+        vo.setSuggestedQuestions(record.getSuggestedQuestions());
         vo.setDimensionScores(record.getDimensionScores());
+        vo.setErrorMessage(record.getErrorMessage());
+        vo.setStartedAt(record.getStartedAt());
+        vo.setFinishedAt(record.getFinishedAt());
         vo.setCreatedAt(record.getCreatedAt());
         return vo;
     }
