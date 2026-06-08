@@ -448,6 +448,12 @@ public class ResumeService {
         if (app.get("matchScore") instanceof Number score) {
             vo.setMatchScore(score.byteValue());
         }
+        if (app.get("applicationId") instanceof Number applicationId) {
+            vo.setApplicationId(applicationId.longValue());
+        }
+        if (app.get("jobId") instanceof Number jobId) {
+            vo.setJobId(jobId.longValue());
+        }
     }
 
     private void fillLatestApplication(HrResumeDetailVO vo, Long resumeId) {
@@ -551,6 +557,9 @@ public class ResumeService {
                 vo.setAppliedAt(appliedAt);
             } else if (app.get("appliedAt") instanceof String appliedAtStr) {
                 vo.setAppliedAt(LocalDateTime.parse(appliedAtStr));
+            }
+            if (app.get("matchScore") instanceof Number score) {
+                vo.setMatchScore(score.byteValue());
             }
         }
     }

@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.talent.job.dto.BatchCandidateIdsRequest;
 import com.talent.job.dto.SyncScreenStatusRequest;
 import com.talent.job.entity.JobApplication;
+import com.talent.job.entity.JobPost;
 import com.talent.job.service.IJobApplicationService;
+import com.talent.job.service.IJobPostService;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class JobInternalController {
 
     private final IJobApplicationService jobApplicationService;
+    private final IJobPostService jobPostService;
 
     @GetMapping("/application/latest-by-resume")
     public Map<String, Object> latestApplicationByResume(@RequestParam("resumeId") Long resumeId) {
@@ -37,6 +40,66 @@ public class JobInternalController {
                         .last("LIMIT 1"),
                 false);
         return toBrief(app);
+    }
+
+    @GetMapping("/application/by-id")
+    public Map<String, Object> applicationById(@RequestParam("applicationId") Long applicationId) {
+        if (applicationId == null) {
+            return Map.of("code", 400, "msg", "applicationId 不能为空");
+        }
+        JobApplication app = jobApplicationService.getById(applicationId);
+        if (app == null) {
+            return Map.of("code", 404, "msg", "投递记录不存在");
+        }
+        Map<String, Object> data = toBrief(app);
+        data.put("applicationId", app.getId());
+        data.put("jobId", app.getJobId());
+        data.put("resumeId", app.getResumeId());
+        data.put("candidateId", app.getCandidateId());
+        return Map.of("code", 200, "msg", "ok", "data", data);
+    }
+
+    @GetMapping("/post/brief")
+    public Map<String, Object> postBrief(@RequestParam("jobId") Long jobId) {
+        if (jobId == null) {
+            return Map.of("code", 400, "msg", "jobId 不能为空");
+        }
+        JobPost post = jobPostService.getById(jobId);
+        if (post == null) {
+            return Map.of("code", 404, "msg", "岗位不存在");
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", post.getId());
+        data.put("title", post.getTitle());
+        data.put("workCity", post.getWorkCity());
+        data.put("jobDescription", post.getJobDescription());
+        data.put("jobRequirements", post.getJobRequirements());
+        data.put("skillTags", post.getSkillTags());
+        data.put("experienceYearsMin", post.getExperienceYearsMin());
+        data.put("educationRequirement", post.getEducationRequirement());
+        return Map.of("code", 200, "msg", "ok", "data", data);
+    }
+
+    @PostMapping("/application/sync-match-score")
+    public Map<String, Object> syncMatchScore(@RequestBody Map<String, Object> body) {
+        if (body == null) {
+            return Map.of("code", 400, "msg", "请求体不能为空");
+        }
+        Long applicationId = longVal(body.get("applicationId"));
+        Integer matchScore = intVal(body.get("matchScore"));
+        if (applicationId == null || matchScore == null) {
+            return Map.of("code", 400, "msg", "applicationId 与 matchScore 不能为空");
+        }
+        JobApplication app = jobApplicationService.getById(applicationId);
+        if (app == null) {
+            return Map.of("code", 404, "msg", "投递记录不存在");
+        }
+        int score = Math.max(0, Math.min(100, matchScore));
+        app.setMatchScore((byte) score);
+        if (!jobApplicationService.updateById(app)) {
+            return Map.of("code", 500, "msg", "匹配分更新失败");
+        }
+        return Map.of("code", 200, "msg", "ok", "data", Map.of("applicationId", applicationId, "matchScore", score));
     }
 
     @GetMapping("/application/latest-by-candidate")
@@ -91,6 +154,38 @@ public class JobInternalController {
         result.put("matchScore", app.getMatchScore());
         result.put("currentStage", app.getCurrentStage());
         result.put("status", app.getStatus());
+        result.put("applicationId", app.getId());
+        result.put("jobId", app.getJobId());
+        result.put("resumeId", app.getResumeId());
+        result.put("candidateId", app.getCandidateId());
         return result;
+    }
+
+    private Long longVal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer intVal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

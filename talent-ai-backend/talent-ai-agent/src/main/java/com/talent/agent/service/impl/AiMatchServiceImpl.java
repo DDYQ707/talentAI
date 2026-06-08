@@ -6,8 +6,10 @@ import com.talent.agent.domain.entity.AiMatchRecord;
 import com.talent.agent.domain.vo.MatchResultVO;
 import com.talent.agent.mapper.AiMatchRecordMapper;
 import com.talent.agent.service.AiMatchService;
+import com.talent.agent.service.AiMatchTaskProcessor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -16,8 +18,10 @@ public class AiMatchServiceImpl implements AiMatchService {
     private static final int MATCH_STATUS_PENDING = 0;
 
     private final AiMatchRecordMapper matchRecordMapper;
+    private final AiMatchTaskProcessor matchTaskProcessor;
 
     @Override
+    @Transactional
     public MatchResultVO submitMatch(MatchRequest request) {
         if (request == null || request.getApplicationId() == null
                 || request.getJobId() == null || request.getResumeId() == null) {
@@ -32,6 +36,8 @@ public class AiMatchServiceImpl implements AiMatchService {
         record.setMatchStatus(MATCH_STATUS_PENDING);
         record.setTokenUsed(0);
         matchRecordMapper.insert(record);
+
+        matchTaskProcessor.processAsync(record.getId(), request);
         return toVO(record);
     }
 

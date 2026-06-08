@@ -5,12 +5,12 @@ import {
   Search,
   LayoutGrid,
   List,
-  Sparkles,
   User,
   Star,
   Eye,
   FileText,
   Briefcase,
+  Sparkles,
 } from 'lucide-vue-next'
 import { consolidateHrResumes, fetchHrResumePage, fetchHrResumePreview, type HrResumeListItem } from '@/api/hrResume'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
@@ -52,6 +52,24 @@ function screenStatusForItem(item: HrResumeListItem) {
 
 function appliedJobLabel(item: HrResumeListItem) {
   return item.appliedJobTitle || '暂无投递记录'
+}
+
+function matchScoreText(item: HrResumeListItem) {
+  const score = item.matchScore
+  if (score == null || score <= 0) return '—'
+  return `${score}%`
+}
+
+function matchScoreClass(item: HrResumeListItem) {
+  const score = item.matchScore ?? 0
+  if (score <= 0) return 'text-muted-foreground'
+  if (score >= 80) return 'text-brand-green font-semibold'
+  if (score >= 60) return 'text-brand-orange font-semibold'
+  return 'text-red-600 font-semibold'
+}
+
+function hasMatchScore(item: HrResumeListItem) {
+  return (item.matchScore ?? 0) > 0
 }
 
 async function enrichListProfile(items: HrResumeListItem[]) {
@@ -186,12 +204,66 @@ onMounted(() => {
       <div class="flex-1 overflow-auto scrollbar-thin p-6">
         <div v-if="loading" class="text-sm text-muted-foreground text-center py-12">加载中...</div>
         <div v-else-if="!filtered.length" class="text-sm text-muted-foreground text-center py-12">暂无简历数据</div>
-        <div v-else :class="viewMode === 'grid' ? 'flex flex-wrap gap-4' : 'flex flex-col gap-3'">
+        <div v-else-if="viewMode === 'list'" class="flex flex-col gap-2">
+          <div
+            class="grid grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_80px_88px_56px] gap-3 px-4 py-2 text-xs font-semibold text-muted-foreground border-b border-border"
+          >
+            <span>候选人</span>
+            <span>应聘岗位</span>
+            <span class="text-center">AI 匹配</span>
+            <span class="text-center">状态</span>
+            <span class="text-center">操作</span>
+          </div>
           <div
             v-for="c in filtered"
             :key="c.id"
-            class="bg-card shadow-card hover:shadow-panel transition-shadow cursor-pointer border border-border hover:border-brand-blue/30"
-            :class="viewMode === 'grid' ? 'w-64 flex-shrink-0' : 'w-full'"
+            class="grid grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_80px_88px_56px] gap-3 items-center px-4 py-3 bg-card border border-border rounded-xl shadow-card hover:border-brand-blue/30 cursor-pointer transition-shadow"
+            @click="goDetail(c)"
+          >
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-full gradient-blue-purple flex items-center justify-center flex-shrink-0">
+                <User :size="14" class="text-white" />
+              </div>
+              <div class="min-w-0">
+                <div class="text-sm font-semibold text-foreground truncate">{{ c.candidateName }}</div>
+                <div class="text-xs text-muted-foreground truncate">{{ c.currentTitle || c.resumeName }}</div>
+                <div v-if="c.fileName" class="text-[11px] text-muted-foreground truncate mt-0.5">{{ c.fileName }}</div>
+              </div>
+            </div>
+            <div class="text-xs text-muted-foreground truncate flex items-center gap-1 min-w-0">
+              <Briefcase :size="12" class="text-brand-purple flex-shrink-0" />
+              <span :class="c.appliedJobTitle ? 'text-foreground' : ''">{{ appliedJobLabel(c) }}</span>
+            </div>
+            <div class="text-center">
+              <span v-if="hasMatchScore(c)" class="inline-flex items-center gap-1 text-sm" :class="matchScoreClass(c)">
+                <Sparkles :size="12" />
+                {{ matchScoreText(c) }}
+              </span>
+              <span v-else class="text-xs text-muted-foreground">—</span>
+            </div>
+            <div class="text-center">
+              <span :class="['text-xs px-2 py-0.5 rounded-full border inline-block', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">
+                {{ screenStatusForItem(c) }}
+              </span>
+            </div>
+            <div class="flex justify-center">
+              <button
+                type="button"
+                class="p-1.5 rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-50"
+                title="预览附件"
+                :disabled="!c.attachmentId || previewingId === c.id"
+                @click="quickPreview(c, $event)"
+              >
+                <Eye :size="14" />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="flex flex-wrap gap-4">
+          <div
+            v-for="c in filtered"
+            :key="c.id"
+            class="bg-card shadow-card hover:shadow-panel transition-shadow cursor-pointer border border-border hover:border-brand-blue/30 w-64 flex-shrink-0"
             @click="goDetail(c)"
           >
             <div class="p-4">
@@ -223,6 +295,13 @@ onMounted(() => {
                 <span class="truncate" :class="c.appliedJobTitle ? 'text-foreground' : 'text-muted-foreground'">
                   应聘：{{ appliedJobLabel(c) }}
                 </span>
+              </div>
+              <div
+                v-if="hasMatchScore(c)"
+                class="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 rounded-lg bg-accent border border-brand-border/40 w-fit"
+              >
+                <Sparkles :size="12" class="text-brand-purple" />
+                <span class="text-sm" :class="matchScoreClass(c)">AI 匹配 {{ matchScoreText(c) }}</span>
               </div>
               <div class="flex items-center justify-between">
                 <span :class="['text-xs px-2 py-0.5 rounded-full border', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">

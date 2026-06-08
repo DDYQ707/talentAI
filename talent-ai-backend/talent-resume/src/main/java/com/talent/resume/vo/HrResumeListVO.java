@@ -41,4 +41,7 @@ public class HrResumeListVO {
     private String appliedJobTitle;
 
     private LocalDateTime appliedAt;
+
+    /** 最近投递的 AI 匹配分 0-100 */
+    private Byte matchScore;
 }

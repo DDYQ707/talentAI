@@ -9,8 +9,10 @@ import com.talent.job.dto.SyncScreenStatusRequest;
 import com.talent.job.entity.ApplicationStageLog;
 import com.talent.job.entity.JobApplication;
 import com.talent.job.entity.JobPost;
+import com.talent.job.feign.AiFeignClient;
 import com.talent.job.feign.AuthFeignClient;
 import com.talent.job.feign.ResumeFeignClient;
+import lombok.extern.slf4j.Slf4j;
 import com.talent.job.mapper.JobApplicationMapper;
 import com.talent.job.service.IApplicationStageLogService;
 import com.talent.job.service.IJobApplicationService;
@@ -34,6 +36,7 @@ import java.util.stream.Collectors;
 /**
  * 投递申请表（talent-job库） 服务实现类
  */
+@Slf4j
 @Service
 public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper, JobApplication> implements IJobApplicationService {
 
@@ -48,6 +51,9 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
 
     @Autowired
     private ResumeFeignClient resumeFeignClient;
+
+    @Autowired
+    private AiFeignClient aiFeignClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -164,6 +170,7 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         }
 
         markResumePendingOnDelivery(resumeId, candidateId);
+        triggerAiParseOnDelivery(application);
 
         JobApplicationSubmitVO vo = new JobApplicationSubmitVO();
         vo.setId(application.getId());
@@ -198,6 +205,85 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
             throw e;
         } catch (Exception e) {
             throw new IllegalStateException("简历状态更新失败，请稍后重试");
+        }
+    }
+
+    /** 投递成功后触发 AI 简历解析；失败不影响主流程 */
+    private void triggerAiParseOnDelivery(JobApplication application) {
+        if (application == null || application.getResumeId() == null) {
+            return;
+        }
+        try {
+            Map<String, Object> brief = resumeFeignClient.getResumeBrief(application.getResumeId());
+            if (brief == null) {
+                log.warn("投递后触发 AI 解析跳过：简历摘要为空 applicationId={}", application.getId());
+                return;
+            }
+            Object code = brief.get("code");
+            if (!(code instanceof Number codeNum) || codeNum.intValue() != 200) {
+                log.warn(
+                        "投递后触发 AI 解析跳过：简历摘要查询失败 applicationId={} resumeId={} msg={}",
+                        application.getId(),
+                        application.getResumeId(),
+                        brief.get("msg"));
+                return;
+            }
+            Object data = brief.get("data");
+            if (!(data instanceof Map<?, ?> dataMap)) {
+                log.warn(
+                        "投递后触发 AI 解析跳过：无附件数据 applicationId={} resumeId={}",
+                        application.getId(),
+                        application.getResumeId());
+                return;
+            }
+            Long attachmentId = longVal(dataMap.get("attachmentId"));
+            if (attachmentId == null) {
+                log.info(
+                        "投递后触发 AI 解析跳过：在线简历无附件 applicationId={} resumeId={}",
+                        application.getId(),
+                        application.getResumeId());
+                return;
+            }
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("attachmentId", attachmentId);
+            body.put("resumeId", application.getResumeId());
+            body.put("applicationId", application.getId());
+            body.put("candidateId", application.getCandidateId());
+            body.put("fileName", stringVal(dataMap.get("fileName")));
+            body.put("fileType", stringVal(dataMap.get("fileType")));
+
+            Map<String, Object> res = aiFeignClient.submitParse(body);
+            if (res == null) {
+                log.warn("投递后触发 AI 解析无响应 applicationId={} attachmentId={}", application.getId(), attachmentId);
+                return;
+            }
+            Object aiCode = res.get("code");
+            if (aiCode instanceof Number aiCodeNum && aiCodeNum.intValue() == 200) {
+                Object aiData = res.get("data");
+                Long taskId = null;
+                if (aiData instanceof Map<?, ?> aiDataMap) {
+                    taskId = longVal(aiDataMap.get("taskId"));
+                }
+                log.info(
+                        "投递后已触发 AI 解析 applicationId={} resumeId={} attachmentId={} taskId={}",
+                        application.getId(),
+                        application.getResumeId(),
+                        attachmentId,
+                        taskId);
+                return;
+            }
+            log.warn(
+                    "投递后触发 AI 解析失败 applicationId={} attachmentId={} msg={}",
+                    application.getId(),
+                    attachmentId,
+                    res.get("msg"));
+        } catch (Exception e) {
+            log.warn(
+                    "投递后触发 AI 解析异常 applicationId={} resumeId={} reason={}",
+                    application.getId(),
+                    application.getResumeId(),
+                    e.getMessage());
         }
     }
 

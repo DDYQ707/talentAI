@@ -25,6 +25,7 @@ export interface HrResumeListItem {
   updatedAt?: string
   appliedJobTitle?: string
   appliedAt?: string
+  matchScore?: number | null
 }
 
 export interface HrResumePageData {
@@ -58,6 +59,8 @@ export interface HrResumeDetail {
   matchScore?: number
   appliedJobTitle?: string
   appliedAt?: string
+  applicationId?: number
+  jobId?: number
   educations?: OnlineEducation[]
   workExperiences?: OnlineWorkExperience[]
   skills?: OnlineSkill[]

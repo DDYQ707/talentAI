@@ -196,7 +196,7 @@ public interface AiFeignClient {
 
 ## 5. 核心业务：投递触发 AI 解析
 
-这是 MVP 最关键的 API 闭环，也是当前**尚未完全接通**的部分。
+Sprint2 已完成：**投递 → 文本抽取 → LLM 结构化 → 人岗匹配** 全链路已在后端打通；HR 简历详情页（`ResumeDetailView`）已接入 `/api/ai/**` 查询接口展示匹配结果。
 
 ### 5.1 目标流程
 
@@ -211,17 +211,15 @@ talent-job：创建 job_application    ← 已实现
     │
     ├─► POST /api/resume/internal/on-delivery   ← 已实现（改 screenStatus=待初筛）
     │
-    └─► POST /internal/ai/parse/submit          ← ⚠️ API 已有，投递侧尚未调用
+    └─► POST /internal/ai/parse/submit          ← ✅ Sprint2-B 已实现（投递成功后 Feign 触发）
             │
             ▼
         talent-ai-agent：创建 ai_parse_task，@Async 异步处理
             │
             ├─► GET /api/resume/internal/attachment/{id}   ← 查 MinIO 信息
             ├─► MinIO 下载文件
-            ├─► PDF/Word 文本抽取                        ← Sprint 1 已实现
-            └─► （待做）通义千问 JSON 结构化 → ai_resume_parse_result
-                    │
-                    └─► （待做）POST /internal/ai/match/submit → 人岗匹配
+            ├─► PDF/Word 文本抽取 + 通义千问 JSON 结构化 → ai_resume_parse_result  ← ✅ Sprint2-A
+            └─► POST /internal/ai/match/submit → LLM 人岗匹配 → ai_match_record      ← ✅ Sprint2-C
 ```
 
 ### 5.2 前端投递 API

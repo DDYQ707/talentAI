@@ -59,6 +59,10 @@ public class HrResumeDetailVO {
 
     private LocalDateTime appliedAt;
 
+    private Long applicationId;
+
+    private Long jobId;
+
   /** 在线简历内容 */
     private List<OnlineResumeEducationDTO> educations;
 

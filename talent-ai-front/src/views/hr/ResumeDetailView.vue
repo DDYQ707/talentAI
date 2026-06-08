@@ -19,6 +19,16 @@ import {
 } from 'lucide-vue-next'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
 import { fetchHrResumeDetail, fetchHrResumePreview, updateHrScreenStatus, type HrResumeDetail } from '@/api/hrResume'
+import {
+  aiTaskStatusLabel,
+  fetchAiMatchByApplication,
+  fetchAiMatchLatest,
+  fetchAiParseLatest,
+  parseDimensionScores,
+  parseJsonStringArray,
+  type AiMatchResult,
+  type AiParseTaskResult,
+} from '@/api/ai'
 import { openResumePreview } from '@/api/resume'
 import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
 import { formatDegree, formatResumePeriod } from '@/utils/resumeFormat'
@@ -32,6 +42,9 @@ const pdfPreviewUrl = ref('')
 const previewLoading = ref(false)
 const statusUpdating = ref(false)
 const statusSuccessMsg = ref('')
+const aiMatch = ref<AiMatchResult | null>(null)
+const aiParse = ref<AiParseTaskResult | null>(null)
+const aiLoading = ref(false)
 
 const resumeId = computed(() => {
   const id = Number(route.query.id)
@@ -53,7 +66,7 @@ const candidate = computed(() => ({
   location: detail.value?.city ?? '—',
   phone: detail.value?.phone ?? '—',
   email: detail.value?.email ?? '—',
-  match: detail.value?.matchScore ?? 0,
+  match: aiMatch.value?.matchScore ?? detail.value?.matchScore ?? 0,
   status: screenStatusLabel(detail.value?.screenStatus),
   appliedJob: detail.value?.appliedJobTitle || '暂无投递记录',
   appliedDate: formatDateTime(detail.value?.appliedAt),
@@ -132,10 +145,19 @@ const skills = computed(() =>
   })),
 )
 
-const hasAiPortrait = computed(() => (detail.value?.matchScore ?? 0) > 0)
+const hasAiPortrait = computed(() => {
+  if (aiMatch.value?.matchStatus === 2 && (aiMatch.value.matchScore ?? 0) > 0) return true
+  return (detail.value?.matchScore ?? 0) > 0
+})
+
+const matchAdvantages = computed(() => parseJsonStringArray(aiMatch.value?.advantages))
+const matchDisadvantages = computed(() => parseJsonStringArray(aiMatch.value?.disadvantages))
+const matchQuestions = computed(() => parseJsonStringArray(aiMatch.value?.suggestedQuestions))
 
 const radarData = computed(() => {
-  const base = detail.value?.matchScore ?? 0
+  const fromAi = parseDimensionScores(aiMatch.value?.dimensionScores)
+  if (fromAi.length > 0) return fromAi
+  const base = aiMatch.value?.matchScore ?? detail.value?.matchScore ?? 0
   if (base <= 0) return []
   return [
     { subject: '技术能力', value: Math.min(100, base + 5) },
@@ -146,6 +168,37 @@ const radarData = computed(() => {
     { subject: '薪资匹配', value: Math.min(100, base - 2) },
   ]
 })
+
+const aiSummaryText = computed(() => {
+  if (aiMatch.value?.matchStatus === 2 && aiMatch.value.matchReason) {
+    return aiMatch.value.matchReason
+  }
+  if (detail.value?.summary) {
+    return '基于候选人简历摘要与档案信息，建议结合岗位需求进一步评估。'
+  }
+  return '暂无 AI 评价，请先完善候选人简历或等待 AI 解析完成。'
+})
+
+const parseStatusText = computed(() => aiTaskStatusLabel(aiParse.value?.taskStatus))
+
+async function loadAiInsights(data: HrResumeDetail) {
+  if (!resumeId.value) return
+  aiLoading.value = true
+  aiMatch.value = null
+  aiParse.value = null
+  try {
+    aiParse.value = await fetchAiParseLatest(resumeId.value)
+    if (data.applicationId) {
+      aiMatch.value = await fetchAiMatchByApplication(data.applicationId)
+    } else if (data.jobId) {
+      aiMatch.value = await fetchAiMatchLatest(resumeId.value, data.jobId)
+    }
+  } catch {
+    /* AI 服务不可用时保留简历基础数据 */
+  } finally {
+    aiLoading.value = false
+  }
+}
 
 async function loadDetail() {
   if (!resumeId.value) {
@@ -176,6 +229,7 @@ async function loadDetail() {
         /* 档案走 auth 直连，失败时仍展示简历服务返回的数据 */
       }
     }
+    await loadAiInsights(detail.value)
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '简历详情加载失败')
     detail.value = null
@@ -250,7 +304,17 @@ const radarOption = computed<EChartsOption>(() => ({
       </div>
       <div class="bg-accent rounded-2xl p-4 mb-4 text-center border border-brand-border/50">
         <div class="text-3xl font-black text-brand-purple mb-1">{{ candidate.match }}%</div>
-        <div class="text-xs text-muted-foreground">AI综合匹配度</div>
+        <div class="text-xs text-muted-foreground">
+          AI综合匹配度
+          <span v-if="aiMatch?.matchLevel" class="ml-1 text-brand-purple">· {{ aiMatch.matchLevel }}</span>
+        </div>
+      </div>
+      <div v-if="aiParse" class="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
+        <div class="text-xs text-muted-foreground">简历解析</div>
+        <div class="text-xs font-medium text-foreground mt-0.5">{{ parseStatusText }}</div>
+        <div v-if="aiParse.taskStatus === 3 && aiParse.errorMessage" class="text-xs text-red-600 mt-1">
+          {{ aiParse.errorMessage }}
+        </div>
       </div>
       <div class="space-y-3 mb-4">
         <div
@@ -423,12 +487,35 @@ const radarOption = computed<EChartsOption>(() => ({
       <div v-if="hasAiPortrait && radarData.length" class="bg-muted rounded-2xl p-3 mb-4">
         <VChart :option="radarOption" autoresize style="height: 180px" />
       </div>
+      <p v-else-if="aiLoading" class="text-xs text-muted-foreground mb-4">AI 分析加载中...</p>
       <p v-else class="text-xs text-muted-foreground mb-4">暂无 AI 画像数据，完成投递匹配后将展示</p>
       <div class="bg-accent rounded-xl p-4 mb-4 border border-brand-border/50">
         <div class="text-xs font-semibold text-brand-purple mb-2">AI综合评价</div>
-        <p class="text-xs text-muted-foreground">
-          {{ detail?.summary ? '基于候选人简历摘要与档案信息，建议结合岗位需求进一步评估。' : '暂无 AI 评价，请先完善候选人简历或等待 AI 解析完成。' }}
-        </p>
+        <p class="text-xs text-muted-foreground leading-relaxed">{{ aiSummaryText }}</p>
+      </div>
+      <div v-if="matchAdvantages.length" class="mb-4">
+        <div class="text-xs font-semibold text-brand-green mb-2">匹配优势</div>
+        <ul class="space-y-1.5">
+          <li v-for="(item, i) in matchAdvantages" :key="i" class="text-xs text-muted-foreground leading-relaxed">
+            · {{ item }}
+          </li>
+        </ul>
+      </div>
+      <div v-if="matchDisadvantages.length" class="mb-4">
+        <div class="text-xs font-semibold text-red-600 mb-2">待提升点</div>
+        <ul class="space-y-1.5">
+          <li v-for="(item, i) in matchDisadvantages" :key="i" class="text-xs text-muted-foreground leading-relaxed">
+            · {{ item }}
+          </li>
+        </ul>
+      </div>
+      <div v-if="matchQuestions.length" class="mb-4">
+        <div class="text-xs font-semibold text-brand-blue mb-2">建议面试问题</div>
+        <ul class="space-y-1.5">
+          <li v-for="(item, i) in matchQuestions" :key="i" class="text-xs text-muted-foreground leading-relaxed">
+            {{ i + 1 }}. {{ item }}
+          </li>
+        </ul>
       </div>
     </div>
   </div>
