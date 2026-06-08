@@ -6,6 +6,7 @@ import com.talent.agent.domain.entity.AiParseTask;
 import com.talent.agent.domain.vo.ParseTaskVO;
 import com.talent.agent.mapper.AiParseTaskMapper;
 import com.talent.agent.service.AiParseService;
+import com.talent.agent.service.AiParseTaskProcessor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ public class AiParseServiceImpl implements AiParseService {
     private static final int STATUS_PENDING = 0;
 
     private final AiParseTaskMapper parseTaskMapper;
+    private final AiParseTaskProcessor parseTaskProcessor;
 
     @Override
     @Transactional
@@ -35,6 +37,8 @@ public class AiParseServiceImpl implements AiParseService {
         task.setTaskStatus(STATUS_PENDING);
         task.setRawTextLength(0);
         parseTaskMapper.insert(task);
+
+        parseTaskProcessor.processAsync(task.getId(), request);
         return toVO(task);
     }
 

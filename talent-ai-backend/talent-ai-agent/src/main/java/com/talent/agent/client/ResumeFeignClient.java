@@ -14,4 +14,7 @@ public interface ResumeFeignClient {
 
     @GetMapping("/api/resume/internal/ownership")
     Map<String, Object> getResumeOwnership(@RequestParam("resumeId") Long resumeId);
+
+    @GetMapping("/api/resume/internal/attachment/{attachmentId}")
+    Map<String, Object> getAttachmentById(@PathVariable("attachmentId") Long attachmentId);
 }

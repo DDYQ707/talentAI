@@ -483,6 +483,32 @@ public class ResumeService {
         return result;
     }
 
+    /** 内部：按附件 ID 返回 MinIO 存储信息（供 AI 解析服务下载文件） */
+    public Map<String, Object> getAttachmentForInternal(Long attachmentId) {
+        if (attachmentId == null) {
+            throw new IllegalArgumentException("attachmentId 不能为空");
+        }
+        ResumeAttachment att = attachmentMapper.selectById(attachmentId);
+        if (att == null) {
+            throw new IllegalArgumentException("附件不存在");
+        }
+        if (att.getUploadStatus() == null || att.getUploadStatus() != ResumeConstants.UPLOAD_STATUS_SUCCESS) {
+            throw new IllegalArgumentException("附件尚未上传成功");
+        }
+        if (!StringUtils.hasText(att.getBucketName()) || !StringUtils.hasText(att.getObjectKey())) {
+            throw new IllegalArgumentException("附件存储信息不完整");
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("attachmentId", att.getId());
+        data.put("resumeId", att.getResumeId());
+        data.put("fileName", att.getFileName());
+        data.put("fileType", att.getFileType());
+        data.put("fileSize", att.getFileSize());
+        data.put("bucketName", att.getBucketName());
+        data.put("objectKey", att.getObjectKey());
+        return data;
+    }
+
     /** 内部：候选人投递成功后，将主简历设为待初筛 */
     @Transactional(rollbackFor = Exception.class)
     public Long markPendingOnDelivery(Long resumeId, Long candidateId) {
