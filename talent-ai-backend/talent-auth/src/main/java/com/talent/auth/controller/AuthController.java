@@ -57,6 +57,42 @@ public class AuthController {
         return candidateMyProfileService.getProfileBrief(userId);
     }
 
+    /** 微服务内部：用户简要信息（安排面试、查昵称） */
+    @GetMapping("/internal/user/brief")
+    public Map<String, Object> internalUserBrief(@RequestParam("userId") Long userId) {
+        Map<String, Object> result = new HashMap<>();
+        if (userId == null) {
+            result.put("code", 400);
+            result.put("msg", "userId 不能为空");
+            return result;
+        }
+        SysUser user = sysUserService.getById(userId);
+        if (user == null) {
+            result.put("code", 404);
+            result.put("msg", "用户不存在");
+            return result;
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", user.getId());
+        data.put("nickname", resolveDisplayName(user));
+        data.put("userType", user.getUserType());
+        data.put("account", user.getUsername());
+        result.put("code", 200);
+        result.put("msg", "ok");
+        result.put("data", data);
+        return result;
+    }
+
+    private String resolveDisplayName(SysUser user) {
+        if (user.getNickname() != null && !user.getNickname().isBlank()) {
+            return user.getNickname().trim();
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername().trim();
+        }
+        return "用户";
+    }
+
     @PostMapping("/login")
     public Map<String, Object> login(@RequestParam("username") String username,
                                      @RequestParam("password") String password) {

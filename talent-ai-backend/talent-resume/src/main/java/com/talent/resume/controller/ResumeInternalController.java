@@ -1,5 +1,6 @@
 package com.talent.resume.controller;
 
+import com.talent.resume.dto.InternalScreenSyncRequest;
 import com.talent.resume.dto.OnDeliveryScreenRequest;
 import com.talent.resume.service.ResumeService;
 import java.util.Map;
@@ -46,6 +47,25 @@ public class ResumeInternalController {
         try {
             Long primaryResumeId = resumeService.markPendingOnDelivery(request.getResumeId(), request.getCandidateId());
             return Map.of("code", 200, "msg", "ok", "primaryResumeId", primaryResumeId);
+        } catch (IllegalArgumentException e) {
+            return Map.of("code", 400, "msg", e.getMessage());
+        }
+    }
+
+    /** 微服务内部：同步主简历筛选状态 */
+    @PostMapping("/sync-screen-status")
+    public Map<String, Object> syncScreenStatus(@RequestBody InternalScreenSyncRequest request) {
+        if (request == null || request.getCandidateId() == null || request.getScreenStatus() == null) {
+            return Map.of("code", 400, "msg", "candidateId 与 screenStatus 不能为空");
+        }
+        try {
+            resumeService.internalSyncScreenStatus(
+                    request.getResumeId(),
+                    request.getCandidateId(),
+                    request.getScreenStatus(),
+                    request.getOperatorId(),
+                    request.getRemark());
+            return Map.of("code", 200, "msg", "ok");
         } catch (IllegalArgumentException e) {
             return Map.of("code", 400, "msg", e.getMessage());
         }

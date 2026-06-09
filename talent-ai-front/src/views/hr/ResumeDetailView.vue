@@ -33,6 +33,7 @@ import { openResumePreview } from '@/api/resume'
 import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
 import { formatDegree, formatResumePeriod } from '@/utils/resumeFormat'
 import { getErrorMessage } from '@/utils/validators'
+import InterviewScheduleDialog from '@/components/hr/InterviewScheduleDialog.vue'
 
 const route = useRoute()
 const detail = ref<HrResumeDetail | null>(null)
@@ -45,6 +46,8 @@ const statusSuccessMsg = ref('')
 const aiMatch = ref<AiMatchResult | null>(null)
 const aiParse = ref<AiParseTaskResult | null>(null)
 const aiLoading = ref(false)
+const scheduleOpen = ref(false)
+const scheduleSuccessMsg = ref('')
 
 const resumeId = computed(() => {
   const id = Number(route.query.id)
@@ -75,6 +78,13 @@ const candidate = computed(() => ({
 }))
 
 const currentScreenStatus = computed(() => detail.value?.screenStatus ?? RESUME_SCREEN_STATUS.PENDING)
+
+const canScheduleInterview = computed(() => !!detail.value?.applicationId && detail.value.applicationId > 0)
+
+function handleScheduleSuccess() {
+  scheduleSuccessMsg.value = '面试已安排成功'
+  void loadDetail()
+}
 
 interface ScreenAction {
   label: string
@@ -356,7 +366,14 @@ const radarOption = computed<EChartsOption>(() => ({
         </div>
       </div>
       <div class="flex flex-col gap-2">
-        <button type="button" class="w-full py-2.5 rounded-control gradient-blue text-white text-sm font-medium flex items-center justify-center gap-2">
+        <p v-if="scheduleSuccessMsg" class="text-xs text-brand-green">{{ scheduleSuccessMsg }}</p>
+        <button
+          type="button"
+          class="w-full py-2.5 rounded-control gradient-blue text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+          :disabled="!canScheduleInterview"
+          :title="canScheduleInterview ? '' : '需先有投递记录'"
+          @click="scheduleOpen = true"
+        >
           <Calendar :size="14" />
           <span>安排面试</span>
         </button>
@@ -519,4 +536,13 @@ const radarOption = computed<EChartsOption>(() => ({
       </div>
     </div>
   </div>
+
+  <InterviewScheduleDialog
+    :open="scheduleOpen"
+    :application-id="detail?.applicationId ?? null"
+    :candidate-name="detail?.candidateName"
+    :job-title="detail?.appliedJobTitle"
+    @close="scheduleOpen = false"
+    @success="handleScheduleSuccess"
+  />
 </template>

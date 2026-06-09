@@ -42,3 +42,13 @@ spring:
           uri: lb://talent-ai-agent
           predicates:
             - Path=/internal/ai/**
+        # 面试管理路由
+        - id: interview_route
+          uri: lb://talent-interview
+          predicates:
+            - Path=/api/interview/**
+        # 面试服务间内部路由
+        - id: interview_internal_route
+          uri: lb://talent-interview
+          predicates:
+            - Path=/internal/interview/**

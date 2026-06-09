@@ -27,7 +27,9 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     private static final List<String> WHITE_LIST = Arrays.asList(
             "/api/auth/login",
             "/api/auth/register",
-            "/internal/ai/**"
+            "/internal/ai/**",
+            "/internal/interview/**",
+            "/api/interview/internal/**"
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

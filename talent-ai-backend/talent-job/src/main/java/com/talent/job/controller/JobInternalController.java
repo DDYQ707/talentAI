@@ -56,6 +56,7 @@ public class JobInternalController {
         data.put("jobId", app.getJobId());
         data.put("resumeId", app.getResumeId());
         data.put("candidateId", app.getCandidateId());
+        data.put("candidateName", app.getCandidateName());
         return Map.of("code", 200, "msg", "ok", "data", data);
     }
 
@@ -158,6 +159,7 @@ public class JobInternalController {
         result.put("jobId", app.getJobId());
         result.put("resumeId", app.getResumeId());
         result.put("candidateId", app.getCandidateId());
+        result.put("candidateName", app.getCandidateName());
         return result;
     }
 

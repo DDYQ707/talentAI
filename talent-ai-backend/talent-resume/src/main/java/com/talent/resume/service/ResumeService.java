@@ -532,6 +532,36 @@ public class ResumeService {
         return primary.getId();
     }
 
+    /** 微服务内部：同步主简历筛选状态（安排面试等场景） */
+    @Transactional(rollbackFor = Exception.class)
+    public void internalSyncScreenStatus(
+            Long resumeId, Long candidateId, Integer screenStatus, Long operatorId, String remark) {
+        if (candidateId == null) {
+            throw new IllegalArgumentException("candidateId 不能为空");
+        }
+        if (!ResumeConstants.isValidScreenStatus(screenStatus)) {
+            throw new IllegalArgumentException("筛选状态无效，应为 1～4");
+        }
+
+        Resume primary = consolidationService.getPrimaryResume(candidateId);
+        if (primary == null && resumeId != null) {
+            primary = resumeMapper.selectById(resumeId);
+        }
+        if (primary == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+        if (!candidateId.equals(primary.getCandidateId())) {
+            throw new IllegalArgumentException("简历与候选人不匹配");
+        }
+
+        if (!screenStatus.equals(primary.getScreenStatus())) {
+            primary.setScreenStatus(screenStatus);
+            primary.setUpdatedAt(LocalDateTime.now());
+            resumeMapper.updateById(primary);
+            syncApplicationScreenStatus(candidateId, screenStatus, operatorId, remark);
+        }
+    }
+
     private void fillLatestApplicationsForList(List<HrResumeListVO> records) {
         if (records == null || records.isEmpty()) {
             return;

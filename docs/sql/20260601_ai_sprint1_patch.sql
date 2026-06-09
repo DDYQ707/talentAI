@@ -1,7 +1,9 @@
 -- talent-ai-agent Sprint 1 增量补丁
 -- 基准：docs/sql/talent_ai_schema.sql
 -- 目标库：talent_ai_db
--- 说明：仅 ALTER / INSERT，不含 DROP TABLE
+--
+-- ⚠️ 已合并至 docs/sql/talent_ai_agent_schema.sql（新环境无需再执行本文件）
+-- 本文件仅保留给「早期已建库、需增量升级」的旧环境使用。
 
 USE `talent_ai_db`;
 

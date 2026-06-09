@@ -1,7 +1,18 @@
 -- =============================================================================
 -- TalentAI 智能招聘与人才画像分析系统
--- MySQL 8.0 DDL  v1.1
+-- MySQL 8.0 DDL  v1.1  【全量参考版】
 -- 字符集: utf8mb4 | 引擎: InnoDB
+--
+-- ⚠️ 本地/队友初始化请使用按微服务拆分的可执行脚本（含 CREATE DATABASE）：
+--     docs/sql/README.md
+--     docs/sql/talent_auth_schema.sql
+--     docs/sql/talent_job_schema.sql
+--     docs/sql/talent_resume_schema.sql
+--     docs/sql/talent_interview_schema.sql
+--     docs/sql/talent_pool_schema.sql
+--     docs/sql/talent_ai_agent_schema.sql
+--
+-- 本文件用途：设计文档 / ER 总览（单库视角，不含 CREATE DATABASE）
 --
 -- 微服务说明：
 --   - MVP 可单库部署；生产按服务拆库（talent_auth_db / talent_job_db 等）

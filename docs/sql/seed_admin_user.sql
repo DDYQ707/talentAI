@@ -1,5 +1,7 @@
 -- 开发环境默认管理员：用户名 admin，密码 123456
--- 执行前请确认已创建 talent_ai 库及 sys_user 表（见 talent_ai_schema.sql）
+-- 执行前请先运行 docs/sql/talent_auth_schema.sql
+
+USE `talent_auth_db`;
 
 DELETE FROM `sys_user` WHERE `username` = 'admin' AND `is_deleted` = 0;
 
