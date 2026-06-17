@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.talent.pool.mapper.TalentPoolRecordMapper">
+
+    <!-- 标签 VO 映射 -->
+    <resultMap id="tagVoMap" type="com.talent.pool.vo.TalentTagVO">
+        <id column="tag_id" property="id"/>
+        <result column="tag_name" property="tagName"/>
+        <result column="tag_type" property="tagType"/>
+    </resultMap>
+
+    <!-- 人才库记录 VO（含嵌套标签列表） -->
+    <resultMap id="poolRecordVoMap" type="com.talent.pool.vo.TalentPoolRecordVO">
+        <id column="id" property="id"/>
+        <result column="candidate_id" property="candidateId"/>
+        <result column="candidate_name" property="candidateName"/>
+        <result column="current_title" property="currentTitle"/>
+        <result column="resume_id" property="resumeId"/>
+        <result column="source_application_id" property="sourceApplicationId"/>
+        <result column="talent_category" property="talentCategory"/>
+        <result column="job_seeking_status" property="jobSeekingStatus"/>
+        <result column="match_score" property="matchScore"/>
+        <result column="current_company" property="currentCompany"/>
+        <result column="is_saved" property="isSaved"/>
+        <result column="archive_reason" property="archiveReason"/>
+        <result column="archived_by" property="archivedBy"/>
+        <result column="archived_at" property="archivedAt"/>
+        <result column="created_at" property="createdAt"/>
+        <collection property="tags" resultMap="tagVoMap" notNullColumn="tag_id"/>
+    </resultMap>
+
+    <!-- 分页查询人才库（含标签） -->
+    <select id="selectPoolRecordPage" resultMap="poolRecordVoMap">
+        SELECT
+            r.id,
+            r.candidate_id,
+            r.candidate_name,
+            r.current_title,
+            r.resume_id,
+            r.source_application_id,
+            r.talent_category,
+            r.job_seeking_status,
+            r.match_score,
+            r.current_company,
+            r.is_saved,
+            r.archive_reason,
+            r.archived_by,
+            r.archived_at,
+            r.created_at,
+            t.id   AS tag_id,
+            t.tag_name,
+            t.tag_type
+        FROM talent_pool_record r
+        LEFT JOIN talent_pool_tag pt ON pt.pool_record_id = r.id AND pt.is_deleted = 0
+        LEFT JOIN talent_tag t ON t.id = pt.tag_id AND t.is_deleted = 0
+        <where>
+            r.is_deleted = 0
+            <if test="jobSeekingStatus != null">
+                AND r.job_seeking_status = #{jobSeekingStatus}
+            </if>
+            <if test="minScore != null">
+                AND r.match_score &gt;= #{minScore}
+            </if>
+            <if test="maxScore != null">
+                AND r.match_score &lt;= #{maxScore}
+            </if>
+        </where>
+        ORDER BY r.archived_at DESC
+    </select>
+
+</mapper>
