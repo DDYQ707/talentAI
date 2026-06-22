@@ -1,6 +1,7 @@
 package com.talent.job.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.talent.job.dto.BatchCandidateIdsRequest;
 import com.talent.job.dto.SyncScreenStatusRequest;
 import com.talent.job.entity.JobApplication;
@@ -9,8 +10,11 @@ import com.talent.job.service.IJobApplicationService;
 import com.talent.job.service.IJobPostService;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -57,6 +61,38 @@ public class JobInternalController {
         data.put("resumeId", app.getResumeId());
         data.put("candidateId", app.getCandidateId());
         data.put("candidateName", app.getCandidateName());
+        return Map.of("code", 200, "msg", "ok", "data", data);
+    }
+
+    /** AI 助手：分页查询岗位列表 */
+    @GetMapping("/post/list")
+    public Map<String, Object> postList(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "size", defaultValue = "10") Integer size,
+            @RequestParam(value = "status", required = false) Byte status) {
+        int pageNum = current != null && current > 0 ? current : 1;
+        int pageSize = size != null && size > 0 ? Math.min(size, 20) : 10;
+
+        LambdaQueryWrapper<JobPost> queryWrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            queryWrapper.like(JobPost::getTitle, keyword.trim());
+        }
+        if (status != null) {
+            queryWrapper.eq(JobPost::getStatus, status);
+        }
+        queryWrapper.orderByDesc(JobPost::getCreatedAt);
+
+        Page<JobPost> pageResult = jobPostService.page(new Page<>(pageNum, pageSize), queryWrapper);
+        List<Map<String, Object>> records = pageResult.getRecords().stream()
+                .map(this::toPostSummary)
+                .collect(Collectors.toList());
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("total", pageResult.getTotal());
+        data.put("current", pageResult.getCurrent());
+        data.put("pages", pageResult.getPages());
+        data.put("records", records);
         return Map.of("code", 200, "msg", "ok", "data", data);
     }
 
@@ -143,6 +179,19 @@ public class JobInternalController {
             items.put(String.valueOf(candidateId), toBrief(app));
         }
         return Map.of("items", items);
+    }
+
+    private Map<String, Object> toPostSummary(JobPost post) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", post.getId());
+        data.put("title", post.getTitle());
+        data.put("workCity", post.getWorkCity());
+        data.put("status", post.getStatus());
+        data.put("skillTags", post.getSkillTags());
+        data.put("experienceYearsMin", post.getExperienceYearsMin());
+        data.put("educationRequirement", post.getEducationRequirement());
+        data.put("publishedAt", post.getPublishedAt());
+        return data;
     }
 
     private Map<String, Object> toBrief(JobApplication app) {

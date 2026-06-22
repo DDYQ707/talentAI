@@ -23,23 +23,59 @@ public class AiParseServiceImpl implements AiParseService {
     @Override
     @Transactional
     public ParseTaskVO submitParseTask(ParseTaskRequest request) {
-        if (request == null || request.getResumeId() == null || request.getAttachmentId() == null) {
-            throw new IllegalArgumentException("resumeId 与 attachmentId 不能为空");
+        if (request == null || request.getResumeId() == null) {
+            throw new IllegalArgumentException("resumeId 不能为空");
         }
+        String parseSource = resolveParseSource(request);
+        if ("online".equals(parseSource)) {
+            if (request.getAttachmentId() != null) {
+                throw new IllegalArgumentException("在线简历解析不应携带 attachmentId");
+            }
+        } else if (request.getAttachmentId() == null) {
+            throw new IllegalArgumentException("附件/合并解析时 attachmentId 不能为空");
+        }
+
         AiParseTask task = new AiParseTask();
         task.setResumeId(request.getResumeId());
         task.setAttachmentId(request.getAttachmentId());
         task.setApplicationId(request.getApplicationId());
         task.setCandidateId(request.getCandidateId());
         task.setModelId(request.getModelId());
-        task.setFileName(request.getFileName());
-        task.setFileType(request.getFileType());
+        if ("online".equals(parseSource)) {
+            task.setFileName("online-resume");
+            task.setFileType("online");
+        } else if ("merged".equals(parseSource)) {
+            task.setFileName(firstNonBlank(request.getFileName(), "merged-resume"));
+            task.setFileType("merged");
+        } else {
+            task.setFileName(request.getFileName());
+            task.setFileType(request.getFileType());
+        }
         task.setTaskStatus(STATUS_PENDING);
         task.setRawTextLength(0);
         parseTaskMapper.insert(task);
 
+        request.setParseSource(parseSource);
         parseTaskProcessor.processAsync(task.getId(), request);
         return toVO(task);
+    }
+
+    private String resolveParseSource(ParseTaskRequest request) {
+        if (request.getParseSource() == null) {
+            return "attachment";
+        }
+        String source = request.getParseSource().trim().toLowerCase();
+        if ("online".equals(source) || "merged".equals(source)) {
+            return source;
+        }
+        return "attachment";
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return second;
     }
 
     @Override

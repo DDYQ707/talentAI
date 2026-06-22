@@ -37,12 +37,22 @@ public class AiParseTaskProcessor {
     private final MinioDownloadService minioDownloadService;
     private final ResumeTextExtractService textExtractService;
     private final ResumeLlmParseService resumeLlmParseService;
+    private final OnlineResumeStructuredParseService onlineResumeStructuredParseService;
+    private final ResumeParseMergeService resumeParseMergeService;
     private final AiResumeParseResultService parseResultService;
     private final AiMatchService aiMatchService;
     private final JobFeignClient jobFeignClient;
 
     @Async
     public void processAsync(Long taskId, ParseTaskRequest request) {
+        if (request != null && "online".equalsIgnoreCase(request.getParseSource())) {
+            processOnlineAsync(taskId, request);
+            return;
+        }
+        if (request != null && "merged".equalsIgnoreCase(request.getParseSource())) {
+            processMergedAsync(taskId, request);
+            return;
+        }
         markProcessing(taskId);
         int textLength = 0;
         try {
@@ -81,6 +91,113 @@ public class AiParseTaskProcessor {
                     request.getResumeId(),
                     truncate(reason));
         }
+    }
+
+    /** 方案 C：附件 LLM 解析为主，在线结构化字段补充合并 */
+    private void processMergedAsync(Long taskId, ParseTaskRequest request) {
+        markProcessing(taskId);
+        int textLength = 0;
+        try {
+            ResumeAttachmentInfo attachment = attachmentQueryService.fetchByAttachmentId(request.getAttachmentId());
+            byte[] fileBytes = minioDownloadService.download(attachment.getBucketName(), attachment.getObjectKey());
+            ResumeTextExtractService.ExtractResult extractResult = textExtractService.extract(
+                    fileBytes, attachment.getFileName(), attachment.getFileType());
+            textLength = extractResult.length();
+
+            log.info(
+                    "合并解析-附件文本抽取成功 taskId={} attachmentId={} resumeId={} textLength={}",
+                    taskId,
+                    request.getAttachmentId(),
+                    request.getResumeId(),
+                    textLength);
+
+            LlmParseOutcome attachmentOutcome = resumeLlmParseService.parse(extractResult.text());
+            var onlineSupplement = onlineResumeStructuredParseService.parseSupplementFromResumeId(request.getResumeId());
+            LlmParseOutcome mergedOutcome = resumeParseMergeService.merge(attachmentOutcome, onlineSupplement);
+
+            Long resumeId = firstNonNull(request.getResumeId(), attachment.getResumeId());
+            parseResultService.save(taskId, resumeId, mergedOutcome, textLength);
+            markMergedSuccess(taskId, request, attachment, textLength);
+
+            log.info(
+                    "合并简历解析成功 taskId={} resumeId={} targetPosition={}",
+                    taskId,
+                    resumeId,
+                    mergedOutcome.resume().getTargetPosition());
+            triggerMatchAfterParse(taskId, request, resumeId);
+        } catch (Exception e) {
+            String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            markFailed(taskId, request, reason, textLength);
+            log.warn(
+                    "合并简历解析失败 taskId={} attachmentId={} resumeId={} reason={}",
+                    taskId,
+                    request.getAttachmentId(),
+                    request.getResumeId(),
+                    truncate(reason));
+        }
+    }
+
+    private void processOnlineAsync(Long taskId, ParseTaskRequest request) {
+        markProcessing(taskId);
+        int textLength = 0;
+        try {
+            LlmParseOutcome parseOutcome = onlineResumeStructuredParseService.parseFromResumeId(request.getResumeId());
+            textLength = parseOutcome.rawJson() != null ? parseOutcome.rawJson().length() : 0;
+
+            parseResultService.save(taskId, request.getResumeId(), parseOutcome, textLength);
+            markOnlineSuccess(taskId, request, textLength);
+
+            log.info(
+                    "在线简历结构化解析成功 taskId={} resumeId={} targetPosition={}",
+                    taskId,
+                    request.getResumeId(),
+                    parseOutcome.resume().getTargetPosition());
+            triggerMatchAfterParse(taskId, request, request.getResumeId());
+        } catch (Exception e) {
+            String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            markFailed(taskId, request, reason, textLength);
+            log.warn(
+                    "在线简历解析失败 taskId={} resumeId={} reason={}",
+                    taskId,
+                    request.getResumeId(),
+                    truncate(reason));
+        }
+    }
+
+    private void markOnlineSuccess(Long taskId, ParseTaskRequest request, int textLength) {
+        parseTaskMapper.update(
+                null,
+                new LambdaUpdateWrapper<AiParseTask>()
+                        .eq(AiParseTask::getId, taskId)
+                        .set(AiParseTask::getTaskStatus, STATUS_SUCCESS)
+                        .set(AiParseTask::getResumeId, request.getResumeId())
+                        .set(AiParseTask::getAttachmentId, null)
+                        .set(AiParseTask::getApplicationId, request.getApplicationId())
+                        .set(AiParseTask::getCandidateId, request.getCandidateId())
+                        .set(AiParseTask::getModelId, resolveModelId(request.getModelId()))
+                        .set(AiParseTask::getRawTextLength, textLength)
+                        .set(AiParseTask::getErrorMessage, null)
+                        .set(AiParseTask::getFileName, "online-resume")
+                        .set(AiParseTask::getFileType, "online")
+                        .set(AiParseTask::getFinishedAt, LocalDateTime.now()));
+    }
+
+    private void markMergedSuccess(Long taskId, ParseTaskRequest request, ResumeAttachmentInfo attachment, int textLength) {
+        parseTaskMapper.update(
+                null,
+                new LambdaUpdateWrapper<AiParseTask>()
+                        .eq(AiParseTask::getId, taskId)
+                        .set(AiParseTask::getTaskStatus, STATUS_SUCCESS)
+                        .set(AiParseTask::getResumeId, firstNonNull(request.getResumeId(), attachment.getResumeId()))
+                        .set(AiParseTask::getAttachmentId, request.getAttachmentId())
+                        .set(AiParseTask::getApplicationId, request.getApplicationId())
+                        .set(AiParseTask::getCandidateId, request.getCandidateId())
+                        .set(AiParseTask::getModelId, resolveModelId(request.getModelId()))
+                        .set(AiParseTask::getRawTextLength, textLength)
+                        .set(AiParseTask::getErrorMessage, null)
+                        .set(AiParseTask::getFileName, firstNonBlank(request.getFileName(), attachment.getFileName()))
+                        .set(AiParseTask::getFileType, "merged")
+                        .set(AiParseTask::getFinishedAt, LocalDateTime.now()));
     }
 
     private void markProcessing(Long taskId) {

@@ -1,6 +1,7 @@
 package com.talent.agent;
 
 import com.talent.agent.config.DashScopeProperties;
+import com.talent.agent.config.KnowledgeProperties;
 import com.talent.agent.config.MinioProperties;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -11,7 +12,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
-@EnableConfigurationProperties({DashScopeProperties.class, MinioProperties.class})
+@EnableConfigurationProperties({DashScopeProperties.class, MinioProperties.class, KnowledgeProperties.class})
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "com.talent.agent.client")
 @MapperScan("com.talent.agent.mapper")

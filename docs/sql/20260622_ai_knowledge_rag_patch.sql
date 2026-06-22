@@ -1,0 +1,29 @@
+USE talent_ai_db;
+
+CREATE TABLE IF NOT EXISTS ai_knowledge_doc (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  title VARCHAR(256) NOT NULL,
+  category VARCHAR(64) NOT NULL DEFAULT 'faq',
+  content MEDIUMTEXT NOT NULL,
+  source_path VARCHAR(512) DEFAULT NULL,
+  status TINYINT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_category (category),
+  KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ai_knowledge_chunk (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  doc_id BIGINT UNSIGNED NOT NULL,
+  chunk_index INT NOT NULL DEFAULT 0,
+  content TEXT NOT NULL,
+  embedding_json JSON DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_doc_id (doc_id),
+  CONSTRAINT fk_knowledge_chunk_doc FOREIGN KEY (doc_id) REFERENCES ai_knowledge_doc (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

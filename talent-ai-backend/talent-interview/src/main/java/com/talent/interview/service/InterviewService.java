@@ -5,6 +5,7 @@ import com.talent.interview.dto.InterviewScheduleRequest;
 import com.talent.interview.entity.Interview;
 import com.talent.interview.vo.InterviewBriefVO;
 import com.talent.interview.vo.InterviewDetailVO;
+import com.talent.interview.vo.InterviewEvaluationVO;
 import com.talent.interview.vo.InterviewListVO;
 import com.talent.interview.vo.InterviewScheduleResultVO;
 import com.talent.interview.vo.InterviewStatsVO;
@@ -17,6 +18,8 @@ public interface InterviewService {
     Interview getById(Long interviewId);
 
     List<Interview> listByApplicationId(Long applicationId);
+
+    List<InterviewEvaluationVO> listEvaluationsByApplication(Long applicationId);
 
     InterviewBriefVO toBrief(Interview interview);
 

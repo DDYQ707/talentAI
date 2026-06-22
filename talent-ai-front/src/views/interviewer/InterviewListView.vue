@@ -13,6 +13,7 @@ import {
   Star,
 } from 'lucide-vue-next'
 import {
+  fetchAiMatchScoresByApplications,
   fetchMyInterviewPage,
   fetchMyInterviewStats,
   type InterviewListItem,
@@ -33,6 +34,7 @@ const keyword = ref('')
 const statusTab = ref<number | ''>('')
 const interviews = ref<InterviewListItem[]>([])
 const stats = ref<InterviewStats | null>(null)
+const aiMatchScores = ref<Record<number, number>>({})
 
 const tabs = [
   { key: '' as const, label: '全部' },
@@ -87,11 +89,19 @@ async function loadData() {
     ])
     interviews.value = pageData.records ?? []
     stats.value = statsData
+    aiMatchScores.value = await fetchAiMatchScoresByApplications(
+      interviews.value.map((item) => item.applicationId),
+    )
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '面试列表加载失败')
   } finally {
     loading.value = false
   }
+}
+
+function getAiMatchScore(applicationId: number): number | null {
+  const score = aiMatchScores.value[applicationId]
+  return score != null && score > 0 ? score : null
 }
 
 function openDetail(interviewId: number) {
@@ -184,9 +194,18 @@ onMounted(() => loadData())
                     {{ iv.statusLabel || interviewStatusLabel(iv.status) }}
                   </span>
                 </div>
-                <div v-if="iv.totalScore != null && Number(iv.totalScore) > 0" class="flex items-center gap-1 text-xs">
-                  <Star :size="11" class="text-brand-orange" />
-                  <span class="font-bold text-brand-purple">{{ iv.totalScore }}分</span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <div
+                    v-if="getAiMatchScore(iv.applicationId) != null"
+                    class="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-brand-tint-2 text-brand-purple"
+                  >
+                    <Sparkles :size="11" />
+                    <span class="font-bold">AI {{ getAiMatchScore(iv.applicationId) }}分</span>
+                  </div>
+                  <div v-if="iv.totalScore != null && Number(iv.totalScore) > 0" class="flex items-center gap-1 text-xs">
+                    <Star :size="11" class="text-brand-orange" />
+                    <span class="font-bold text-brand-purple">{{ iv.totalScore }}分</span>
+                  </div>
                 </div>
               </div>
               <div class="flex items-center gap-4 text-sm text-muted-foreground mb-2 flex-wrap">

@@ -167,9 +167,7 @@ public class ResumeService {
         if (screenStatus != null) {
             wrapper.eq(Resume::getScreenStatus, screenStatus);
         }
-        if (StringUtils.hasText(keyword)) {
-            wrapper.like(Resume::getResumeName, keyword.trim());
-        }
+        String keywordTrimmed = StringUtils.hasText(keyword) ? keyword.trim() : null;
         wrapper.orderByDesc(Resume::getUpdatedAt);
 
         List<Resume> allMatching = resumeMapper.selectList(wrapper);
@@ -192,15 +190,12 @@ public class ResumeService {
 
         int total = deduped.size();
         int pages = total == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
-        int from = Math.min((pageNum - 1) * pageSize, total);
-        int to = Math.min(from + pageSize, total);
-        List<Resume> pageRecords = deduped.subList(from, to);
 
-        List<Long> resumeIds = pageRecords.stream().map(Resume::getId).toList();
-        Map<Long, ResumeAttachment> latestMap = loadLatestAttachments(resumeIds);
+        List<Long> allResumeIds = deduped.stream().map(Resume::getId).toList();
+        Map<Long, ResumeAttachment> latestMap = loadLatestAttachments(allResumeIds);
 
-        List<HrResumeListVO> records = new ArrayList<>();
-        for (Resume resume : pageRecords) {
+        List<HrResumeListVO> allRecords = new ArrayList<>();
+        for (Resume resume : deduped) {
             HrResumeListVO vo = new HrResumeListVO();
             vo.setId(resume.getId());
             vo.setCandidateId(resume.getCandidateId());
@@ -219,8 +214,22 @@ public class ResumeService {
                 vo.setResumeType("online");
             }
             applyCandidateProfileToListVo(vo, resume.getCandidateId());
-            records.add(vo);
+            allRecords.add(vo);
         }
+
+        List<HrResumeListVO> filteredRecords = allRecords;
+        if (keywordTrimmed != null) {
+            filteredRecords = allRecords.stream()
+                    .filter(vo -> matchesKeyword(vo, keywordTrimmed))
+                    .toList();
+        }
+
+        total = filteredRecords.size();
+        pages = total == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
+        int from = Math.min((pageNum - 1) * pageSize, total);
+        int to = Math.min(from + pageSize, total);
+        List<HrResumeListVO> records =
+                total == 0 ? List.of() : filteredRecords.subList(from, to);
 
         fillLatestApplicationsForList(records);
 
@@ -750,6 +759,72 @@ public class ResumeService {
         return toListVo(resume, getLatestAttachment(resumeId));
     }
 
+    /** 供 AI 解析：返回附件摘要或在线简历结构化内容 */
+    public HrResumeDetailVO getAiParseContext(Long resumeId) {
+        if (resumeId == null) {
+            throw new IllegalArgumentException("resumeId 不能为空");
+        }
+        Resume resume = resumeMapper.selectById(resumeId);
+        if (resume == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+        Resume primary = consolidationService.getPrimaryResume(resume.getCandidateId());
+        if (primary == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+        Long primaryId = primary.getId();
+
+        HrResumeDetailVO vo = new HrResumeDetailVO();
+        vo.setId(primaryId);
+        vo.setCandidateId(primary.getCandidateId());
+        vo.setResumeName(primary.getResumeName());
+        vo.setSummary(primary.getSummary());
+
+        ResumeAttachment att = getLatestAttachment(primaryId);
+        fillCandidateProfile(vo, primary.getCandidateId());
+        fillOnlineContentAggregated(vo, primary.getCandidateId());
+        if (!StringUtils.hasText(vo.getCandidateName())) {
+            vo.setCandidateName(resolveCandidateName(primary.getCandidateId()));
+        }
+
+        boolean hasOnline = hasParseableOnlineContent(vo);
+        if (att != null && hasOnline) {
+            vo.setResumeType("merged");
+            vo.setAttachmentId(att.getId());
+            vo.setFileName(att.getFileName());
+            vo.setFileType(att.getFileType());
+            vo.setFileSize(att.getFileSize());
+            return vo;
+        }
+        if (att != null) {
+            vo.setResumeType("attachment");
+            vo.setAttachmentId(att.getId());
+            vo.setFileName(att.getFileName());
+            vo.setFileType(att.getFileType());
+            vo.setFileSize(att.getFileSize());
+            return vo;
+        }
+
+        vo.setResumeType("online");
+        if (!hasOnline) {
+            throw new IllegalArgumentException("在线简历内容为空，无法解析");
+        }
+        return vo;
+    }
+
+    private boolean hasParseableOnlineContent(HrResumeDetailVO vo) {
+        if (StringUtils.hasText(vo.getSummary())) {
+            return true;
+        }
+        if (vo.getEducations() != null && !vo.getEducations().isEmpty()) {
+            return true;
+        }
+        if (vo.getWorkExperiences() != null && !vo.getWorkExperiences().isEmpty()) {
+            return true;
+        }
+        return vo.getSkills() != null && !vo.getSkills().isEmpty();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void deleteResume(Long candidateId, Long resumeId) {
         Resume resume = resumeMapper.selectById(resumeId);
@@ -827,6 +902,19 @@ public class ResumeService {
         if (!isHrOrAdmin(role)) {
             throw new IllegalArgumentException("仅 HR 或管理员可访问");
         }
+    }
+
+    private boolean matchesKeyword(HrResumeListVO vo, String keyword) {
+        if (vo == null || !StringUtils.hasText(keyword)) {
+            return true;
+        }
+        String lower = keyword.toLowerCase();
+        if (StringUtils.hasText(vo.getResumeName())
+                && vo.getResumeName().toLowerCase().contains(lower)) {
+            return true;
+        }
+        return StringUtils.hasText(vo.getCandidateName())
+                && vo.getCandidateName().toLowerCase().contains(lower);
     }
 
     private ResumeAttachment getLatestAttachment(Long resumeId) {

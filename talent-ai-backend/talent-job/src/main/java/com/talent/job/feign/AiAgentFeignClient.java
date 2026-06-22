@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * AI 画像微服务 Feign 客户端（内部调用）
  * <p>用于候选人状态变更时触发 AI 画像生成</p>
  */
-@FeignClient(name = "talent-ai-agent")
+@FeignClient(name = "talent-ai-agent", contextId = "aiProfileFeignClient")
 public interface AiAgentFeignClient {
 
     /**

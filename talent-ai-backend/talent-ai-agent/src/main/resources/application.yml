@@ -1,5 +1,4 @@
 server:
-<<<<<<< HEAD
   port: 8084
 
 spring:
@@ -36,13 +35,16 @@ ai:
     api-key: ${DASHSCOPE_API_KEY}
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
     model: qwen-max
+    embedding-model: text-embedding-v2
     timeout-seconds: 60
+  knowledge:
+    chunk-size: 500
+    chunk-overlap: 80
+    top-k: 5
+    min-score: 0.35
 
 minio:
   endpoint: http://127.0.0.1:9000
   access-key: minioadmin
   secret-key: minioadmin
   bucket-name: talent-resumes
-=======
-  port: 8087
->>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)

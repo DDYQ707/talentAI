@@ -18,4 +18,7 @@ public class ParseTaskRequest {
     private String fileName;
 
     private String fileType;
+
+    /** attachment-附件 | online-在线 | merged-附件+在线合并 */
+    private String parseSource;
 }

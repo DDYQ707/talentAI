@@ -26,7 +26,14 @@ spring:
         - id: job_route
           uri: lb://talent-job
           predicates:
-            - Path=/api/job/**, /api/delivery/**
+            - Path=/api/job/**, /api/delivery/**, /api/jobApplication/**
+        # Offer 路由（Controller 映射 /offer，网关 StripPrefix 剥离 /api）
+        - id: offer_route
+          uri: lb://talent-job
+          predicates:
+            - Path=/api/offer/**
+          filters:
+            - StripPrefix=1
         # 简历底座路由
         - id: resume_route
           uri: lb://talent-resume
@@ -52,25 +59,8 @@ spring:
           uri: lb://talent-interview
           predicates:
             - Path=/internal/interview/**
-        # 让网关认识 offer
-        -  id: talent-offer-route
-           uri: lb://talent-job  # 路由到你的 talent-job 服务
-           predicates:
-               - Path=/api/offer/**
-           filters:
-               - StripPrefix=1 # 转发时脱掉 /api，后端 Controller 只需要填 /offer
-
-        # B2 的人才库
-        -  id: talent-pool-route
-           uri: lb://talent-talent-pool
-           predicates:
-                - Path=/api/talent-pool/**
-           filters:
-                - StripPrefix=1
-        # 岗位与投递路由
-        -  id: job_route
-           uri: lb://talent-job
-           predicates:
-              - Path=/api/job/**, /api/delivery/**, /api/jobApplication/**  # 补上这个路径
-           filters:
-              - StripPrefix=1  # 确保有这一行，用来剥离 /api
+        # 人才库路由（Controller 映射 /api/talent-pool，无需 StripPrefix）
+        - id: talent_pool_route
+          uri: lb://talent-talent-pool
+          predicates:
+            - Path=/api/talent-pool/**

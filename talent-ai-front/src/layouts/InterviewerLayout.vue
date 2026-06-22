@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { useRoute, useRouter, RouterView } from 'vue-router'
-import { List, FileSearch, Video, Bell, User, Bot, LogOut } from 'lucide-vue-next'
+import { List, Video, Bell, User, Bot, LogOut } from 'lucide-vue-next'
 
 const navItems = [
   { icon: List, label: '面试列表', path: '/interviewer' },
-  { icon: FileSearch, label: '面试详情', path: '/interviewer/detail' },
   { icon: Video, label: 'AI面试官模式', path: '/interviewer/ai-mode' },
 ]
 
@@ -16,6 +15,9 @@ function go(path: string) {
 }
 
 function isActive(path: string) {
+  if (path === '/interviewer') {
+    return route.path === '/interviewer' || route.path === '/interviewer/detail'
+  }
   return route.path === path
 }
 

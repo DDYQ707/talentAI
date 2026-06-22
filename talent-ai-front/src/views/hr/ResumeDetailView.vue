@@ -24,10 +24,13 @@ import {
   fetchAiMatchByApplication,
   fetchAiMatchLatest,
   fetchAiParseLatest,
+  fetchAiProfileByApplication,
+  generateAiProfile,
   parseDimensionScores,
   parseJsonStringArray,
   type AiMatchResult,
   type AiParseTaskResult,
+  type AiTalentProfile,
 } from '@/api/ai'
 import { openResumePreview } from '@/api/resume'
 import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
@@ -45,7 +48,9 @@ const statusUpdating = ref(false)
 const statusSuccessMsg = ref('')
 const aiMatch = ref<AiMatchResult | null>(null)
 const aiParse = ref<AiParseTaskResult | null>(null)
+const aiProfile = ref<AiTalentProfile | null>(null)
 const aiLoading = ref(false)
+const profileGenerating = ref(false)
 const scheduleOpen = ref(false)
 const scheduleSuccessMsg = ref('')
 
@@ -156,9 +161,12 @@ const skills = computed(() =>
 )
 
 const hasAiPortrait = computed(() => {
+  if (aiProfile.value?.profileSummary) return true
   if (aiMatch.value?.matchStatus === 2 && (aiMatch.value.matchScore ?? 0) > 0) return true
   return (detail.value?.matchScore ?? 0) > 0
 })
+
+const profileTags = computed(() => aiProfile.value?.profileTags ?? [])
 
 const matchAdvantages = computed(() => parseJsonStringArray(aiMatch.value?.advantages))
 const matchDisadvantages = computed(() => parseJsonStringArray(aiMatch.value?.disadvantages))
@@ -180,6 +188,9 @@ const radarData = computed(() => {
 })
 
 const aiSummaryText = computed(() => {
+  if (aiProfile.value?.profileSummary) {
+    return aiProfile.value.profileSummary
+  }
   if (aiMatch.value?.matchStatus === 2 && aiMatch.value.matchReason) {
     return aiMatch.value.matchReason
   }
@@ -196,10 +207,16 @@ async function loadAiInsights(data: HrResumeDetail) {
   aiLoading.value = true
   aiMatch.value = null
   aiParse.value = null
+  aiProfile.value = null
   try {
     aiParse.value = await fetchAiParseLatest(resumeId.value)
     if (data.applicationId) {
-      aiMatch.value = await fetchAiMatchByApplication(data.applicationId)
+      const [match, profile] = await Promise.all([
+        fetchAiMatchByApplication(data.applicationId),
+        fetchAiProfileByApplication(data.applicationId).catch(() => null),
+      ])
+      aiMatch.value = match
+      aiProfile.value = profile
     } else if (data.jobId) {
       aiMatch.value = await fetchAiMatchLatest(resumeId.value, data.jobId)
     }
@@ -207,6 +224,27 @@ async function loadAiInsights(data: HrResumeDetail) {
     /* AI 服务不可用时保留简历基础数据 */
   } finally {
     aiLoading.value = false
+  }
+}
+
+async function handleGenerateProfile() {
+  const data = detail.value
+  if (!data?.applicationId || profileGenerating.value) return
+  profileGenerating.value = true
+  errorMsg.value = ''
+  try {
+    aiProfile.value = await generateAiProfile({
+      applicationId: data.applicationId,
+      candidateId: data.candidateId,
+      candidateName: data.candidateName,
+      resumeId: data.resumeId ?? resumeId.value ?? undefined,
+      jobId: data.jobId,
+      jobTitle: data.appliedJobTitle,
+    })
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, 'AI 人才画像生成失败')
+  } finally {
+    profileGenerating.value = false
   }
 }
 
@@ -495,11 +533,31 @@ const radarOption = computed<EChartsOption>(() => ({
     </div>
 
     <div class="w-72 flex-shrink-0 border-l border-border bg-card overflow-y-auto scrollbar-thin p-5">
-      <div class="flex items-center gap-2 mb-5">
-        <div class="w-7 h-7 rounded-lg gradient-purple flex items-center justify-center">
-          <Sparkles :size="14" class="text-white" />
+      <div class="flex items-center justify-between gap-2 mb-5">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg gradient-purple flex items-center justify-center">
+            <Sparkles :size="14" class="text-white" />
+          </div>
+          <span class="text-sm font-bold text-foreground">AI人才画像</span>
         </div>
-        <span class="text-sm font-bold text-foreground">AI人才画像</span>
+        <button
+          v-if="detail?.applicationId"
+          type="button"
+          class="text-[10px] px-2 py-1 rounded-lg border border-brand-purple/30 text-brand-purple hover:bg-brand-tint-2 disabled:opacity-50"
+          :disabled="profileGenerating || aiLoading"
+          @click="handleGenerateProfile"
+        >
+          {{ profileGenerating ? '生成中...' : aiProfile ? '刷新画像' : '生成画像' }}
+        </button>
+      </div>
+      <div v-if="profileTags.length" class="flex flex-wrap gap-1.5 mb-4">
+        <span
+          v-for="(tag, i) in profileTags"
+          :key="i"
+          class="text-[10px] px-2 py-0.5 rounded-full bg-brand-tint-2 text-brand-purple"
+        >
+          {{ tag }}
+        </span>
       </div>
       <div v-if="hasAiPortrait && radarData.length" class="bg-muted rounded-2xl p-3 mb-4">
         <VChart :option="radarOption" autoresize style="height: 180px" />

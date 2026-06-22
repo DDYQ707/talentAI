@@ -46,7 +46,7 @@ CREATE TABLE `ai_model` (
 
 CREATE TABLE `ai_parse_task` (
   `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `attachment_id`   BIGINT UNSIGNED NOT NULL COMMENT '附件ID（逻辑外键->resume库）',
+  `attachment_id`   BIGINT UNSIGNED DEFAULT NULL COMMENT '附件ID（在线简历可为空，逻辑外键->resume库）',
   `resume_id`       BIGINT UNSIGNED NOT NULL COMMENT '简历ID（逻辑外键->resume库）',
   `application_id`  BIGINT UNSIGNED DEFAULT NULL COMMENT '投递ID（逻辑外键->job库）',
   `candidate_id`    BIGINT UNSIGNED DEFAULT NULL COMMENT '候选人ID（逻辑外键->auth库）',

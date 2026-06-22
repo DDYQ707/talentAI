@@ -14,6 +14,9 @@ public interface ResumeFeignClient {
     @GetMapping("/api/resume/brief/{resumeId}")
     Map<String, Object> getResumeBrief(@PathVariable("resumeId") Long resumeId);
 
+    @GetMapping("/api/resume/internal/ai-parse-context")
+    Map<String, Object> getAiParseContext(@RequestParam("resumeId") Long resumeId);
+
     @GetMapping("/api/resume/internal/ownership")
     Map<String, Object> getResumeOwnership(@RequestParam("resumeId") Long resumeId);
 

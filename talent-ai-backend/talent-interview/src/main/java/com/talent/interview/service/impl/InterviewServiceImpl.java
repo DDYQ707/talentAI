@@ -68,6 +68,15 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     @Override
+    public List<InterviewEvaluationVO> listEvaluationsByApplication(Long applicationId) {
+        return listByApplicationId(applicationId).stream()
+                .map(interview -> InterviewEvaluationServiceImpl.toVo(
+                        evaluationService.findByInterviewId(interview.getId())))
+                .filter(vo -> vo != null)
+                .toList();
+    }
+
+    @Override
     public InterviewBriefVO toBrief(Interview interview) {
         if (interview == null) {
             return null;

@@ -3,6 +3,7 @@ package com.talent.resume.controller;
 import com.talent.resume.dto.InternalScreenSyncRequest;
 import com.talent.resume.dto.OnDeliveryScreenRequest;
 import com.talent.resume.service.ResumeService;
+import com.talent.resume.vo.HrResumeDetailVO;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,35 @@ public class ResumeInternalController {
 
     private final ResumeService resumeService;
 
+    /** AI 助手：分页搜索 HR 简历列表 */
+    @GetMapping("/hr/page")
+    public Map<String, Object> hrPage(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "screenStatus", required = false) Integer screenStatus,
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "size", defaultValue = "10") Integer size) {
+        try {
+            Map<String, Object> data = resumeService.pageHrResumes("HR", current, size, keyword, screenStatus);
+            return Map.of("code", 200, "msg", "ok", "data", data);
+        } catch (Exception e) {
+            return Map.of("code", 500, "msg", "简历搜索失败：" + e.getMessage());
+        }
+    }
+
+    /** AI 助手：简历详情摘要 */
+    @GetMapping("/hr/{resumeId}/brief")
+    public Map<String, Object> hrResumeBrief(@PathVariable("resumeId") Long resumeId) {
+        if (resumeId == null) {
+            return Map.of("code", 400, "msg", "resumeId 不能为空");
+        }
+        try {
+            HrResumeDetailVO detail = resumeService.getHrResumeDetail("HR", resumeId);
+            return Map.of("code", 200, "msg", "ok", "data", detail);
+        } catch (IllegalArgumentException e) {
+            return Map.of("code", 404, "msg", e.getMessage());
+        }
+    }
+
     /** 校验简历归属并返回主简历 ID */
     @GetMapping("/ownership")
     public Map<String, Object> ownership(@RequestParam("resumeId") Long resumeId) {
@@ -33,6 +63,19 @@ public class ResumeInternalController {
         try {
             Map<String, Object> data = resumeService.getAttachmentForInternal(attachmentId);
             return Map.of("code", 200, "msg", "ok", "data", data);
+        } catch (IllegalArgumentException e) {
+            return Map.of("code", 400, "msg", e.getMessage());
+        }
+    }
+
+    /** 供 AI 解析：附件摘要或在线简历结构化数据 */
+    @GetMapping("/ai-parse-context")
+    public Map<String, Object> aiParseContext(@RequestParam("resumeId") Long resumeId) {
+        if (resumeId == null) {
+            return Map.of("code", 400, "msg", "resumeId 不能为空");
+        }
+        try {
+            return Map.of("code", 200, "msg", "ok", "data", resumeService.getAiParseContext(resumeId));
         } catch (IllegalArgumentException e) {
             return Map.of("code", 400, "msg", e.getMessage());
         }

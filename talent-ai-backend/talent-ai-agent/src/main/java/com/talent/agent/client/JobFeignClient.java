@@ -16,6 +16,13 @@ public interface JobFeignClient {
     @GetMapping("/api/job/internal/application/by-id")
     Map<String, Object> getApplicationById(@RequestParam("applicationId") Long applicationId);
 
+    @GetMapping("/api/job/internal/post/list")
+    Map<String, Object> listJobPosts(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "size", defaultValue = "10") Integer size,
+            @RequestParam(value = "status", required = false) Byte status);
+
     @GetMapping("/api/job/internal/post/brief")
     Map<String, Object> getJobPostBrief(@RequestParam("jobId") Long jobId);
 

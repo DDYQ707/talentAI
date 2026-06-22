@@ -10,5 +10,6 @@ public class DashScopeProperties {
     private String apiKey;
     private String baseUrl;
     private String model;
+    private String embeddingModel = "text-embedding-v2";
     private int timeoutSeconds = 60;
 }

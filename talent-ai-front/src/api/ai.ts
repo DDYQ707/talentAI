@@ -55,6 +55,71 @@ export function fetchAiMatchLatest(resumeId: number, jobId: number) {
   }) as Promise<AiMatchResult | null>
 }
 
+export interface AiInterviewQuestion {
+  id: number
+  interviewId: number
+  questionText: string
+  category?: string | null
+  focusPoint?: string | null
+  sortOrder?: number
+  createdAt?: string
+}
+
+export interface AiInterviewQuestionGenerateResult {
+  interviewId: number
+  applicationId: number
+  jobId: number
+  resumeId: number
+  candidateName?: string | null
+  jobTitle?: string | null
+  questions: AiInterviewQuestion[]
+}
+
+export function fetchAiInterviewQuestions(interviewId: number) {
+  return request.get<AiInterviewQuestion[]>('/api/ai/interview-questions', {
+    params: { interviewId },
+  }) as Promise<AiInterviewQuestion[]>
+}
+
+export function generateAiInterviewQuestions(payload: {
+  interviewId?: number
+  applicationId?: number
+}) {
+  return request.post<AiInterviewQuestionGenerateResult>(
+    '/api/ai/interview-questions/generate',
+    payload,
+  ) as Promise<AiInterviewQuestionGenerateResult>
+}
+
+export interface AiTalentProfile {
+  profileId: number
+  candidateId: number
+  applicationId: number
+  profileSummary: string
+  profileTags?: string[]
+  version?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+export function fetchAiProfileByApplication(applicationId: number) {
+  return request.get<AiTalentProfile | null>('/api/ai/profile/by-application', {
+    params: { applicationId },
+  }) as Promise<AiTalentProfile | null>
+}
+
+export function generateAiProfile(payload: {
+  applicationId: number
+  candidateId?: number
+  candidateName?: string
+  resumeId?: number
+  jobId?: number
+  jobTitle?: string
+  status?: number
+}) {
+  return request.post<AiTalentProfile>('/api/ai/profile/generate', payload) as Promise<AiTalentProfile>
+}
+
 /** 解析后端 JSON 字符串数组字段 */
 export function parseJsonStringArray(raw?: string | null): string[] {
   if (!raw) return []

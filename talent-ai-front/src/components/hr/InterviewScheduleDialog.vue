@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Calendar, X } from 'lucide-vue-next'
-import { fetchInterviewers, scheduleInterview } from '@/api/interview'
+import {
+  fetchInterviewers,
+  fetchScheduleableApplications,
+  scheduleInterview,
+  type ScheduleableApplicationOption,
+} from '@/api/interview'
 import type { InterviewerOption } from '@/api/interview'
 import {
   INTERVIEW_MODE,
@@ -33,8 +38,11 @@ const emit = defineEmits<{
 
 const saving = ref(false)
 const loadingInterviewers = ref(false)
+const loadingApplications = ref(false)
 const formError = ref('')
 const interviewers = ref<InterviewerOption[]>([])
+const scheduleableApplications = ref<ScheduleableApplicationOption[]>([])
+const pickedApplicationId = ref<number | ''>('')
 
 const formInterviewerId = ref<number | ''>('')
 const formRoundType = ref<number>(INTERVIEW_ROUND_TYPE.TECH_FIRST)
@@ -44,10 +52,27 @@ const formScheduledStart = ref('')
 const formMeetingUrl = ref('')
 const formLocation = ref('')
 
-const canSubmit = computed(() => !!props.applicationId && props.applicationId > 0)
+const needsApplicationPick = computed(() => !props.applicationId || props.applicationId <= 0)
+
+const activeApplicationId = computed(() => {
+  if (!needsApplicationPick.value) return props.applicationId!
+  const picked = Number(pickedApplicationId.value)
+  return Number.isFinite(picked) && picked > 0 ? picked : null
+})
+
+const pickedApplication = computed(() =>
+  scheduleableApplications.value.find((item) => item.applicationId === activeApplicationId.value) ?? null,
+)
+
+const canSubmit = computed(() => !!activeApplicationId.value && activeApplicationId.value > 0)
 
 const subtitle = computed(() => {
-  if (!canSubmit.value) return '该候选人暂无投递记录，无法安排面试'
+  if (needsApplicationPick.value) {
+    if (pickedApplication.value) {
+      return `${pickedApplication.value.candidateName} · ${pickedApplication.value.jobTitle}`
+    }
+    return '请选择要安排面试的投递记录'
+  }
   const parts = [props.candidateName, props.jobTitle].filter(Boolean)
   return parts.length ? parts.join(' · ') : `投递单 #${props.applicationId}`
 })
@@ -57,6 +82,7 @@ watch(
   async (visible) => {
     if (!visible) return
     formError.value = ''
+    pickedApplicationId.value = ''
     formInterviewerId.value = ''
     formRoundType.value = INTERVIEW_ROUND_TYPE.TECH_FIRST
     formRoundNo.value = 1
@@ -64,7 +90,7 @@ watch(
     formScheduledStart.value = ''
     formMeetingUrl.value = ''
     formLocation.value = ''
-    await loadInterviewers()
+    await Promise.all([loadInterviewers(), loadScheduleableApplications()])
   },
 )
 
@@ -77,6 +103,22 @@ async function loadInterviewers() {
     interviewers.value = []
   } finally {
     loadingInterviewers.value = false
+  }
+}
+
+async function loadScheduleableApplications() {
+  if (!needsApplicationPick.value) {
+    scheduleableApplications.value = []
+    return
+  }
+  loadingApplications.value = true
+  try {
+    scheduleableApplications.value = await fetchScheduleableApplications()
+  } catch (e) {
+    formError.value = getErrorMessage(e, '可安排投递列表加载失败')
+    scheduleableApplications.value = []
+  } finally {
+    loadingApplications.value = false
   }
 }
 
@@ -104,7 +146,7 @@ async function handleSubmit() {
   saving.value = true
   try {
     await scheduleInterview({
-      applicationId: props.applicationId!,
+      applicationId: activeApplicationId.value!,
       interviewerId: Number(formInterviewerId.value),
       roundType: formRoundType.value,
       roundNo: formRoundNo.value,
@@ -150,7 +192,38 @@ async function handleSubmit() {
           <p v-if="formError" class="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
             {{ formError }}
           </p>
-          <p v-if="!canSubmit" class="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+          <div v-if="needsApplicationPick">
+            <label class="text-xs font-medium text-muted-foreground mb-1.5 block">投递记录</label>
+            <select
+              v-model="pickedApplicationId"
+              class="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-brand-blue/50"
+              :disabled="loadingApplications"
+            >
+              <option value="">
+                {{ loadingApplications ? '加载投递列表...' : '请选择候选人投递单' }}
+              </option>
+              <option
+                v-for="item in scheduleableApplications"
+                :key="item.applicationId"
+                :value="item.applicationId"
+              >
+                {{ item.candidateName }} · {{ item.jobTitle }}
+                <template v-if="item.matchScore != null && item.matchScore > 0">
+                  （AI {{ item.matchScore }} 分）
+                </template>
+              </option>
+            </select>
+            <p
+              v-if="!loadingApplications && scheduleableApplications.length === 0"
+              class="text-xs text-orange-600 mt-2"
+            >
+              暂无可安排面试的投递记录，请先在简历库完成初筛或确认候选人已投递岗位。
+            </p>
+          </div>
+          <p
+            v-else-if="!canSubmit"
+            class="text-xs text-orange-600 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2"
+          >
             请确认候选人已完成岗位投递后再安排面试。
           </p>
 

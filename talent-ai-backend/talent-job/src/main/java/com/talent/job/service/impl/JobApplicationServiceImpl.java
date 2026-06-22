@@ -54,11 +54,10 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
     private ResumeFeignClient resumeFeignClient;
 
     @Autowired
-<<<<<<< HEAD
     private AiFeignClient aiFeignClient;
-=======
+
+    @Autowired
     private CandidateStatusHookService candidateStatusHookService;
->>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -219,48 +218,81 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
             return;
         }
         try {
-            Map<String, Object> brief = resumeFeignClient.getResumeBrief(application.getResumeId());
-            if (brief == null) {
-                log.warn("投递后触发 AI 解析跳过：简历摘要为空 applicationId={}", application.getId());
+            Map<String, Object> ctxRes = resumeFeignClient.getAiParseContext(application.getResumeId());
+            if (ctxRes == null) {
+                log.warn("投递后触发 AI 解析跳过：上下文为空 applicationId={}", application.getId());
                 return;
             }
-            Object code = brief.get("code");
+            Object code = ctxRes.get("code");
             if (!(code instanceof Number codeNum) || codeNum.intValue() != 200) {
                 log.warn(
-                        "投递后触发 AI 解析跳过：简历摘要查询失败 applicationId={} resumeId={} msg={}",
+                        "投递后触发 AI 解析跳过：简历上下文查询失败 applicationId={} resumeId={} msg={}",
                         application.getId(),
                         application.getResumeId(),
-                        brief.get("msg"));
+                        ctxRes.get("msg"));
                 return;
             }
-            Object data = brief.get("data");
+            Object data = ctxRes.get("data");
             if (!(data instanceof Map<?, ?> dataMap)) {
                 log.warn(
-                        "投递后触发 AI 解析跳过：无附件数据 applicationId={} resumeId={}",
+                        "投递后触发 AI 解析跳过：无简历数据 applicationId={} resumeId={}",
                         application.getId(),
                         application.getResumeId());
                 return;
             }
-            Long attachmentId = longVal(dataMap.get("attachmentId"));
-            if (attachmentId == null) {
-                log.info(
-                        "投递后触发 AI 解析跳过：在线简历无附件 applicationId={} resumeId={}",
-                        application.getId(),
-                        application.getResumeId());
-                return;
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> ctx = (Map<String, Object>) dataMap;
+            String resumeType = stringVal(ctx.get("resumeType"));
+            Long resumeId = longVal(ctx.get("id"));
+            if (resumeId == null) {
+                resumeId = application.getResumeId();
             }
 
             Map<String, Object> body = new HashMap<>();
-            body.put("attachmentId", attachmentId);
-            body.put("resumeId", application.getResumeId());
+            body.put("resumeId", resumeId);
             body.put("applicationId", application.getId());
             body.put("candidateId", application.getCandidateId());
-            body.put("fileName", stringVal(dataMap.get("fileName")));
-            body.put("fileType", stringVal(dataMap.get("fileType")));
+
+            if ("attachment".equalsIgnoreCase(resumeType)) {
+                Long attachmentId = longVal(ctx.get("attachmentId"));
+                if (attachmentId == null) {
+                    log.info(
+                            "投递后触发 AI 解析跳过：附件信息缺失 applicationId={} resumeId={}",
+                            application.getId(),
+                            resumeId);
+                    return;
+                }
+                body.put("parseSource", "attachment");
+                body.put("attachmentId", attachmentId);
+                body.put("fileName", stringVal(ctx.get("fileName")));
+                body.put("fileType", stringVal(ctx.get("fileType")));
+            } else if ("merged".equalsIgnoreCase(resumeType)) {
+                Long attachmentId = longVal(ctx.get("attachmentId"));
+                if (attachmentId == null) {
+                    log.info(
+                            "投递后触发 AI 解析跳过：合并解析缺少附件 applicationId={} resumeId={}",
+                            application.getId(),
+                            resumeId);
+                    return;
+                }
+                body.put("parseSource", "merged");
+                body.put("attachmentId", attachmentId);
+                body.put("fileName", stringVal(ctx.get("fileName")));
+                body.put("fileType", "merged");
+            } else if ("online".equalsIgnoreCase(resumeType)) {
+                body.put("parseSource", "online");
+            } else {
+                log.warn(
+                        "投递后触发 AI 解析跳过：未知简历类型 applicationId={} resumeType={}",
+                        application.getId(),
+                        resumeType);
+                return;
+            }
 
             Map<String, Object> res = aiFeignClient.submitParse(body);
             if (res == null) {
-                log.warn("投递后触发 AI 解析无响应 applicationId={} attachmentId={}", application.getId(), attachmentId);
+                log.warn("投递后触发 AI 解析无响应 applicationId={} resumeId={}", application.getId(), resumeId);
                 return;
             }
             Object aiCode = res.get("code");
@@ -271,17 +303,17 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
                     taskId = longVal(aiDataMap.get("taskId"));
                 }
                 log.info(
-                        "投递后已触发 AI 解析 applicationId={} resumeId={} attachmentId={} taskId={}",
+                        "投递后已触发 AI 解析 applicationId={} resumeId={} parseSource={} taskId={}",
                         application.getId(),
-                        application.getResumeId(),
-                        attachmentId,
+                        resumeId,
+                        body.get("parseSource"),
                         taskId);
                 return;
             }
             log.warn(
-                    "投递后触发 AI 解析失败 applicationId={} attachmentId={} msg={}",
+                    "投递后触发 AI 解析失败 applicationId={} resumeId={} msg={}",
                     application.getId(),
-                    attachmentId,
+                    resumeId,
                     res.get("msg"));
         } catch (Exception e) {
             log.warn(

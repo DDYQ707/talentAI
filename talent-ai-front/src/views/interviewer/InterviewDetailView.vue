@@ -13,11 +13,15 @@ import {
   Mic,
   Lightbulb,
   ClipboardList,
+  Loader2,
 } from 'lucide-vue-next'
 import {
+  fetchAiInterviewQuestions,
   fetchAiMatchByApplication,
+  generateAiInterviewQuestions,
   parseDimensionScores,
   parseJsonStringArray,
+  type AiInterviewQuestion,
   type AiMatchResult,
 } from '@/api/ai'
 import {
@@ -41,6 +45,9 @@ const errorMsg = ref('')
 const detail = ref<InterviewDetail | null>(null)
 const aiMatch = ref<AiMatchResult | null>(null)
 const aiLoading = ref(false)
+const aiQuestions = ref<AiInterviewQuestion[]>([])
+const questionsLoading = ref(false)
+const generatingQuestions = ref(false)
 
 const comment = ref('')
 const submitting = ref(false)
@@ -76,9 +83,28 @@ const radarOption = computed<EChartsOption>(() => ({
   ],
 }))
 
-const questions = computed(() => parseJsonStringArray(aiMatch.value?.suggestedQuestions))
+const matchFallbackQuestions = computed(() => parseJsonStringArray(aiMatch.value?.suggestedQuestions))
 const advantages = computed(() => parseJsonStringArray(aiMatch.value?.advantages))
 const disadvantages = computed(() => parseJsonStringArray(aiMatch.value?.disadvantages))
+
+const displayQuestions = computed(() => {
+  if (aiQuestions.value.length) {
+    return aiQuestions.value.map((q) => ({
+      text: q.questionText,
+      category: q.category,
+      focusPoint: q.focusPoint,
+      relatedGap: null as string | null,
+    }))
+  }
+  return matchFallbackQuestions.value.map((text, i) => ({
+    text,
+    category: null as string | null,
+    focusPoint: null as string | null,
+    relatedGap: disadvantages.value[i] ?? null,
+  }))
+})
+
+const hasGeneratedQuestions = computed(() => aiQuestions.value.length > 0)
 
 const matchScore = computed(() => aiMatch.value?.matchScore ?? 0)
 
@@ -90,7 +116,6 @@ const hasEvaluation = computed(() => !!detail.value?.evaluation)
 
 async function loadDetail() {
   if (!interviewId.value) {
-    errorMsg.value = '缺少面试 ID'
     loading.value = false
     return
   }
@@ -99,12 +124,40 @@ async function loadDetail() {
   try {
     detail.value = await fetchMyInterviewDetail(interviewId.value)
     comment.value = detail.value.evaluation?.comment ?? ''
-    await loadAiMatch(detail.value.applicationId)
+    await Promise.all([
+      loadAiMatch(detail.value.applicationId),
+      loadSavedQuestions(interviewId.value),
+    ])
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '面试详情加载失败')
     detail.value = null
   } finally {
     loading.value = false
+  }
+}
+
+async function loadSavedQuestions(id: number) {
+  questionsLoading.value = true
+  try {
+    aiQuestions.value = await fetchAiInterviewQuestions(id)
+  } catch {
+    aiQuestions.value = []
+  } finally {
+    questionsLoading.value = false
+  }
+}
+
+async function handleGenerateQuestions() {
+  if (!interviewId.value || generatingQuestions.value) return
+  generatingQuestions.value = true
+  errorMsg.value = ''
+  try {
+    const result = await generateAiInterviewQuestions({ interviewId: interviewId.value })
+    aiQuestions.value = result.questions ?? []
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, 'AI 面试题生成失败')
+  } finally {
+    generatingQuestions.value = false
   }
 }
 
@@ -178,7 +231,21 @@ onMounted(() => loadDetail())
       <p v-if="loading" class="text-sm text-muted-foreground mb-4">加载中...</p>
       <p v-if="submitSuccess" class="text-xs text-brand-green mb-4">{{ submitSuccess }}</p>
 
-      <div v-if="detail" class="flex gap-6">
+      <div
+        v-if="!interviewId && !loading"
+        class="bg-card border border-border rounded-2xl p-10 text-center shadow-card max-w-md mx-auto mt-16"
+      >
+        <p class="text-sm text-muted-foreground mb-4">请从面试列表中选择一场面试查看详情</p>
+        <button
+          type="button"
+          class="px-5 py-2.5 rounded-xl gradient-purple text-white text-sm font-medium shadow-custom"
+          @click="router.push('/interviewer')"
+        >
+          返回面试列表
+        </button>
+      </div>
+
+      <div v-else-if="detail" class="flex gap-6">
         <div class="w-72 flex-shrink-0 space-y-4">
           <div class="bg-card p-5 shadow-card border border-border">
             <div class="text-center mb-4">
@@ -235,14 +302,35 @@ onMounted(() => loadDetail())
 
         <div class="flex-1 space-y-4">
           <div class="bg-card p-5 shadow-card border border-border">
-            <div class="flex items-center gap-2 mb-4">
-              <Sparkles :size="15" class="text-brand-purple" />
-              <span class="text-base font-bold text-foreground">AI推荐面试题</span>
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <div class="flex items-center gap-2">
+                <Sparkles :size="15" class="text-brand-purple" />
+                <span class="text-base font-bold text-foreground">AI推荐面试题</span>
+                <span
+                  v-if="hasGeneratedQuestions"
+                  class="text-[10px] px-2 py-0.5 rounded-full bg-brand-tint-2 text-brand-purple"
+                >
+                  已生成
+                </span>
+              </div>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-brand-purple/30 text-brand-purple hover:bg-brand-tint-2 disabled:opacity-50"
+                :disabled="generatingQuestions || questionsLoading"
+                @click="handleGenerateQuestions"
+              >
+                <Loader2 v-if="generatingQuestions" :size="13" class="animate-spin" />
+                <Sparkles v-else :size="13" />
+                <span>{{ generatingQuestions ? '生成中...' : 'AI 生成面试问题' }}</span>
+              </button>
             </div>
-            <div v-if="questions.length === 0" class="text-sm text-muted-foreground">暂无推荐面试题</div>
+            <p v-if="questionsLoading" class="text-sm text-muted-foreground">面试题加载中...</p>
+            <div v-else-if="displayQuestions.length === 0" class="text-sm text-muted-foreground">
+              暂无推荐面试题，点击上方按钮生成针对性追问
+            </div>
             <div v-else class="space-y-3">
               <div
-                v-for="(q, i) in questions"
+                v-for="(q, i) in displayQuestions"
                 :key="i"
                 class="border border-border rounded-xl p-4 hover:border-brand-purple/30 transition-colors"
               >
@@ -251,10 +339,22 @@ onMounted(() => loadDetail())
                     <span class="text-xs text-brand-purple font-bold">{{ i + 1 }}</span>
                   </div>
                   <div class="flex-1">
-                    <div class="text-sm text-foreground font-medium mb-1">{{ q }}</div>
-                    <div v-if="disadvantages[i]" class="flex items-start gap-1.5 text-xs text-muted-foreground mt-2">
+                    <div class="flex items-center gap-2 mb-1">
+                      <div class="text-sm text-foreground font-medium">{{ q.text }}</div>
+                      <span
+                        v-if="q.category"
+                        class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0"
+                      >
+                        {{ q.category }}
+                      </span>
+                    </div>
+                    <div v-if="q.focusPoint" class="flex items-start gap-1.5 text-xs text-muted-foreground mt-2">
                       <Lightbulb :size="11" class="text-brand-orange mt-0.5 flex-shrink-0" />
-                      <span>关联待提升：{{ disadvantages[i] }}</span>
+                      <span>考察重点：{{ q.focusPoint }}</span>
+                    </div>
+                    <div v-else-if="q.relatedGap" class="flex items-start gap-1.5 text-xs text-muted-foreground mt-2">
+                      <Lightbulb :size="11" class="text-brand-orange mt-0.5 flex-shrink-0" />
+                      <span>关联待提升：{{ q.relatedGap }}</span>
                     </div>
                   </div>
                 </div>

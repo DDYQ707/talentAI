@@ -117,7 +117,7 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
         }
     }
 
-    static InterviewEvaluationVO toVo(InterviewEvaluation evaluation) {
+    public static InterviewEvaluationVO toVo(InterviewEvaluation evaluation) {
         if (evaluation == null) {
             return null;
         }

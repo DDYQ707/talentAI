@@ -1,4 +1,6 @@
 import request from '@/utils/request'
+import { fetchAiMatchByApplication } from '@/api/ai'
+import { fetchHrResumeDetail, fetchHrResumePage, type HrResumeListItem } from '@/api/hrResume'
 
 export interface InterviewerOption {
   id: number
@@ -153,4 +155,72 @@ export function fetchMyInterviewDetail(interviewId: number) {
 
 export function submitInterviewEvaluation(interviewId: number, data: EvaluationPayload) {
   return request.post<InterviewEvaluation>(`/api/interview/my/${interviewId}/evaluation`, data) as Promise<InterviewEvaluation>
+}
+
+/** 安排面试时可选的投递记录（来自 HR 简历列表 + 详情补全 applicationId） */
+export interface ScheduleableApplicationOption {
+  resumeId: number
+  applicationId: number
+  candidateName: string
+  jobTitle: string
+  matchScore?: number | null
+}
+
+/** 拉取可安排面试的投递单（待初筛 / 面试中，且已有投递岗位） */
+export async function fetchScheduleableApplications(): Promise<ScheduleableApplicationOption[]> {
+  const [pending, interviewing] = await Promise.all([
+    fetchHrResumePage({ current: 1, size: 100, screenStatus: 1 }),
+    fetchHrResumePage({ current: 1, size: 100, screenStatus: 2 }),
+  ])
+  const seenResumeIds = new Set<number>()
+  const candidates: HrResumeListItem[] = []
+  for (const item of [...pending.records, ...interviewing.records]) {
+    if (!item.appliedJobTitle || seenResumeIds.has(item.id)) continue
+    seenResumeIds.add(item.id)
+    candidates.push(item)
+  }
+
+  const resolved = await Promise.all(
+    candidates.map(async (item) => {
+      try {
+        const detail = await fetchHrResumeDetail(item.id)
+        if (!detail.applicationId || detail.applicationId <= 0) return null
+        return {
+          resumeId: item.id,
+          applicationId: detail.applicationId,
+          candidateName: detail.candidateName || item.candidateName,
+          jobTitle: detail.appliedJobTitle || item.appliedJobTitle || '',
+          matchScore: detail.matchScore ?? item.matchScore ?? null,
+        } satisfies ScheduleableApplicationOption
+      } catch {
+        return null
+      }
+    }),
+  )
+  return resolved.filter((item): item is ScheduleableApplicationOption => item != null)
+}
+
+/** 批量查询投递单的 AI 匹配分（用于面试官列表等） */
+export async function fetchAiMatchScoresByApplications(
+  applicationIds: number[],
+): Promise<Record<number, number>> {
+  const uniqueIds = [...new Set(applicationIds.filter((id) => id > 0))]
+  if (uniqueIds.length === 0) return {}
+
+  const entries = await Promise.all(
+    uniqueIds.map(async (applicationId) => {
+      try {
+        const match = await fetchAiMatchByApplication(applicationId)
+        return [applicationId, match?.matchScore ?? null] as const
+      } catch {
+        return [applicationId, null] as const
+      }
+    }),
+  )
+
+  const scores: Record<number, number> = {}
+  for (const [applicationId, score] of entries) {
+    if (score != null && score > 0) scores[applicationId] = score
+  }
+  return scores
 }
