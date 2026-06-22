@@ -32,6 +32,7 @@ spring:
           uri: lb://talent-resume
           predicates:
             - Path=/api/resume/**
+<<<<<<< HEAD
         # AI 智能体对外路由
         - id: ai_route
           uri: lb://talent-ai-agent
@@ -52,3 +53,27 @@ spring:
           uri: lb://talent-interview
           predicates:
             - Path=/internal/interview/**
+=======
+        # 👇 加上下面这块，让网关认识 offer
+        -  id: talent-offer-route
+           uri: lb://talent-job  # 路由到你的 talent-job 服务
+           predicates:
+               - Path=/api/offer/**
+           filters:
+               - StripPrefix=1 # 转发时脱掉 /api，后端 Controller 只需要填 /offer
+
+        # 👇 顺手把 B2 的人才库也加上，免得一会又来哭 404
+        -  id: talent-pool-route
+           uri: lb://talent-talent-pool
+           predicates:
+                - Path=/api/talent-pool/**
+           filters:
+                - StripPrefix=1
+        # 岗位与投递路由
+        -  id: job_route
+           uri: lb://talent-job
+           predicates:
+              - Path=/api/job/**, /api/delivery/**, /api/jobApplication/**  # 补上这个路径
+           filters:
+              - StripPrefix=1  # 确保有这一行，用来剥离 /api
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)

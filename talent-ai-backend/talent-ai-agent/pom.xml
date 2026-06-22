@@ -29,6 +29,7 @@
         </dependency>
 
         <dependency>
+<<<<<<< HEAD
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
@@ -39,6 +40,8 @@
         </dependency>
 
         <dependency>
+=======
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
@@ -52,6 +55,7 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
         </dependency>
+<<<<<<< HEAD
 
         <dependency>
             <groupId>com.baomidou</groupId>
@@ -97,18 +101,28 @@
             <artifactId>tika-parsers-standard-package</artifactId>
             <version>2.9.2</version>
         </dependency>
+=======
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
+<<<<<<< HEAD
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
             <plugin>
+=======
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
+<<<<<<< HEAD
 </project>
+=======
+
+</project>
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)

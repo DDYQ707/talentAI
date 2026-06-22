@@ -27,9 +27,14 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
     private static final List<String> WHITE_LIST = Arrays.asList(
             "/api/auth/login",
             "/api/auth/register",
+<<<<<<< HEAD
             "/internal/ai/**",
             "/internal/interview/**",
             "/api/interview/internal/**"
+=======
+            "/api/offer/**",
+            "/api/talent-pool/**"
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

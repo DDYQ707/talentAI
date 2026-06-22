@@ -20,7 +20,7 @@ import java.util.Map;
  * @since 2026-06-14
  */
 @RestController
-@RequestMapping("/api/offer")
+@RequestMapping("/offer")
 public class OfferController {
 
     @Autowired

@@ -14,6 +14,7 @@ import com.talent.job.feign.AuthFeignClient;
 import com.talent.job.feign.ResumeFeignClient;
 import lombok.extern.slf4j.Slf4j;
 import com.talent.job.mapper.JobApplicationMapper;
+import com.talent.job.service.CandidateStatusHookService;
 import com.talent.job.service.IApplicationStageLogService;
 import com.talent.job.service.IJobApplicationService;
 import com.talent.job.service.IJobPostService;
@@ -53,7 +54,11 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
     private ResumeFeignClient resumeFeignClient;
 
     @Autowired
+<<<<<<< HEAD
     private AiFeignClient aiFeignClient;
+=======
+    private CandidateStatusHookService candidateStatusHookService;
+>>>>>>> 09c822e (完成 B3 录用与淘汰的后端链路联动及网关配置1. [新增] 投递状态流转回调逻辑，实现录用自动生成 Offer 草稿、淘汰自动归档至人才库。2. [配置] 完善 Spring Cloud Gateway 路由规则，新增 /api/offer、/api/talent-pool 及 /api/jobApplication 的转发配置与前缀剥离 (StripPrefix)。)
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -401,6 +406,18 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         if (!applicationStageLogService.save(stageLog)) {
             throw new IllegalStateException("阶段流转日志保存失败");
         }
+
+        // ========== 状态流转联动 ==========
+        // 录用 → 自动创建 Offer 草稿（同库事务内）
+        if (newStatus == JobApplicationConstants.STATUS_HIRED) {
+            candidateStatusHookService.onHired(app, request.getOperatorId());
+        }
+        // 淘汰 → 自动归档至人才库（跨服务调用，失败不回滚）
+        if (newStatus == JobApplicationConstants.STATUS_REJECTED) {
+            candidateStatusHookService.onRejected(app);
+        }
+        // 可选：触发 AI 人才画像生成（fire-and-forget）
+        candidateStatusHookService.triggerAiProfile(app);
 
         result.put("code", 200);
         result.put("msg", "同步成功");
