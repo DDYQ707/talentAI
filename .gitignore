@@ -5,3 +5,5 @@ docker/minio/data/
 **/.idea/
 **/target/
 *.log
+
+docker/docker-compose.override.yml
