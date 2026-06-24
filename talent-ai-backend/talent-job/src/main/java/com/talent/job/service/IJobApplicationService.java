@@ -28,6 +28,11 @@ public interface IJobApplicationService extends IService<JobApplication> {
     Map<String, Object> listMyApplications(Long candidateId, String userRole, Integer current, Integer size);
 
     /**
+     * 查询候选人进行中投递的岗位 ID 列表
+     */
+    Map<String, Object> listActiveAppliedJobIds(Long candidateId, String userRole);
+
+    /**
      * 按 resume.screen_status 同步候选人最近一条投递的阶段与状态（HR 改筛选状态时调用）
      */
     Map<String, Object> syncLatestApplicationByScreenStatus(SyncScreenStatusRequest request);

@@ -3,10 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft, FileText, Sparkles, CheckCircle, Upload, X, PenLine } from 'lucide-vue-next'
 import { fetchProfileCompleteness } from '@/api/candidateProfile'
-import { submitApplication } from '@/api/delivery'
+import { fetchActiveAppliedJobIds, submitApplication } from '@/api/delivery'
 import { fetchOnlineResumeList, type OnlineResumeListItem } from '@/api/onlineResume'
 import { deleteResume, fetchAttachmentResumes, uploadResumeFile, type ResumeListItem } from '@/api/resume'
 import { getErrorMessage } from '@/utils/validators'
+import { useCandidateHint } from '@/composables/useCandidateHint'
 
 interface ResumeOption {
   id: number
@@ -16,6 +17,7 @@ interface ResumeOption {
 
 const router = useRouter()
 const route = useRoute()
+const { showComingSoon } = useCandidateHint()
 
 const activeTab = ref<'attachment' | 'online'>('attachment')
 const resumes = ref<ResumeOption[]>([])
@@ -30,6 +32,8 @@ const submitting = ref(false)
 const profileComplete = ref(true)
 const profileMissing = ref<string[]>([])
 const checkingProfile = ref(true)
+const alreadyApplied = ref(false)
+const checkingApplied = ref(true)
 const errorMsg = ref('')
 const successMsg = ref('')
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -103,6 +107,8 @@ const canSubmit = computed(
   () =>
     profileComplete.value &&
     !checkingProfile.value &&
+    !checkingApplied.value &&
+    !alreadyApplied.value &&
     !!jobId.value &&
     hasSelectedResume.value &&
     !pendingFile.value &&
@@ -111,7 +117,8 @@ const canSubmit = computed(
 )
 
 const submitButtonLabel = computed(() => {
-  if (checkingProfile.value) return '校验中...'
+  if (checkingProfile.value || checkingApplied.value) return '校验中...'
+  if (alreadyApplied.value) return '已投递该岗位'
   if (!profileComplete.value) return '请先完善个人信息'
   if (!jobId.value) return '缺少岗位信息'
   if (activeTab.value === 'attachment' && !resumes.value.length && !pendingFile.value) {
@@ -207,6 +214,23 @@ async function handleRemoveResume(id: number) {
   }
 }
 
+async function loadAppliedGate() {
+  checkingApplied.value = true
+  alreadyApplied.value = false
+  if (!jobId.value) {
+    checkingApplied.value = false
+    return
+  }
+  try {
+    const data = await fetchActiveAppliedJobIds()
+    alreadyApplied.value = (data.jobIds ?? []).includes(jobId.value)
+  } catch {
+    alreadyApplied.value = false
+  } finally {
+    checkingApplied.value = false
+  }
+}
+
 async function loadProfileGate() {
   checkingProfile.value = true
   try {
@@ -239,6 +263,10 @@ async function handleSubmit() {
 
   if (!jobId.value) {
     errorMsg.value = '缺少岗位信息，请从岗位详情进入'
+    return
+  }
+  if (alreadyApplied.value) {
+    errorMsg.value = '您已投递该岗位，请勿重复投递'
     return
   }
   if (pendingFile.value) {
@@ -293,7 +321,7 @@ async function switchTab(tab: 'attachment' | 'online') {
 }
 
 onMounted(async () => {
-  await loadProfileGate()
+  await Promise.all([loadProfileGate(), loadAppliedGate()])
   await loadResumes(false)
   await loadOnlineResumes()
   if (resumes.value.length === 0 && onlineResumes.value.length > 0) {
@@ -315,6 +343,17 @@ onMounted(async () => {
     <div class="flex-1 overflow-y-auto scrollbar-thin px-4 py-4 pb-24 space-y-4">
       <div v-if="!jobId" class="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
         缺少岗位信息，请返回岗位列表选择岗位
+      </div>
+
+      <div
+        v-else-if="!checkingApplied && alreadyApplied"
+        class="text-xs text-brand-blue bg-brand-tint border border-brand-border rounded-xl px-3 py-3"
+      >
+        <p class="font-medium mb-1">您已投递该岗位</p>
+        <p class="text-muted-foreground mb-2">可在投递记录中查看筛选与面试进度</p>
+        <button type="button" class="text-brand-blue font-medium" @click="router.push('/candidate/applications')">
+          查看投递进度
+        </button>
       </div>
 
       <div
@@ -509,7 +548,11 @@ onMounted(async () => {
           <span class="text-xs font-semibold text-brand-purple">AI简历优化</span>
         </div>
         <p class="text-xs text-muted-foreground leading-relaxed mb-3">AI分析发现，针对此岗位可优化以下内容，提升匹配度</p>
-        <button type="button" class="mt-3 w-full py-2 rounded-xl gradient-purple text-white text-xs font-medium">
+        <button
+          type="button"
+          class="mt-3 w-full py-2 rounded-xl gradient-purple text-white text-xs font-medium opacity-90"
+          @click="showComingSoon('AI 简历优化')"
+        >
           AI一键优化简历
         </button>
       </div>

@@ -2,16 +2,27 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft, MapPin, Briefcase, Users, Building2, Sparkles, CheckCircle, Share, Bookmark } from 'lucide-vue-next'
+import { fetchActiveAppliedJobIds, fetchMyApplications } from '@/api/delivery'
+import { fetchFavoriteJobIds, toggleJobFavorite } from '@/api/favorite'
 import { fetchJobDetail, type JobPost } from '@/api/job'
+import { formatMatchScore } from '@/constants/delivery'
+import { resolveApplicationMatchScore, resolveJobPreviewMatchScore } from '@/utils/candidateMatch'
 import { formatEmploymentType, formatJobSalary, parseSkillTags } from '@/utils/jobFormat'
+import { useCandidateHint } from '@/composables/useCandidateHint'
 import { getErrorMessage } from '@/utils/validators'
 
 const router = useRouter()
 const route = useRoute()
+const { showComingSoon } = useCandidateHint()
 
 const job = ref<JobPost | null>(null)
 const loading = ref(false)
 const errorMsg = ref('')
+const applied = ref(false)
+const favorited = ref(false)
+const togglingFavorite = ref(false)
+const matchScore = ref<number | null>(null)
+const matchLoading = ref(false)
 
 const jobId = computed(() => {
   const id = Number(route.query.id)
@@ -25,26 +36,65 @@ const requirements = computed(() => {
   return text.split(/\n+/).map((s) => s.trim()).filter(Boolean)
 })
 
+async function loadAppliedStatus() {
+  if (!jobId.value) {
+    applied.value = false
+    favorited.value = false
+    matchScore.value = null
+    return
+  }
+  matchLoading.value = true
+  try {
+    const [appliedData, appPage, favoriteData] = await Promise.all([
+      fetchActiveAppliedJobIds(),
+      fetchMyApplications({ current: 1, size: 200 }),
+      fetchFavoriteJobIds(),
+    ])
+    applied.value = (appliedData.jobIds ?? []).includes(jobId.value)
+    favorited.value = (favoriteData.jobIds ?? []).includes(jobId.value)
+    matchScore.value = null
+    if (applied.value) {
+      const record = (appPage.records ?? []).find((r) => r.jobId === jobId.value)
+      if (record) {
+        matchScore.value = await resolveApplicationMatchScore(record)
+      }
+    } else {
+      matchScore.value = await resolveJobPreviewMatchScore(jobId.value)
+    }
+  } catch {
+    applied.value = false
+    favorited.value = false
+    matchScore.value = null
+  } finally {
+    matchLoading.value = false
+  }
+}
+
+const matchScoreDisplay = computed(() => formatMatchScore(matchScore.value))
+
 async function loadJob() {
   if (!jobId.value) {
     errorMsg.value = '缺少岗位信息'
     job.value = null
+    applied.value = false
     return
   }
   loading.value = true
   errorMsg.value = ''
   try {
-    job.value = await fetchJobDetail(jobId.value)
+    const [detail] = await Promise.all([fetchJobDetail(jobId.value), loadAppliedStatus()])
+    job.value = detail
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '岗位详情加载失败')
     job.value = null
+    applied.value = false
   } finally {
     loading.value = false
   }
 }
 
 function goApply() {
-  if (!jobId.value) return
+  if (!jobId.value || applied.value) return
   router.push({
     path: '/candidate/apply',
     query: {
@@ -54,6 +104,31 @@ function goApply() {
       dept: job.value?.deptName ?? '',
     },
   })
+}
+
+function goApplications() {
+  router.push('/candidate/applications')
+}
+
+function onPrimaryAction() {
+  if (applied.value) {
+    goApplications()
+  } else {
+    goApply()
+  }
+}
+
+async function handleToggleFavorite() {
+  if (!jobId.value || togglingFavorite.value) return
+  togglingFavorite.value = true
+  try {
+    const result = await toggleJobFavorite(jobId.value)
+    favorited.value = result.favorited
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '收藏操作失败')
+  } finally {
+    togglingFavorite.value = false
+  }
 }
 
 onMounted(loadJob)
@@ -67,11 +142,20 @@ watch(jobId, loadJob)
         <ChevronLeft :size="20" class="text-foreground" />
       </button>
       <span class="text-sm font-semibold text-foreground flex-1">岗位详情</span>
-      <button type="button" class="p-1.5 rounded-lg hover:bg-muted">
+      <button type="button" class="p-1.5 rounded-lg hover:bg-muted" title="分享" @click="showComingSoon('分享')">
         <Share :size="16" class="text-muted-foreground" />
       </button>
-      <button type="button" class="p-1.5 rounded-lg hover:bg-muted">
-        <Bookmark :size="16" class="text-muted-foreground" />
+      <button
+        type="button"
+        class="p-1.5 rounded-lg hover:bg-muted disabled:opacity-50"
+        :title="favorited ? '取消收藏' : '收藏'"
+        :disabled="togglingFavorite"
+        @click="handleToggleFavorite"
+      >
+        <Bookmark
+          :size="16"
+          :class="favorited ? 'text-brand-orange fill-brand-orange' : 'text-muted-foreground'"
+        />
       </button>
     </div>
 
@@ -85,7 +169,13 @@ watch(jobId, loadJob)
               <Building2 :size="20" class="text-white" />
             </div>
             <div class="flex-1 min-w-0">
-              <h1 class="text-base font-bold text-foreground mb-1">{{ job.title }}</h1>
+              <div class="flex items-center gap-2 mb-1">
+                <span
+                  v-if="applied"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-tint text-brand-blue border border-brand-border flex-shrink-0"
+                >已投递</span>
+                <h1 class="text-base font-bold text-foreground mb-0">{{ job.title }}</h1>
+              </div>
               <span class="text-xs text-muted-foreground">{{ job.deptName || '—' }}</span>
             </div>
             <span class="text-base font-black text-brand-blue flex-shrink-0">{{ formatJobSalary(job) }}</span>
@@ -105,8 +195,29 @@ watch(jobId, loadJob)
             <Sparkles :size="14" class="text-brand-purple" />
             <span class="text-xs font-semibold text-brand-purple">AI匹配分析</span>
           </div>
-          <p class="text-xs text-muted-foreground leading-relaxed">
-            完善简历后可获得 AI 匹配度分析；当前岗位已开放投递。
+          <template v-if="matchScoreDisplay !== '—'">
+            <div class="flex items-end gap-2 mb-2">
+              <span class="text-3xl font-black text-brand-purple">{{ matchScoreDisplay }}</span>
+              <span class="text-sm text-muted-foreground mb-1">/ 100</span>
+            </div>
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              {{
+                applied
+                  ? '基于您投递的简历与岗位要求的 AI 匹配评估，分数越高表示契合度越好。'
+                  : '基于您当前简历与岗位要求的 AI 预估匹配，投递后将同步为正式匹配记录。'
+              }}
+            </p>
+          </template>
+          <template v-else-if="matchLoading">
+            <p class="text-xs text-muted-foreground leading-relaxed">AI 匹配分析生成中，请稍后刷新…</p>
+          </template>
+          <template v-else-if="applied">
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              已投递，AI 正在分析匹配度，完成后将在此展示评分。
+            </p>
+          </template>
+          <p v-else class="text-xs text-muted-foreground leading-relaxed">
+            基于您当前简历对该岗位的 AI 预估匹配度；完善简历后可获得更准结果。若显示为空，请稍等片刻后刷新。
           </p>
         </div>
 
@@ -133,11 +244,18 @@ watch(jobId, loadJob)
       <div class="flex-shrink-0 px-4 py-4 bg-card border-t border-border">
         <button
           type="button"
-          class="w-full py-3.5 rounded-control gradient-blue text-white text-sm font-bold shadow-custom disabled:opacity-60"
-          :disabled="job.status !== 1"
-          @click="goApply"
+          class="w-full py-3.5 rounded-control text-white text-sm font-bold shadow-custom disabled:opacity-60"
+          :class="applied ? 'bg-brand-blue/90' : 'gradient-blue'"
+          :disabled="!applied && job.status !== 1"
+          @click="onPrimaryAction"
         >
-          {{ job.status === 1 ? '立即投递简历' : '岗位已关闭' }}
+          {{
+            applied
+              ? '已投递，查看进度'
+              : job.status === 1
+                ? '立即投递简历'
+                : '岗位已关闭'
+          }}
         </button>
       </div>
     </template>

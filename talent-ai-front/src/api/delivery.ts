@@ -40,6 +40,10 @@ export interface DeliveryPageData {
   records: DeliveryRecord[]
 }
 
+export interface AppliedJobsData {
+  jobIds: number[]
+}
+
 /** 投递简历 */
 export function submitApplication(payload: DeliverySubmitPayload) {
   return request.post<DeliverySubmitResult>('/api/delivery/submit', payload) as Promise<DeliverySubmitResult>
@@ -53,4 +57,9 @@ export function fetchMyApplications(params?: { current?: number; size?: number }
       size: params?.size ?? 20,
     },
   }) as Promise<DeliveryPageData>
+}
+
+/** 进行中投递的岗位 ID（用于展示已投递状态） */
+export function fetchActiveAppliedJobIds() {
+  return request.get<AppliedJobsData>('/api/delivery/applied-jobs') as Promise<AppliedJobsData>
 }

@@ -1,4 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore, type PortalRole } from '@/stores/auth'
+
+const PUBLIC_PATHS = new Set(['/login', '/register'])
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,6 +19,7 @@ const router = createRouter({
     },
     {
       path: '/hr',
+      meta: { requiresAuth: true, portalRole: 'hr' as PortalRole },
       component: () => import('@/layouts/HRLayout.vue'),
       children: [
         { path: '', name: 'HRWorkbench', component: () => import('@/views/hr/HRWorkbenchView.vue') },
@@ -31,6 +35,7 @@ const router = createRouter({
     },
     {
       path: '/admin',
+      meta: { requiresAuth: true, portalRole: 'admin' as PortalRole },
       component: () => import('@/layouts/AdminLayout.vue'),
       redirect: '/admin/permissions',
       children: [
@@ -42,20 +47,26 @@ const router = createRouter({
     },
     {
       path: '/candidate',
+      meta: { requiresAuth: true, portalRole: 'candidate' as PortalRole },
       component: () => import('@/layouts/MobileLayout.vue'),
       children: [
         { path: '', name: 'JobList', component: () => import('@/views/candidate/JobListView.vue') },
         { path: 'job', name: 'JobDetail', component: () => import('@/views/candidate/JobDetailView.vue') },
         { path: 'apply', name: 'Apply', component: () => import('@/views/candidate/ApplyView.vue') },
         { path: 'applications', name: 'Applications', component: () => import('@/views/candidate/ApplicationsView.vue') },
+        { path: 'interviews', name: 'CandidateInterviews', component: () => import('@/views/candidate/InterviewsView.vue') },
+        { path: 'interview', name: 'CandidateInterviewDetail', component: () => import('@/views/candidate/InterviewDetailView.vue') },
         { path: 'resume', name: 'Resume', component: () => import('@/views/candidate/ResumeView.vue') },
         { path: 'resume/edit', name: 'ResumeEdit', component: () => import('@/views/candidate/ResumeEditView.vue') },
         { path: 'profile', name: 'Profile', component: () => import('@/views/candidate/ProfileView.vue') },
         { path: 'profile/edit', name: 'ProfileEdit', component: () => import('@/views/candidate/ProfileEditView.vue') },
+        { path: 'notifications', name: 'Notifications', component: () => import('@/views/candidate/NotificationsView.vue') },
+        { path: 'favorites', name: 'Favorites', component: () => import('@/views/candidate/FavoritesView.vue') },
       ],
     },
     {
       path: '/interviewer',
+      meta: { requiresAuth: true, portalRole: 'interviewer' as PortalRole },
       component: () => import('@/layouts/InterviewerLayout.vue'),
       children: [
         { path: '', name: 'InterviewList', component: () => import('@/views/interviewer/InterviewListView.vue') },
@@ -69,6 +80,41 @@ const router = createRouter({
       component: () => import('@/views/NotFoundView.vue'),
     },
   ],
+})
+
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  const loggedIn = auth.isLoggedIn()
+
+  if (PUBLIC_PATHS.has(to.path)) {
+    if (loggedIn && to.path === '/login') {
+      const accountRole = auth.userInfo?.userType != null
+        ? auth.portalRoleFromUserType(auth.userInfo.userType)
+        : null
+      if (accountRole) {
+        return auth.pathForRole(accountRole)
+      }
+    }
+    return true
+  }
+
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth === true)
+  if (requiresAuth && !loggedIn) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  const requiredRole = [...to.matched]
+    .reverse()
+    .find((record) => record.meta.portalRole)?.meta.portalRole as PortalRole | undefined
+
+  if (requiredRole && loggedIn && auth.userInfo?.userType != null) {
+    const accountRole = auth.portalRoleFromUserType(auth.userInfo.userType)
+    if (accountRole && accountRole !== requiredRole) {
+      return auth.pathForRole(accountRole)
+    }
+  }
+
+  return true
 })
 
 export default router

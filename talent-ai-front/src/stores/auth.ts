@@ -24,7 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
   const selectedRole = ref<PortalRole>('hr')
   const showPassword = ref(false)
   const token = ref<string | null>(localStorage.getItem('talent_token'))
-  const userInfo = ref<LoginUserInfo | null>(null)
+  const userInfo = ref<LoginUserInfo | null>(loadStoredUserInfo())
 
   function setSelectedRole(role: PortalRole) {
     selectedRole.value = role
@@ -50,12 +50,14 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = newToken
     userInfo.value = info
     localStorage.setItem('talent_token', newToken)
+    localStorage.setItem('talent_user', JSON.stringify(info))
   }
 
   function logout() {
     token.value = null
     userInfo.value = null
     localStorage.removeItem('talent_token')
+    localStorage.removeItem('talent_user')
   }
 
   function isLoggedIn(): boolean {
@@ -77,3 +79,13 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
   }
 })
+
+function loadStoredUserInfo(): LoginUserInfo | null {
+  try {
+    const raw = localStorage.getItem('talent_user')
+    if (!raw) return null
+    return JSON.parse(raw) as LoginUserInfo
+  } catch {
+    return null
+  }
+}

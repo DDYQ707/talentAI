@@ -14,6 +14,7 @@ import com.talent.job.feign.AuthFeignClient;
 import com.talent.job.feign.ResumeFeignClient;
 import lombok.extern.slf4j.Slf4j;
 import com.talent.job.mapper.JobApplicationMapper;
+import com.talent.job.service.CandidateNotificationService;
 import com.talent.job.service.CandidateStatusHookService;
 import com.talent.job.service.IApplicationStageLogService;
 import com.talent.job.service.IJobApplicationService;
@@ -58,6 +59,9 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
 
     @Autowired
     private CandidateStatusHookService candidateStatusHookService;
+
+    @Autowired
+    private CandidateNotificationService candidateNotificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -175,6 +179,7 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
 
         markResumePendingOnDelivery(resumeId, candidateId);
         triggerAiParseOnDelivery(application);
+        candidateNotificationService.notifyApplicationSubmitted(application);
 
         JobApplicationSubmitVO vo = new JobApplicationSubmitVO();
         vo.setId(application.getId());
@@ -366,6 +371,42 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
     }
 
     @Override
+    public Map<String, Object> listActiveAppliedJobIds(Long candidateId, String userRole) {
+        Map<String, Object> result = new HashMap<>();
+
+        if (candidateId == null) {
+            result.put("code", 401);
+            result.put("msg", "未检测到登录用户信息");
+            return result;
+        }
+
+        if (!JobApplicationConstants.ROLE_CANDIDATE.equals(userRole)) {
+            result.put("code", 403);
+            result.put("msg", "仅候选人可查询投递状态");
+            return result;
+        }
+
+        List<JobApplication> applications = list(new LambdaQueryWrapper<JobApplication>()
+                .eq(JobApplication::getCandidateId, candidateId)
+                .eq(JobApplication::getStatus, JobApplicationConstants.STATUS_IN_PROGRESS)
+                .select(JobApplication::getJobId));
+
+        List<Long> jobIds = applications.stream()
+                .map(JobApplication::getJobId)
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("jobIds", jobIds);
+
+        result.put("code", 200);
+        result.put("msg", "查询成功");
+        result.put("data", data);
+        return result;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> syncLatestApplicationByScreenStatus(SyncScreenStatusRequest request) {
         Map<String, Object> result = new HashMap<>();
@@ -450,6 +491,7 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         }
         // 可选：触发 AI 人才画像生成（fire-and-forget）
         candidateStatusHookService.triggerAiProfile(app);
+        candidateNotificationService.notifyScreenStatusChanged(app, screenStatus);
 
         result.put("code", 200);
         result.put("msg", "同步成功");

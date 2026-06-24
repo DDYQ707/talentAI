@@ -45,4 +45,12 @@ public class JobDeliveryController {
             @RequestParam(value = "size", defaultValue = "20") Integer size) {
         return jobApplicationService.listMyApplications(userId, userRole, current, size);
     }
+
+    /** 进行中投递的岗位 ID 列表 */
+    @GetMapping("/applied-jobs")
+    public Map<String, Object> appliedJobs(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        return jobApplicationService.listActiveAppliedJobIds(userId, userRole);
+    }
 }

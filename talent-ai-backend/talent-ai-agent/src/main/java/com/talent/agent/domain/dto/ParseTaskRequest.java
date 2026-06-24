@@ -13,6 +13,9 @@ public class ParseTaskRequest {
 
     private Long candidateId;
 
+    /** 预览匹配：解析完成后自动触发人岗匹配（无投递单时使用） */
+    private Long jobId;
+
     private Long modelId;
 
     private String fileName;

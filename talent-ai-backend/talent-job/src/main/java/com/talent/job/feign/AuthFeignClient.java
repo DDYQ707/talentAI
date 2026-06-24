@@ -17,4 +17,8 @@ public interface AuthFeignClient {
     @GetMapping("/api/auth/candidate/profile/complete")
     java.util.Map<String, Object> getProfileCompleteness(@RequestHeader("X-User-Id") Long userId);
 
+    /** 创建系统通知（微服务内部） */
+    @org.springframework.web.bind.annotation.PostMapping("/api/auth/notification/internal/create")
+    java.util.Map<String, Object> createNotification(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
+
 }

@@ -44,4 +44,9 @@ public interface InterviewService {
     InterviewStatsVO statsForInterviewer(String role, Long interviewerId);
 
     InterviewDetailVO detailForInterviewer(String role, Long interviewerId, Long interviewId);
+
+    Map<String, Object> pageForCandidate(
+            String role, Long candidateId, Integer page, Integer size, String keyword, Integer status);
+
+    InterviewDetailVO detailForCandidate(String role, Long candidateId, Long interviewId);
 }

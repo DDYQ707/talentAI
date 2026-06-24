@@ -22,6 +22,7 @@ import com.talent.interview.vo.InterviewStatsVO;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -152,6 +153,7 @@ public class InterviewServiceImpl implements InterviewService {
         interviewMapper.insert(interview);
 
         syncInterviewStage(appData, hrId, resolvedHrName);
+        notifyInterviewScheduled(interview);
 
         InterviewScheduleResultVO result = new InterviewScheduleResultVO();
         result.setInterviewId(interview.getId());
@@ -172,7 +174,7 @@ public class InterviewServiceImpl implements InterviewService {
         long current = page != null && page > 0 ? page : 1;
         long pageSize = size != null && size > 0 ? Math.min(size, 100) : 10;
 
-        LambdaQueryWrapper<Interview> wrapper = buildListWrapper(keyword, status, dateFrom, dateTo, null);
+        LambdaQueryWrapper<Interview> wrapper = buildListWrapper(keyword, status, dateFrom, dateTo, null, null);
         wrapper.orderByDesc(Interview::getScheduledStart);
 
         Page<Interview> pageResult = interviewMapper.selectPage(new Page<>(current, pageSize), wrapper);
@@ -234,7 +236,7 @@ public class InterviewServiceImpl implements InterviewService {
         long current = page != null && page > 0 ? page : 1;
         long pageSize = size != null && size > 0 ? Math.min(size, 100) : 10;
 
-        LambdaQueryWrapper<Interview> wrapper = buildListWrapper(keyword, status, null, null, interviewerId);
+        LambdaQueryWrapper<Interview> wrapper = buildListWrapper(keyword, status, null, null, interviewerId, null);
         wrapper.orderByAsc(Interview::getScheduledStart);
 
         Page<Interview> pageResult = interviewMapper.selectPage(new Page<>(current, pageSize), wrapper);
@@ -266,6 +268,42 @@ public class InterviewServiceImpl implements InterviewService {
             throw new IllegalArgumentException("无权查看该面试");
         }
         return toDetailVo(interview);
+    }
+
+    @Override
+    public Map<String, Object> pageForCandidate(
+            String role, Long candidateId, Integer page, Integer size, String keyword, Integer status) {
+        InterviewAuthSupport.requireCandidate(role);
+        InterviewAuthSupport.requireUserId(candidateId);
+
+        long current = page != null && page > 0 ? page : 1;
+        long pageSize = size != null && size > 0 ? Math.min(size, 100) : 10;
+
+        LambdaQueryWrapper<Interview> wrapper = buildListWrapper(keyword, status, null, null, null, candidateId);
+        wrapper.orderByDesc(Interview::getScheduledStart);
+
+        Page<Interview> pageResult = interviewMapper.selectPage(new Page<>(current, pageSize), wrapper);
+        List<InterviewListVO> records = pageResult.getRecords().stream()
+                .map(this::toListVo)
+                .collect(Collectors.toList());
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("records", records);
+        data.put("total", pageResult.getTotal());
+        data.put("page", pageResult.getCurrent());
+        data.put("size", pageResult.getSize());
+        return data;
+    }
+
+    @Override
+    public InterviewDetailVO detailForCandidate(String role, Long candidateId, Long interviewId) {
+        InterviewAuthSupport.requireCandidate(role);
+        InterviewAuthSupport.requireUserId(candidateId);
+        Interview interview = requireInterview(interviewId);
+        if (!candidateId.equals(interview.getCandidateId())) {
+            throw new IllegalArgumentException("无权查看该面试");
+        }
+        return toCandidateDetailVo(interview);
     }
 
     private void validateScheduleRequest(InterviewScheduleRequest request) {
@@ -354,10 +392,14 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     private LambdaQueryWrapper<Interview> buildListWrapper(
-            String keyword, Integer status, LocalDate dateFrom, LocalDate dateTo, Long interviewerId) {
+            String keyword, Integer status, LocalDate dateFrom, LocalDate dateTo,
+            Long interviewerId, Long candidateId) {
         LambdaQueryWrapper<Interview> wrapper = new LambdaQueryWrapper<>();
         if (interviewerId != null) {
             wrapper.eq(Interview::getInterviewerId, interviewerId);
+        }
+        if (candidateId != null) {
+            wrapper.eq(Interview::getCandidateId, candidateId);
         }
         if (status != null && InterviewConstants.isValidStatus(status)) {
             wrapper.eq(Interview::getStatus, status);
@@ -492,6 +534,13 @@ public class InterviewServiceImpl implements InterviewService {
         return vo;
     }
 
+    /** 候选人可见详情：不含面试官评价 */
+    private InterviewDetailVO toCandidateDetailVo(Interview interview) {
+        InterviewDetailVO vo = toDetailVo(interview);
+        vo.setEvaluation(null);
+        return vo;
+    }
+
     private static String defaultName(String value, String fallback) {
         return StringUtils.hasText(value) ? value.trim() : fallback;
     }
@@ -515,6 +564,46 @@ public class InterviewServiceImpl implements InterviewService {
             return defaultName(FeignResponseHelper.strVal(user.get("nickname")), "用户");
         } catch (Exception e) {
             return "用户";
+        }
+    }
+
+    private void notifyInterviewScheduled(Interview interview) {
+        if (interview == null || interview.getCandidateId() == null) {
+            return;
+        }
+        String jobTitle = defaultName(interview.getJobTitle(), "岗位");
+        int roundNo = interview.getRoundNo() != null && interview.getRoundNo() > 0 ? interview.getRoundNo() : 1;
+        StringBuilder content = new StringBuilder();
+        content.append("您投递的「").append(jobTitle).append("」已安排第 ").append(roundNo).append(" 轮面试");
+        if (interview.getScheduledStart() != null) {
+            content.append("，时间：")
+                    .append(interview.getScheduledStart().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+        }
+        if (StringUtils.hasText(interview.getLocation())) {
+            content.append("，地点：").append(interview.getLocation().trim());
+        } else if (StringUtils.hasText(interview.getMeetingUrl())) {
+            content.append("，线上会议已安排");
+        }
+        content.append("，请准时参加。");
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("userId", interview.getCandidateId());
+            body.put("title", "面试安排通知");
+            body.put("content", content.toString());
+            body.put("notifyType", (byte) 1);
+            body.put("bizType", "interview");
+            body.put("bizId", interview.getId());
+            Map<String, Object> res = authFeignClient.createNotification(body);
+            if (res == null) {
+                log.warn("创建面试通知无响应 interviewId={}", interview.getId());
+                return;
+            }
+            Object code = res.get("code");
+            if (!(code instanceof Number num) || num.intValue() != 200) {
+                log.warn("创建面试通知失败 interviewId={} msg={}", interview.getId(), res.get("msg"));
+            }
+        } catch (Exception e) {
+            log.warn("创建面试通知异常 interviewId={} reason={}", interview.getId(), e.getMessage());
         }
     }
 }

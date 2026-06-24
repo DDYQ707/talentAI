@@ -498,6 +498,30 @@ public class ResumeService {
         return result;
     }
 
+    /** 内部：候选人主简历摘要 */
+    public Map<String, Object> getPrimaryResumeBrief(Long candidateId) {
+        Map<String, Object> result = new HashMap<>();
+        if (candidateId == null) {
+            result.put("code", 400);
+            result.put("msg", "candidateId 不能为空");
+            return result;
+        }
+        Resume primary = consolidationService.getPrimaryResume(candidateId);
+        if (primary == null) {
+            result.put("code", 404);
+            result.put("msg", "请先创建在线简历");
+            return result;
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("resumeId", primary.getId());
+        data.put("candidateId", primary.getCandidateId());
+        data.put("resumeName", primary.getResumeName());
+        result.put("code", 200);
+        result.put("msg", "ok");
+        result.put("data", data);
+        return result;
+    }
+
     /** 内部：按附件 ID 返回 MinIO 存储信息（供 AI 解析服务下载文件） */
     public Map<String, Object> getAttachmentForInternal(Long attachmentId) {
         if (attachmentId == null) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
@@ -14,30 +14,43 @@ import {
   LogOut,
   Sparkles,
   AlertCircle,
+  Calendar,
 } from 'lucide-vue-next'
 import { fetchMyCandidateProfile, type CandidateProfile } from '@/api/candidateProfile'
 import { fetchMyApplications } from '@/api/delivery'
-import { APPLICATION_STATUS } from '@/constants/delivery'
+import { fetchUnreadNotificationCount } from '@/api/notification'
+import { computeDeliveryStats } from '@/constants/delivery'
 import { profileDisplayName, profileSubtitle } from '@/constants/candidateProfile'
 import { useAuthStore } from '@/stores/auth'
+import { useCandidateHint } from '@/composables/useCandidateHint'
 import { getErrorMessage } from '@/utils/validators'
 
-const menuItems = [
-  { icon: Bell, label: '消息通知', badge: 3 },
-  { icon: Star, label: '我的收藏' },
-  { icon: Shield, label: '隐私设置' },
-  { icon: Settings, label: '账号设置' },
-  { icon: HelpCircle, label: '帮助与反馈' },
+type ProfileMenuKey = 'notifications' | 'interviews' | 'favorites' | 'privacy' | 'account' | 'help'
+
+const menuItems: Array<{
+  icon: typeof Bell
+  label: string
+  key: ProfileMenuKey
+  comingSoon?: boolean
+}> = [
+  { icon: Bell, label: '消息通知', key: 'notifications' },
+  { icon: Calendar, label: '我的面试', key: 'interviews' },
+  { icon: Star, label: '我的收藏', key: 'favorites' },
+  { icon: Shield, label: '隐私设置', key: 'privacy', comingSoon: true },
+  { icon: Settings, label: '账号设置', key: 'account' },
+  { icon: HelpCircle, label: '帮助与反馈', key: 'help', comingSoon: true },
 ]
 
 const router = useRouter()
 const auth = useAuthStore()
+const { showComingSoon } = useCandidateHint()
 const { userInfo } = storeToRefs(auth)
 
 const profile = ref<CandidateProfile | null>(null)
 const loading = ref(true)
 const errorMsg = ref('')
 const stats = ref({ apply: 0, interview: 0, offer: 0 })
+const unreadCount = ref(0)
 
 const displayName = computed(() => profileDisplayName(profile.value ?? { nickname: userInfo.value?.nickname }))
 const subtitle = computed(() => profileSubtitle(profile.value))
@@ -52,17 +65,21 @@ async function loadStats() {
   try {
     const page = await fetchMyApplications({ current: 1, size: 200 })
     const records = page?.records ?? []
-    stats.value.apply = page?.total ?? records.length
-    let interview = 0
-    let offer = 0
-    for (const r of records) {
-      if (r.currentStage != null && r.currentStage >= 3) interview++
-      if (r.status === APPLICATION_STATUS.HIRED || (r.currentStage != null && r.currentStage >= 6)) offer++
-    }
-    stats.value.interview = interview
-    stats.value.offer = offer
+    const statsResult = computeDeliveryStats(records, page?.total ?? records.length)
+    stats.value.apply = statsResult.total
+    stats.value.interview = statsResult.interviewing
+    stats.value.offer = statsResult.offer
   } catch {
     stats.value = { apply: 0, interview: 0, offer: 0 }
+  }
+}
+
+async function loadUnreadCount() {
+  try {
+    const count = await fetchUnreadNotificationCount()
+    unreadCount.value = Math.max(0, Number(count) || 0)
+  } catch {
+    unreadCount.value = 0
   }
 }
 
@@ -82,6 +99,29 @@ function goEdit() {
   router.push('/candidate/profile/edit')
 }
 
+function handleMenuClick(item: (typeof menuItems)[number]) {
+  if (item.comingSoon) {
+    showComingSoon(item.label)
+    return
+  }
+  switch (item.key) {
+    case 'notifications':
+      router.push('/candidate/notifications')
+      break
+    case 'interviews':
+      router.push('/candidate/interviews')
+      break
+    case 'favorites':
+      router.push('/candidate/favorites')
+      break
+    case 'account':
+      router.push('/candidate/profile/edit')
+      break
+    default:
+      break
+  }
+}
+
 function handleLogout() {
   auth.logout()
   router.push('/login')
@@ -89,6 +129,12 @@ function handleLogout() {
 
 onMounted(() => {
   loadProfile()
+  loadStats()
+  loadUnreadCount()
+})
+
+onActivated(() => {
+  loadUnreadCount()
   loadStats()
 })
 </script>
@@ -182,13 +228,21 @@ onMounted(() => {
           :key="item.label"
           class="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-muted transition-colors"
           :class="i < menuItems.length - 1 ? 'border-b border-border' : ''"
+          @click="handleMenuClick(item)"
         >
           <div class="w-7 h-7 rounded-lg bg-muted flex items-center justify-center">
             <component :is="item.icon" :size="14" class="text-muted-foreground" />
           </div>
           <span class="text-sm text-foreground flex-1">{{ item.label }}</span>
-          <div v-if="item.badge" class="w-5 h-5 rounded-full bg-brand-red flex items-center justify-center">
-            <span class="text-xs text-white font-bold">{{ item.badge }}</span>
+          <span
+            v-if="item.comingSoon"
+            class="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted shrink-0"
+          >敬请期待</span>
+          <div
+            v-if="item.key === 'notifications' && unreadCount > 0"
+            class="min-w-5 h-5 px-1 rounded-full bg-brand-red flex items-center justify-center"
+          >
+            <span class="text-xs text-white font-bold">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
           </div>
           <ChevronRight :size="14" class="text-muted-foreground" />
         </div>

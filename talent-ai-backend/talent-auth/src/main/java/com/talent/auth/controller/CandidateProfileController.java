@@ -47,4 +47,10 @@ public class CandidateProfileController {
     public Map<String, Object> profileBrief(@RequestParam("userId") Long userId) {
         return candidateMyProfileService.getProfileBrief(userId);
     }
+
+    /** 微服务内部：同步 AI 简历质量评分到候选人档案 */
+    @PutMapping("/internal/ai-score")
+    public R<Void> syncAiScore(@RequestParam("userId") Long userId, @RequestParam("aiScore") Integer aiScore) {
+        return candidateMyProfileService.syncAiScore(userId, aiScore);
+    }
 }

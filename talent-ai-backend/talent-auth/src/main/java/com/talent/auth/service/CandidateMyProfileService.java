@@ -146,6 +146,27 @@ public class CandidateMyProfileService {
         return R.ok(vo, "保存成功");
     }
 
+  /** 微服务内部：更新候选人 AI 简历评分 */
+    public R<Void> syncAiScore(Long userId, Integer aiScore) {
+        if (userId == null) {
+            return R.fail("userId 不能为空");
+        }
+        if (aiScore == null || aiScore < 0 || aiScore > 100) {
+            return R.fail("aiScore 无效");
+        }
+        R<SysUser> userResult = requireCandidateUser(userId);
+        if (userResult.getCode() != 200) {
+            return R.fail(userResult.getMsg());
+        }
+        CandidateProfile profile = getOrCreateProfile(userId);
+        profile.setAiScore(aiScore.byteValue());
+        profile.setUpdatedAt(LocalDateTime.now());
+        if (!candidateProfileService.updateById(profile)) {
+            return R.fail("AI 评分同步失败");
+        }
+        return R.ok(null, "同步成功");
+    }
+
     private R<SysUser> requireCandidateUser(Long userId) {
         if (userId == null) {
             return R.fail("未登录或用户信息缺失");

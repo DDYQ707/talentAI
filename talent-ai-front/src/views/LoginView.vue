@@ -87,6 +87,8 @@ const registerSubmitting = ref(false)
 const registerFormSuccess = ref('')
 const portalMismatchRole = ref<PortalRole | null>(null)
 
+const PUBLIC_REDIRECT_PATHS = new Set(['/login', '/register'])
+
 const canSelfRegister = computed(() => selectedRole.value === SELF_REGISTER_ROLE)
 
 const otpSendDisabled = computed(
@@ -250,7 +252,12 @@ async function handleLogin() {
     }
 
     auth.setSession(res.token, res.userInfo)
-    router.push(auth.pathForRole(accountRole))
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : ''
+    if (redirect && redirect.startsWith('/') && !PUBLIC_REDIRECT_PATHS.has(redirect.split('?')[0])) {
+      router.push(redirect)
+    } else {
+      router.push(auth.pathForRole(accountRole))
+    }
   } catch (e) {
     loginFormError.value = getErrorMessage(e, '登录失败，请检查网络或稍后重试')
   } finally {

@@ -15,6 +15,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/job") // 注意：确保你的网关路由配置能匹配到这个前缀，比如 /api/job/** 路由到 talent-job
 public class JobPostController {
@@ -83,7 +86,9 @@ public class JobPostController {
     public Map<String, Object> getJobList(
             @RequestParam(value = "current", defaultValue = "1") Integer current, // 当前页码，默认第1页
             @RequestParam(value = "size", defaultValue = "10") Integer size,      // 每页条数，默认10条
-            @RequestParam(value = "title", required = false) String title,        // 可选：根据岗位名称模糊搜索
+            @RequestParam(value = "title", required = false) String title,        // 兼容：岗位名称模糊搜索
+            @RequestParam(value = "keyword", required = false) String keyword,    // 关键词：岗位/部门/城市/技能等模糊匹配
+            @RequestParam(value = "deptNames", required = false) String deptNames, // 部门名称精确匹配，逗号分隔
             @RequestParam(value = "status", required = false) Byte status         // 可选：根据状态过滤 (1-招聘中)
     ) {
         Map<String, Object> result = new HashMap<>();
@@ -94,9 +99,30 @@ public class JobPostController {
         // 2. 构造查询条件
         LambdaQueryWrapper<JobPost> queryWrapper = new LambdaQueryWrapper<>();
 
-        // 如果前端传了 title 参数，就进行模糊查询 (LIKE %title%)
-        if (StringUtils.hasText(title)) {
-            queryWrapper.like(JobPost::getTitle, title);
+        String searchText = StringUtils.hasText(keyword) ? keyword.trim() : (StringUtils.hasText(title) ? title.trim() : null);
+        if (StringUtils.hasText(searchText)) {
+            queryWrapper.and(w -> w.like(JobPost::getTitle, searchText)
+                    .or()
+                    .like(JobPost::getDeptName, searchText)
+                    .or()
+                    .like(JobPost::getWorkCity, searchText)
+                    .or()
+                    .like(JobPost::getSkillTags, searchText)
+                    .or()
+                    .like(JobPost::getJobDescription, searchText)
+                    .or()
+                    .like(JobPost::getJobRequirements, searchText));
+        }
+
+        if (StringUtils.hasText(deptNames)) {
+            List<String> deptNameList = Arrays.stream(deptNames.split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .distinct()
+                    .toList();
+            if (!deptNameList.isEmpty()) {
+                queryWrapper.in(JobPost::getDeptName, deptNameList);
+            }
         }
 
         // 如果前端传了 status 参数，就精确匹配

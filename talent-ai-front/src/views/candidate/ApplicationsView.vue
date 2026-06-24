@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Clock, CheckCircle, XCircle, Calendar, Sparkles, ChevronRight, FileText } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { Clock, CheckCircle, XCircle, Calendar, Sparkles, ChevronRight, FileText, PenLine } from 'lucide-vue-next'
 import { fetchMyApplications, type DeliveryRecord } from '@/api/delivery'
 import { fetchResumePreviewByResume, openResumePreview } from '@/api/resume'
 import {
   APPLICATION_STAGES,
+  computeDeliveryStats,
+  formatMatchScore,
+  isProgressConnectorComplete,
+  resolveStageIndex,
   stageLabel,
   statusToUi,
+  stepProgressState,
   type ApplicationUiStatus,
 } from '@/constants/delivery'
+import { buildApplicationMatchScoreMap } from '@/utils/candidateMatch'
+import { useCandidateHint } from '@/composables/useCandidateHint'
 import { formatDateTime } from '@/utils/jobFormat'
 import { getErrorMessage } from '@/utils/validators'
 
@@ -23,11 +31,18 @@ interface AppItem {
   next: string
   resumeId?: number
   resumeName?: string
+  attachmentId?: number
   attachmentFileName?: string
   attachmentFileType?: string
+  hasAttachment: boolean
+  matchScore?: number | null
 }
 
+const router = useRouter()
+const { showComingSoon } = useCandidateHint()
 const apps = ref<AppItem[]>([])
+const deliveryTotal = ref(0)
+const rawRecords = ref<DeliveryRecord[]>([])
 const loading = ref(false)
 const previewingId = ref<number | null>(null)
 const errorMsg = ref('')
@@ -39,16 +54,18 @@ const statusConf: Record<string, { cls: string; label: string; icon: typeof Cloc
   已撤回: { cls: 'text-muted-foreground', label: '已撤回', icon: XCircle },
 }
 
-const stages = APPLICATION_STAGES.slice(0, 6)
+const stages = [...APPLICATION_STAGES]
 
-function mapRecord(record: DeliveryRecord): AppItem {
+function mapRecord(record: DeliveryRecord, scoreMap: Map<number, number>): AppItem {
   const uiStatus = statusToUi(record.status)
   const stageName = stageLabel(record.currentStage)
-  const stageIndex = Math.max(0, APPLICATION_STAGES.indexOf(stageName as (typeof APPLICATION_STAGES)[number]))
+  const stageIndex = resolveStageIndex(record.currentStage)
 
   let next = ''
   if (uiStatus === 'offer') next = '请在规定时间内确认 Offer'
   else if (uiStatus === '进行中') next = `当前阶段：${stageName}`
+
+  const matchScore = scoreMap.get(record.id) ?? record.matchScore ?? null
 
   return {
     id: record.id,
@@ -61,9 +78,24 @@ function mapRecord(record: DeliveryRecord): AppItem {
     next,
     resumeId: record.resumeId,
     resumeName: record.resumeName,
+    attachmentId: record.attachmentId,
     attachmentFileName: record.attachmentFileName,
     attachmentFileType: record.attachmentFileType,
+    hasAttachment: !!(record.attachmentId || record.attachmentFileName),
+    matchScore,
   }
+}
+
+function displayMatchScore(app: AppItem): string {
+  return formatMatchScore(app.matchScore)
+}
+
+function viewResume(app: AppItem) {
+  if (app.hasAttachment) {
+    void previewAttachment(app)
+    return
+  }
+  router.push('/candidate/resume')
 }
 
 async function previewAttachment(app: AppItem) {
@@ -81,15 +113,11 @@ async function previewAttachment(app: AppItem) {
 }
 
 const summary = computed(() => {
-  const inProgress = apps.value.filter((a) => a.status === '进行中').length
-  const interviewing = apps.value.filter(
-    (a) => a.status === '进行中' && a.stageIndex >= 2 && a.stageIndex <= 4,
-  ).length
-  const offer = apps.value.filter((a) => a.status === 'offer').length
+  const stats = computeDeliveryStats(rawRecords.value, deliveryTotal.value || rawRecords.value.length)
   return [
-    { label: '投递中', count: inProgress, color: 'text-brand-blue bg-brand-tint' },
-    { label: '面试中', count: interviewing, color: 'text-brand-purple bg-brand-tint-2' },
-    { label: '收到Offer', count: offer, color: 'text-brand-green bg-green-50' },
+    { label: '投递中', count: stats.inProgress, color: 'text-brand-blue bg-brand-tint' },
+    { label: '面试中', count: stats.interviewing, color: 'text-brand-purple bg-brand-tint-2' },
+    { label: '收到Offer', count: stats.offer, color: 'text-brand-green bg-green-50' },
   ]
 })
 
@@ -98,10 +126,16 @@ async function loadApplications() {
   errorMsg.value = ''
   try {
     const data = await fetchMyApplications({ current: 1, size: 50 })
-    apps.value = (data.records ?? []).map(mapRecord)
+    const records = data.records ?? []
+    rawRecords.value = records
+    deliveryTotal.value = data.total ?? records.length
+    const scoreMap = await buildApplicationMatchScoreMap(records)
+    apps.value = records.map((r) => mapRecord(r, scoreMap))
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '投递记录加载失败')
     apps.value = []
+    rawRecords.value = []
+    deliveryTotal.value = 0
   } finally {
     loading.value = false
   }
@@ -116,7 +150,7 @@ onMounted(() => {
   <div data-cmp="Applications" class="flex h-full flex-col bg-[#EBF4F0]">
     <div class="px-4 py-4 bg-card border-b border-border flex-shrink-0">
       <h1 class="text-base font-bold text-foreground">投递状态</h1>
-      <p class="text-xs text-muted-foreground mt-0.5">共 {{ apps.length }} 条投递记录</p>
+      <p class="text-xs text-muted-foreground mt-0.5">共 {{ deliveryTotal || apps.length }} 条投递记录</p>
     </div>
 
     <div class="flex gap-3 px-4 py-3 bg-card border-b border-border flex-shrink-0">
@@ -156,24 +190,39 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="flex items-center mb-3">
-          <div v-for="(s, i) in stages" :key="s" class="flex items-center flex-1">
-            <div class="flex items-center flex-1">
+        <div class="flex items-center mb-3 overflow-x-auto scrollbar-thin pb-1">
+          <div v-for="(s, i) in stages" :key="s" class="flex items-center flex-shrink-0" :class="i < stages.length - 1 ? 'flex-1 min-w-[2rem]' : ''">
+            <div class="flex items-center flex-1 min-w-0">
               <div
-                class="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs"
-                :class="[
-                  i < app.stageIndex ? 'bg-brand-green' : i === app.stageIndex ? 'bg-brand-blue' : 'bg-muted',
-                ]"
+                class="w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0 text-white text-[9px]"
+                :class="{
+                  'bg-brand-green': stepProgressState(i, app.stageIndex) === 'completed',
+                  'bg-brand-blue': stepProgressState(i, app.stageIndex) === 'active',
+                  'bg-muted': stepProgressState(i, app.stageIndex) === 'pending',
+                }"
               >
-                <CheckCircle v-if="i < app.stageIndex" :size="10" />
+                <CheckCircle v-if="stepProgressState(i, app.stageIndex) === 'completed'" :size="9" />
                 <span v-else>{{ i + 1 }}</span>
               </div>
-              <div v-if="i < stages.length - 1" :class="['flex-1 h-0.5', i < app.stageIndex ? 'bg-brand-green' : 'bg-muted']" />
+              <div
+                v-if="i < stages.length - 1"
+                :class="[
+                  'flex-1 h-0.5 min-w-[0.25rem]',
+                  isProgressConnectorComplete(i, app.stageIndex) ? 'bg-brand-green' : 'bg-muted',
+                ]"
+              />
             </div>
           </div>
         </div>
 
         <div class="text-xs text-muted-foreground mb-1">当前：{{ app.stage }}</div>
+        <div
+          v-if="displayMatchScore(app) !== '—'"
+          class="flex items-center gap-1.5 text-xs text-brand-purple mb-2"
+        >
+          <Sparkles :size="12" />
+          <span>AI 匹配度 {{ displayMatchScore(app) }} 分</span>
+        </div>
         <div
           v-if="app.next"
           :class="['flex items-center gap-2 text-xs rounded-lg px-3 py-2 mt-2', app.status === 'offer' ? 'bg-green-50 text-brand-green' : 'bg-accent text-brand-purple']"
@@ -184,28 +233,40 @@ onMounted(() => {
           <ChevronRight :size="12" class="ml-auto" />
         </div>
         <div
-          v-if="app.resumeId && (app.attachmentFileName || app.resumeName)"
+          v-if="app.resumeId && (app.hasAttachment || app.resumeName)"
           class="flex items-center gap-2 mt-2 p-2 rounded-lg bg-muted/50 border border-border"
         >
-          <FileText :size="14" class="text-brand-blue flex-shrink-0" />
+          <FileText v-if="app.hasAttachment" :size="14" class="text-brand-blue flex-shrink-0" />
+          <PenLine v-else :size="14" class="text-brand-blue flex-shrink-0" />
           <span class="text-xs text-foreground truncate flex-1">
             {{ app.attachmentFileName || app.resumeName }}
             <span v-if="app.attachmentFileType" class="text-muted-foreground uppercase">
               · {{ app.attachmentFileType }}
             </span>
+            <span v-else-if="!app.hasAttachment" class="text-muted-foreground"> · 在线简历</span>
           </span>
           <button
             type="button"
             class="text-xs text-brand-blue whitespace-nowrap disabled:opacity-50"
             :disabled="previewingId === app.id"
-            @click="previewAttachment(app)"
+            @click="viewResume(app)"
           >
-            {{ previewingId === app.id ? '打开中...' : '查看附件' }}
+            {{
+              previewingId === app.id
+                ? '打开中...'
+                : app.hasAttachment
+                  ? '查看附件'
+                  : '查看在线简历'
+            }}
           </button>
         </div>
         <div class="flex items-center justify-between mt-2">
           <span class="text-xs text-muted-foreground">投递时间：{{ app.date }}</span>
-          <button type="button" class="flex items-center gap-1 text-xs text-brand-blue">
+          <button
+            type="button"
+            class="flex items-center gap-1 text-xs text-brand-blue opacity-80"
+            @click="showComingSoon('AI 跟进建议')"
+          >
             <Sparkles :size="11" />
             <span>AI跟进建议</span>
           </button>

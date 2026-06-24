@@ -31,13 +31,22 @@ export interface JobPageData {
 }
 
 /** 招聘中岗位分页列表 */
-export function fetchJobList(params?: { current?: number; size?: number; title?: string; status?: number }) {
+export function fetchJobList(params?: {
+  current?: number
+  size?: number
+  title?: string
+  keyword?: string
+  deptNames?: string[]
+  status?: number
+}) {
   return request.get<JobPageData>('/api/job/list', {
     params: {
       current: params?.current ?? 1,
       size: params?.size ?? 20,
       status: params?.status ?? 1,
       title: params?.title,
+      keyword: params?.keyword,
+      deptNames: params?.deptNames?.length ? params.deptNames.join(',') : undefined,
     },
   }) as Promise<JobPageData>
 }

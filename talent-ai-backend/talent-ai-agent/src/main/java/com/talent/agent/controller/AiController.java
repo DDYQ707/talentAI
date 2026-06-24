@@ -2,13 +2,18 @@ package com.talent.agent.controller;
 
 import com.talent.agent.domain.vo.MatchResultVO;
 import com.talent.agent.domain.vo.ParseTaskVO;
+import com.talent.agent.service.AiMatchPreviewService;
 import com.talent.agent.service.AiMatchService;
 import com.talent.agent.service.AiParseService;
 import com.talent.common.api.R;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,6 +26,7 @@ public class AiController {
 
     private final AiParseService aiParseService;
     private final AiMatchService aiMatchService;
+    private final AiMatchPreviewService aiMatchPreviewService;
 
     @GetMapping("/health")
     public R<Map<String, String>> health() {
@@ -62,5 +68,54 @@ public class AiController {
             return R.fail("未登录或用户信息缺失");
         }
         return R.ok(aiMatchService.getLatestByResumeAndJob(resumeId, jobId));
+    }
+
+    /** 候选人：查询岗位预览匹配（不触发新任务） */
+    @GetMapping("/match/preview")
+    public R<MatchResultVO> previewMatch(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestParam("jobId") Long jobId) {
+        if (userId == null) {
+            return R.fail("未登录或用户信息缺失");
+        }
+        return R.ok(aiMatchPreviewService.getPreviewMatch(userId, jobId));
+    }
+
+    /** 候选人：批量查询预览匹配缓存 */
+    @GetMapping("/match/preview/batch")
+    public R<Map<Long, MatchResultVO>> previewMatchBatch(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestParam("jobIds") String jobIds) {
+        if (userId == null) {
+            return R.fail("未登录或用户信息缺失");
+        }
+        List<Long> ids = parseJobIds(jobIds);
+        return R.ok(aiMatchPreviewService.getPreviewBatch(userId, ids));
+    }
+
+    /** 候选人：触发岗位预览匹配（无需投递） */
+    @PostMapping("/match/preview")
+    public R<MatchResultVO> triggerPreviewMatch(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestParam("jobId") Long jobId) {
+        if (userId == null) {
+            return R.fail("未登录或用户信息缺失");
+        }
+        try {
+            return R.ok(aiMatchPreviewService.triggerPreviewMatch(userId, jobId));
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
+    private List<Long> parseJobIds(String jobIds) {
+        if (jobIds == null || jobIds.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(jobIds.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::valueOf)
+                .collect(Collectors.toList());
     }
 }

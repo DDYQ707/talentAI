@@ -28,6 +28,9 @@ public interface ResumeFeignClient {
     @GetMapping("/api/resume/internal/attachment/{attachmentId}")
     Map<String, Object> getAttachmentById(@PathVariable("attachmentId") Long attachmentId);
 
+    @GetMapping("/api/resume/internal/primary-by-candidate")
+    Map<String, Object> getPrimaryByCandidate(@RequestParam("candidateId") Long candidateId);
+
     @GetMapping("/api/resume/internal/ai-parse-context")
     Map<String, Object> getAiParseContext(@RequestParam("resumeId") Long resumeId);
 }

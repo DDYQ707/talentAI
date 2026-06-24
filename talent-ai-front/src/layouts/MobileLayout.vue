@@ -2,6 +2,10 @@
 import { computed } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { Home, FileText, Send, User } from 'lucide-vue-next'
+import CandidateHintToast from '@/components/candidate/CandidateHintToast.vue'
+import { provideCandidateHint } from '@/composables/useCandidateHint'
+
+const candidateHint = provideCandidateHint()
 
 const tabItems = [
   { icon: Home, label: '首页', path: '/candidate' },
@@ -13,7 +17,17 @@ const tabItems = [
 const router = useRouter()
 const route = useRoute()
 
-const showTabBar = computed(() => !['/candidate/job', '/candidate/apply'].includes(route.path))
+const showTabBar = computed(() =>
+  ![
+    '/candidate/job',
+    '/candidate/apply',
+    '/candidate/interview',
+    '/candidate/interviews',
+    '/candidate/profile/edit',
+    '/candidate/resume/edit',
+    '/candidate/notifications',
+  ].includes(route.path),
+)
 
 function go(path: string) {
   router.push(path)
@@ -33,6 +47,8 @@ function isActive(path: string) {
     <main class="min-h-0 flex-1 overflow-hidden">
       <RouterView />
     </main>
+
+    <CandidateHintToast :hint="candidateHint" :above-tab-bar="showTabBar" />
 
     <nav
       v-if="showTabBar"

@@ -68,6 +68,15 @@ public class ResumeInternalController {
         }
     }
 
+    /** 微服务内部：候选人主简历 ID */
+    @GetMapping("/primary-by-candidate")
+    public Map<String, Object> primaryByCandidate(@RequestParam("candidateId") Long candidateId) {
+        if (candidateId == null) {
+            return Map.of("code", 400, "msg", "candidateId 不能为空");
+        }
+        return resumeService.getPrimaryResumeBrief(candidateId);
+    }
+
     /** 供 AI 解析：附件摘要或在线简历结构化数据 */
     @GetMapping("/ai-parse-context")
     public Map<String, Object> aiParseContext(@RequestParam("resumeId") Long resumeId) {

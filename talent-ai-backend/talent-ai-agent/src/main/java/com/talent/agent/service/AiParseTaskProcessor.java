@@ -41,6 +41,7 @@ public class AiParseTaskProcessor {
     private final ResumeParseMergeService resumeParseMergeService;
     private final AiResumeParseResultService parseResultService;
     private final AiMatchService aiMatchService;
+    private final AiResumeQualityService resumeQualityService;
     private final JobFeignClient jobFeignClient;
 
     @Async
@@ -81,6 +82,7 @@ public class AiParseTaskProcessor {
                     resumeId,
                     parseOutcome.resume().getTargetPosition());
             triggerMatchAfterParse(taskId, request, resumeId);
+            triggerQualityScoreAfterParse(taskId, request, resumeId);
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             markFailed(taskId, request, reason, textLength);
@@ -125,6 +127,7 @@ public class AiParseTaskProcessor {
                     resumeId,
                     mergedOutcome.resume().getTargetPosition());
             triggerMatchAfterParse(taskId, request, resumeId);
+            triggerQualityScoreAfterParse(taskId, request, resumeId);
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             markFailed(taskId, request, reason, textLength);
@@ -153,6 +156,7 @@ public class AiParseTaskProcessor {
                     request.getResumeId(),
                     parseOutcome.resume().getTargetPosition());
             triggerMatchAfterParse(taskId, request, request.getResumeId());
+            triggerQualityScoreAfterParse(taskId, request, request.getResumeId());
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             markFailed(taskId, request, reason, textLength);
@@ -242,20 +246,24 @@ public class AiParseTaskProcessor {
 
     /** 解析成功后触发人岗匹配；失败不影响解析主流程 */
     private void triggerMatchAfterParse(Long taskId, ParseTaskRequest request, Long resumeId) {
-        if (request.getApplicationId() == null) {
+        Long applicationId = request.getApplicationId();
+        Long jobId = request.getJobId();
+        if (applicationId == null && jobId == null) {
             return;
         }
         try {
-            Long jobId = resolveJobId(request.getApplicationId());
+            if (jobId == null) {
+                jobId = resolveJobId(applicationId);
+            }
             if (jobId == null) {
                 log.warn(
                         "解析完成后触发匹配跳过：未找到 jobId taskId={} applicationId={}",
                         taskId,
-                        request.getApplicationId());
+                        applicationId);
                 return;
             }
             MatchRequest matchRequest = new MatchRequest();
-            matchRequest.setApplicationId(request.getApplicationId());
+            matchRequest.setApplicationId(applicationId);
             matchRequest.setJobId(jobId);
             matchRequest.setResumeId(resumeId);
             matchRequest.setModelId(request.getModelId());
@@ -264,14 +272,35 @@ public class AiParseTaskProcessor {
             log.info(
                     "解析完成后已触发人岗匹配 taskId={} applicationId={} jobId={} resumeId={}",
                     taskId,
-                    request.getApplicationId(),
+                    applicationId,
                     jobId,
                     resumeId);
         } catch (Exception e) {
             log.warn(
                     "解析完成后触发人岗匹配失败 taskId={} applicationId={} reason={}",
                     taskId,
-                    request.getApplicationId(),
+                    applicationId,
+                    e.getMessage());
+        }
+    }
+
+    /** 解析成功后触发简历质量评分；失败不影响解析主流程 */
+    private void triggerQualityScoreAfterParse(Long taskId, ParseTaskRequest request, Long resumeId) {
+        if (resumeId == null) {
+            return;
+        }
+        try {
+            resumeQualityService.evaluateAfterParseAsync(resumeId, request.getCandidateId(), taskId);
+            log.info(
+                    "解析完成后已触发简历质量评分 taskId={} resumeId={} candidateId={}",
+                    taskId,
+                    resumeId,
+                    request.getCandidateId());
+        } catch (Exception e) {
+            log.warn(
+                    "解析完成后触发简历质量评分失败 taskId={} resumeId={} reason={}",
+                    taskId,
+                    resumeId,
                     e.getMessage());
         }
     }

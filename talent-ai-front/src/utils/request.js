@@ -1,5 +1,19 @@
 import axios from 'axios'
-import router from '@/router' 
+import router from '@/router'
+import { useAuthStore } from '@/stores/auth'
+
+function clearSessionAndRedirectLogin() {
+  try {
+    useAuthStore().logout()
+  } catch {
+    localStorage.removeItem('talent_token')
+    localStorage.removeItem('talent_user')
+  }
+  const current = router.currentRoute.value.fullPath
+  if (current !== '/login' && current !== '/register') {
+    void router.push({ path: '/login', query: { redirect: current } })
+  }
+}
 
 // 1. 创建 axios 实例
 const request = axios.create({
@@ -33,7 +47,7 @@ request.interceptors.response.use(
     const code = Number(res?.code)
     if (Number.isNaN(code) || code !== 200) {
       if (code === 401) {
-        localStorage.removeItem('talent_token')
+        clearSessionAndRedirectLogin()
       }
       return Promise.reject(new Error(res?.msg || res?.message || res?.error || '请求失败'))
     }
@@ -46,6 +60,9 @@ request.interceptors.response.use(
   },
   error => {
     const status = error.response?.status
+    if (status === 401) {
+      clearSessionAndRedirectLogin()
+    }
     const msg =
       error.response?.data?.msg ||
       (status === 404 ? '接口不存在(404)，请重启 talent-auth 与 talent-gateway 后重试' : null) ||

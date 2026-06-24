@@ -153,6 +153,14 @@ export function fetchMyInterviewDetail(interviewId: number) {
   return request.get<InterviewDetail>(`/api/interview/my/${interviewId}`) as Promise<InterviewDetail>
 }
 
+export function fetchCandidateInterviewPage(params: MyInterviewQuery = {}) {
+  return request.get<InterviewPageData>('/api/interview/candidate/page', { params }) as Promise<InterviewPageData>
+}
+
+export function fetchCandidateInterviewDetail(interviewId: number) {
+  return request.get<InterviewDetail>(`/api/interview/candidate/${interviewId}`) as Promise<InterviewDetail>
+}
+
 export function submitInterviewEvaluation(interviewId: number, data: EvaluationPayload) {
   return request.post<InterviewEvaluation>(`/api/interview/my/${interviewId}/evaluation`, data) as Promise<InterviewEvaluation>
 }

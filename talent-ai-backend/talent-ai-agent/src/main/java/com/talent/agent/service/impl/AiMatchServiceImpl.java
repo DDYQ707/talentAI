@@ -23,9 +23,8 @@ public class AiMatchServiceImpl implements AiMatchService {
     @Override
     @Transactional
     public MatchResultVO submitMatch(MatchRequest request) {
-        if (request == null || request.getApplicationId() == null
-                || request.getJobId() == null || request.getResumeId() == null) {
-            throw new IllegalArgumentException("applicationId、jobId、resumeId 不能为空");
+        if (request == null || request.getJobId() == null || request.getResumeId() == null) {
+            throw new IllegalArgumentException("jobId、resumeId 不能为空");
         }
         AiMatchRecord record = new AiMatchRecord();
         record.setApplicationId(request.getApplicationId());

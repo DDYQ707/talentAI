@@ -55,6 +55,30 @@ export function fetchAiMatchLatest(resumeId: number, jobId: number) {
   }) as Promise<AiMatchResult | null>
 }
 
+/** 查询岗位预览匹配（不触发新任务） */
+export function fetchPreviewMatch(jobId: number) {
+  return request.get<AiMatchResult | null>('/api/ai/match/preview', {
+    params: { jobId },
+  }) as Promise<AiMatchResult | null>
+}
+
+/** 批量查询预览匹配缓存 */
+export function fetchPreviewMatchBatch(jobIds: number[]) {
+  if (!jobIds.length) {
+    return Promise.resolve({} as Record<number, AiMatchResult>)
+  }
+  return request.get<Record<number, AiMatchResult>>('/api/ai/match/preview/batch', {
+    params: { jobIds: jobIds.join(',') },
+  }) as Promise<Record<number, AiMatchResult>>
+}
+
+/** 触发岗位预览匹配（无需投递） */
+export function triggerPreviewMatch(jobId: number) {
+  return request.post<AiMatchResult>('/api/ai/match/preview', null, {
+    params: { jobId },
+  }) as Promise<AiMatchResult>
+}
+
 export interface AiInterviewQuestion {
   id: number
   interviewId: number
@@ -169,4 +193,28 @@ export function aiTaskStatusLabel(status?: AiTaskStatus | null): string {
     default:
       return '未知'
   }
+}
+
+export interface AiResumeQualityScore {
+  scoreId: number
+  resumeId: number
+  candidateId: number
+  parseTaskId?: number | null
+  qualityScore: number
+  summary?: string | null
+  strengths?: string[]
+  weaknesses?: string[]
+  suggestions?: string[]
+  dimensionScores?: Record<string, number>
+  evaluatedAt?: string
+}
+
+export function fetchAiResumeQualityLatest(resumeId: number) {
+  return request.get<AiResumeQualityScore | null>('/api/ai/resume-score/latest', {
+    params: { resumeId },
+  }) as Promise<AiResumeQualityScore | null>
+}
+
+export function evaluateAiResumeQuality(payload: { resumeId: number; forceRefresh?: boolean }) {
+  return request.post<AiResumeQualityScore>('/api/ai/resume-score/evaluate', payload) as Promise<AiResumeQualityScore>
 }
