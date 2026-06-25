@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { useRoute, useRouter, RouterView } from 'vue-router'
-import { Shield, Bot, ClipboardList, Bell, User, LogOut, Users } from 'lucide-vue-next'
+import { Shield, Bot, ClipboardList, Bell, User, LogOut, Users, Building2, BookOpen, ShieldAlert, LayoutDashboard, Megaphone } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 
 const navItems = [
+  { icon: LayoutDashboard, label: '数据大盘', path: '/admin/dashboard' },
+  { icon: Megaphone, label: '广播中心', path: '/admin/broadcast' },
   { icon: Users, label: '账号管理', path: '/admin/accounts' },
   { icon: Shield, label: '权限管理', path: '/admin/permissions' },
   { icon: Bot, label: 'AI模型管理', path: '/admin/ai-models' },
   { icon: ClipboardList, label: 'AI审计中心', path: '/admin/audit' },
+  { icon: Building2, label: '企业资质审核', path: '/admin/enterprise-audit' },
+  { icon: BookOpen, label: '数据字典', path: '/admin/data-dict' },
+  { icon: ShieldAlert, label: '职位风控', path: '/admin/job-risk' },
 ]
 
 const router = useRouter()

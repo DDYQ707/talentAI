@@ -18,6 +18,10 @@ import {
   User,
   Building2,
 } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import request from '@/utils/request'
+
+const auth = useAuthStore()
 
 const navItems = [
   { icon: LayoutDashboard, label: '工作台', path: '/hr' },
@@ -30,8 +34,6 @@ const navItems = [
   { icon: BarChart3, label: '数据驾驶舱', path: '/hr/dashboard' },
 ]
 
-const bottomNavItems = [{ icon: LogOut, label: '退出登录', path: '/login' }]
-
 const collapsed = ref(false)
 const router = useRouter()
 const route = useRoute()
@@ -42,6 +44,23 @@ function go(path: string) {
 
 function isActive(path: string) {
   return route.path === path
+}
+
+/**
+ * HR 端退出登录 —— 无论后端接口成功/失败/宕机，
+ * 都必须在 finally 中强制清理本地状态并跳转到登录页。
+ */
+async function handleLogout() {
+  try {
+    await request.post('/api/auth/logout')
+  } catch {
+    // 后端异常不阻塞退出流程
+  } finally {
+    // 强制清理：清除 Pinia 状态 + localStorage
+    auth.logout()
+    // 强制跳转登录页
+    router.push('/login')
+  }
 }
 </script>
 
@@ -115,15 +134,13 @@ function isActive(path: string) {
 
       <div class="shrink-0 border-t border-sidebar-border px-2 pb-4 pt-2">
         <button
-          v-for="item in bottomNavItems"
-          :key="item.path"
           type="button"
           class="flex w-full min-w-0 items-center gap-2.5 px-2 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-white/55 hover:text-sidebar-foreground"
           :class="collapsed ? 'justify-center px-0' : ''"
-          @click="go(item.path)"
+          @click="handleLogout"
         >
-          <component :is="item.icon" :size="18" class="shrink-0" stroke-width="1.75" />
-          <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
+          <LogOut :size="18" class="shrink-0" stroke-width="1.75" />
+          <span v-if="!collapsed" class="truncate">退出登录</span>
         </button>
       </div>
     </aside>

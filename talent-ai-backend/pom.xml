@@ -19,6 +19,7 @@
         <module>talent-interview</module>
         <module>talent-talent-pool</module>
         <module>talent-analytics</module>
+        <module>talent-admin</module>
     </modules>
 
     <properties>

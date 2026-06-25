@@ -66,3 +66,8 @@ spring:
             - Path=/api/talent-pool/**
           filters:
             - StripPrefix=1
+
+        - id: talent-admin
+          uri: lb://talent-admin
+          predicates:
+            - Path=/api/admin/**

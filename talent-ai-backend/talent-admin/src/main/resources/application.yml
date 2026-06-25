@@ -1,0 +1,42 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: talent-admin
+    datasource:
+    dynamic:
+      primary: master
+      strict: false
+      datasource:
+        master:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://127.0.0.1:3307/talent_admin_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: root123
+        # 直连 talent_ai_db，仅 @DS("ai") 的 Mapper 使用
+        ai:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://127.0.0.1:3307/talent_ai_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: root123
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6380
+    # 如果你有配置 Nacos 注册中心，记得加上这部分
+    cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: talent-ai-dev
+
+# 让 @TableLogic 逻辑删除生效 + 下划线转驼峰
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0

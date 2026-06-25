@@ -37,12 +37,17 @@ const router = createRouter({
       path: '/admin',
       meta: { requiresAuth: true, portalRole: 'admin' as PortalRole },
       component: () => import('@/layouts/AdminLayout.vue'),
-      redirect: '/admin/permissions',
+      redirect: '/admin/dashboard',
       children: [
+        { path: 'dashboard', name: 'AdminDashboard', component: () => import('@/views/admin/DashboardView.vue') },
+        { path: 'broadcast', name: 'BroadcastConsole', component: () => import('@/views/admin/BroadcastView.vue') },
         { path: 'permissions', name: 'Permissions', component: () => import('@/views/admin/PermissionsView.vue') },
         { path: 'accounts', name: 'AdminAccounts', component: () => import('@/views/admin/AccountManagementView.vue') },
         { path: 'ai-models', name: 'AIModels', component: () => import('@/views/admin/AIModelsView.vue') },
         { path: 'audit', name: 'Audit', component: () => import('@/views/admin/AuditView.vue') },
+        { path: 'enterprise-audit', name: 'EnterpriseAudit', component: () => import('@/views/admin/EnterpriseAuditView.vue') },
+        { path: 'data-dict', name: 'DataDict', component: () => import('@/views/admin/DataDictView.vue') },
+        { path: 'job-risk', name: 'JobRisk', component: () => import('@/views/admin/JobRiskView.vue') },
       ],
     },
     {
