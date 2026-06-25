@@ -7,11 +7,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "talent-job", path = "/internal/job/stats")
+@FeignClient(name = "talent-job", contextId = "analyticsJobFeignClient", path = "/api/job/internal/stats")
 public interface JobFeignClient {
 
     @GetMapping("/active-job-count")
     Long countActiveJobs();
+
+    @GetMapping("/monthly-application-count")
+    Long countMonthlyApplications();
 
     @GetMapping("/application-count-by-stage")
     Map<Integer, Long> countApplicationsByStage(@RequestParam("stages") List<Integer> stages);

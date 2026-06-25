@@ -19,4 +19,9 @@ public class AnalyticsController {
     public R<DashboardMetrics> getHrDashboard() {
         return R.ok(dashboardService.getHrDashboard());
     }
+
+    @GetMapping("/hr/workbench")
+    public R<DashboardMetrics> getHrWorkbench() {
+        return R.ok(dashboardService.getHrDashboard());
+    }
 }
