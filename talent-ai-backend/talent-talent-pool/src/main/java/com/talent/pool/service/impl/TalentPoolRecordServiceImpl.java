@@ -217,7 +217,8 @@ public class TalentPoolRecordServiceImpl extends ServiceImpl<TalentPoolRecordMap
                 page,
                 req.getJobSeekingStatus(),
                 req.getMinScore(),
-                req.getMaxScore()
+                req.getMaxScore(),
+                req.getTagId()
         );
 
         Map<String, Object> data = new HashMap<>();

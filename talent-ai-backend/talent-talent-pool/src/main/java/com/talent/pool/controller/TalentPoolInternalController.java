@@ -24,7 +24,7 @@ import java.util.Map;
  * @since 2026-06-22
  */
 @RestController
-@RequestMapping("/api/talent-pool/internal")
+@RequestMapping("/talent-pool/internal")
 public class TalentPoolInternalController {
 
     @Autowired

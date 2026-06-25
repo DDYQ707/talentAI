@@ -15,6 +15,6 @@ public interface TalentPoolFeignClient {
     /**
      * 内部调用：将候选人归档至人才库
      */
-    @PostMapping("/api/talent-pool/internal/archive")
+    @PostMapping("/talent-pool/internal/archive")
     Map<String, Object> archiveToPool(@RequestBody Map<String, Object> body);
 }

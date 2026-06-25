@@ -51,6 +51,9 @@
             t.tag_name,
             t.tag_type
         FROM talent_pool_record r
+        <if test="tagId != null">
+        INNER JOIN talent_pool_tag pt_filter ON pt_filter.pool_record_id = r.id AND pt_filter.is_deleted = 0 AND pt_filter.tag_id = #{tagId}
+        </if>
         LEFT JOIN talent_pool_tag pt ON pt.pool_record_id = r.id AND pt.is_deleted = 0
         LEFT JOIN talent_tag t ON t.id = pt.tag_id AND t.is_deleted = 0
         <where>

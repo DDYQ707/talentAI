@@ -33,7 +33,7 @@ import java.util.Map;
  * @since 2026-06-17
  */
 @RestController
-@RequestMapping("/api/talent-pool")
+@RequestMapping("/talent-pool")
 public class TalentPoolController {
 
     @Autowired

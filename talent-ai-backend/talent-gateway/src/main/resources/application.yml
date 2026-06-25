@@ -59,8 +59,10 @@ spring:
           uri: lb://talent-interview
           predicates:
             - Path=/internal/interview/**
-        # 人才库路由（Controller 映射 /api/talent-pool，无需 StripPrefix）
+        # 人才库路由（Controller 映射 /talent-pool，网关 StripPrefix 剥离 /api）
         - id: talent_pool_route
           uri: lb://talent-talent-pool
           predicates:
             - Path=/api/talent-pool/**
+          filters:
+            - StripPrefix=1

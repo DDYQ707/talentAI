@@ -25,12 +25,14 @@ public interface TalentPoolRecordMapper extends BaseMapper<TalentPoolRecord> {
      * @param jobSeekingStatus 求职状态筛选（可选）
      * @param minScore         匹配分数下限（可选）
      * @param maxScore         匹配分数上限（可选）
+     * @param tagId            标签ID筛选（可选）
      * @return 含标签列表的 VO 分页结果
      */
     List<TalentPoolRecordVO> selectPoolRecordPage(
             Page<TalentPoolRecordVO> page,
             @Param("jobSeekingStatus") Byte jobSeekingStatus,
             @Param("minScore") Integer minScore,
-            @Param("maxScore") Integer maxScore
+            @Param("maxScore") Integer maxScore,
+            @Param("tagId") Long tagId
     );
 }

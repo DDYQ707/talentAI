@@ -32,4 +32,9 @@ public class TalentPoolQueryRequest {
      * 每页条数（默认20）
      */
     private Integer size;
+
+    /**
+     * 标签ID筛选（可选，精确匹配某个标签）
+     */
+    private Long tagId;
 }
