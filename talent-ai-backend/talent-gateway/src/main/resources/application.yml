@@ -66,3 +66,8 @@ spring:
             - Path=/api/talent-pool/**
           filters:
             - StripPrefix=1
+        # 数据聚合 / 驾驶舱
+        - id: analytics_route
+          uri: lb://talent-analytics
+          predicates:
+            - Path=/api/analytics/**

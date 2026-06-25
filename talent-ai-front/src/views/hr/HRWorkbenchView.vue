@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { EChartsOption } from 'echarts'
 import {
   Briefcase,
@@ -16,26 +17,91 @@ import {
   TrendingUp,
   ArrowUp,
   ArrowDown,
-  RefreshCw
+  RefreshCw,
+  Loader2,
 } from 'lucide-vue-next'
+import { fetchHrWorkbench, type DashboardMetrics, type FunnelStage } from '@/api/analytics'
 
-// --- 顶部统计卡片数据 ---
-const statsCards = [
-  { label: '在招岗位', value: '42', subLabel: '较上周', subValue: '+5', icon: Briefcase, color: 'text-teal-600', bg: 'bg-teal-50' },
-  { label: '本月投递', value: '1,284', subLabel: '较上月', subValue: '+18%', icon: Send, color: 'text-teal-600', bg: 'bg-teal-50' },
-  { label: '面试进行中', value: '86', subLabel: '今日安排', subValue: '12 场', icon: Calendar, color: 'text-teal-600', bg: 'bg-teal-50' },
-  { label: '本月录用', value: '23', isProgress: true, progressRate: 82, subLabel: 'Offer接受率', subValue: '82%', icon: CheckCircle, color: 'text-orange-500', bg: 'bg-orange-50' },
-]
+const router = useRouter()
+const FUNNEL_COLORS = ['#3d8b7a', '#5a8a82', '#6ba898', '#85a185', '#ac9c8a']
 
-// --- 招聘漏斗数据 ---
-const funnelData = [
-  { name: '简历投递', value: 1284, fill: '#3d8b7a' },
-  { name: 'AI筛选通过', value: 856, fill: '#5a8a82' },
-  { name: 'HR初筛', value: 412, fill: '#6ba898' },
-  { name: '面试安排', value: 186, fill: '#85a185' },
-  { name: '终面', value: 56, fill: '#7aab9c' },
-  { name: '录用', value: 23, fill: '#ac9c8a' },
-]
+const loading = ref(true)
+const error = ref('')
+const metrics = ref<DashboardMetrics | null>(null)
+
+const statsCards = computed(() => {
+  const m = metrics.value
+  const offerRate = m?.offerAcceptRate ? Math.round(m.offerAcceptRate * 100) : 0
+  return [
+    {
+      label: '在招岗位',
+      value: m != null ? String(m.activeJobs) : '—',
+      subLabel: '简历总量',
+      subValue: m != null ? String(m.totalResumes) : '—',
+      icon: Briefcase,
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
+    },
+    {
+      label: '本月投递',
+      value: m != null ? String(m.monthlyApplications) : '—',
+      subLabel: 'AI初筛通过',
+      subValue: m != null ? String(m.initialScreenPass) : '—',
+      icon: Send,
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
+    },
+    {
+      label: '面试进行中',
+      value: m != null ? String(m.ongoingInterviews) : '—',
+      subLabel: '本月已完成',
+      subValue: m != null ? `${m.completedInterviewsThisMonth} 场` : '—',
+      icon: Calendar,
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
+    },
+    {
+      label: '本月录用',
+      value: m != null ? String(m.monthlyHired) : '—',
+      isProgress: true,
+      progressRate: offerRate > 0 ? offerRate : (m?.monthlyHired ? 100 : 0),
+      subLabel: 'Offer接受率',
+      subValue: offerRate > 0 ? `${offerRate}%` : '待对接',
+      icon: CheckCircle,
+      color: 'text-orange-500',
+      bg: 'bg-orange-50',
+    },
+  ]
+})
+
+const funnelData = computed(() => {
+  const funnel = metrics.value?.funnel ?? []
+  return funnel.map((item: FunnelStage, i: number) => ({
+    name: item.stageName,
+    value: item.count ?? 0,
+    fill: FUNNEL_COLORS[i % FUNNEL_COLORS.length],
+  }))
+})
+
+const funnelBase = computed(() => Math.max(funnelData.value[0]?.value ?? 1, 1))
+
+async function loadWorkbench() {
+  loading.value = true
+  error.value = ''
+  try {
+    metrics.value = await fetchHrWorkbench()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadWorkbench)
+
+function goAiAssistant() {
+  router.push('/hr/ai-assistant')
+}
 
 // --- 招聘趋势数据 ---
 const trendData = [
@@ -140,14 +206,24 @@ const aiInsights = [
         <h1 class="text-2xl font-bold text-slate-900">我的工作台</h1>
         <p class="mt-1 text-sm text-slate-500">2024年6月14日 星期五 · 欢迎回来，张招聘</p>
       </div>
-      <div class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-        <div class="h-2 w-2 rounded-full bg-teal-500" />
-        <span>系统运行正常</span>
-        <RefreshCw :size="14" class="ml-1 text-slate-400" />
+      <div class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors" @click="loadWorkbench">
+        <div :class="['h-2 w-2 rounded-full', loading ? 'bg-amber-400' : error ? 'bg-red-400' : 'bg-teal-500']" />
+        <span>{{ loading ? '加载中…' : error ? '加载异常' : '系统运行正常' }}</span>
+        <RefreshCw :size="14" :class="['ml-1 text-slate-400', loading && 'animate-spin']" />
       </div>
     </div>
 
-    <div class="flex gap-6">
+    <div v-if="error" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+      {{ error }}
+      <button class="ml-2 underline" @click="loadWorkbench">重试</button>
+    </div>
+
+    <div v-if="loading" class="flex items-center justify-center py-24 text-slate-500">
+      <Loader2 :size="24" class="animate-spin mr-2" />
+      正在加载工作台数据…
+    </div>
+
+    <div v-else class="flex gap-6">
       
       <div class="flex-1 space-y-6">
         
@@ -185,18 +261,19 @@ const aiInsights = [
               </select>
             </div>
             <div class="space-y-3.5">
+              <div v-if="!funnelData.length" class="py-8 text-center text-sm text-slate-400">暂无漏斗数据</div>
               <div v-for="(item, i) in funnelData" :key="item.name" class="flex items-center gap-4">
                 <div class="w-20 shrink-0 text-sm text-slate-500">{{ item.name }}</div>
                 <div class="flex-1 h-7 rounded-full bg-slate-100">
                   <div
                     class="flex h-full items-center rounded-full px-3 transition-all duration-500"
-                    :style="{ width: `${(item.value / 1284) * 100}%`, backgroundColor: item.fill, minWidth: '50px' }"
+                    :style="{ width: `${Math.max((item.value / funnelBase) * 100, item.value > 0 ? 8 : 0)}%`, backgroundColor: item.fill, minWidth: item.value > 0 ? '50px' : '0' }"
                   >
-                    <span class="text-xs font-medium text-white">{{ item.value }}</span>
+                    <span v-if="item.value > 0" class="text-xs font-medium text-white">{{ item.value }}</span>
                   </div>
                 </div>
                 <div class="w-10 shrink-0 text-right text-sm text-slate-400">
-                  {{ i === 0 ? '100%' : `${Math.round((item.value / 1284) * 100)}%` }}
+                  {{ i === 0 ? '100%' : `${Math.round((item.value / funnelBase) * 100)}%` }}
                 </div>
               </div>
             </div>
@@ -288,7 +365,7 @@ const aiInsights = [
               class="w-full rounded-full border border-slate-200 bg-slate-50 py-3 pl-4 pr-12 text-sm outline-none focus:border-teal-500 focus:bg-white transition-all"
               placeholder="向AI助手提问..."
             />
-            <button class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+            <button class="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-teal-600 text-white hover:bg-teal-700 transition-colors" @click="goAiAssistant">
               <Send :size="14" class="ml-0.5" />
             </button>
           </div>
@@ -339,7 +416,3 @@ const aiInsights = [
     </div>
   </div>
 </template>
-
-<style scoped>
-/* 可按需引入外部样式，使用 Tailwind 时一般留空即可 */
-</style>
