@@ -15,6 +15,7 @@ import java.util.List;
  * AI 模型 Mapper —— 整库走 talent_ai_db（@DS("ai")）
  * <p>
  * 统计口径仅基于 ai_parse_task + ai_match_record 两张表。
+ * 注：平均延迟仅取 ai_parse_task（旧库 ai_match_record 无 started_at / finished_at 字段）。
  *
  * @author TalentAI
  */
@@ -39,18 +40,13 @@ public interface AiModelMapper extends BaseMapper<AiModel> {
     Long sumTokens();
 
     /**
-     * 平均延迟（秒）：两表 started_at / finished_at 均非空记录的 TIMESTAMPDIFF 平均值。
+     * 平均延迟（秒）：ai_parse_task started_at / finished_at 均非空记录的 TIMESTAMPDIFF 平均值。
+     * 注：ai_match_record 旧库结构无 started_at / finished_at 字段，故不参与延迟统计。
      */
     @Select("""
-            SELECT IFNULL(AVG(diff_sec), 0) FROM (
-              SELECT TIMESTAMPDIFF(SECOND, started_at, finished_at) AS diff_sec
-              FROM ai_parse_task
-              WHERE is_deleted = 0 AND started_at IS NOT NULL AND finished_at IS NOT NULL
-              UNION ALL
-              SELECT TIMESTAMPDIFF(SECOND, started_at, finished_at) AS diff_sec
-              FROM ai_match_record
-              WHERE is_deleted = 0 AND started_at IS NOT NULL AND finished_at IS NOT NULL
-            ) t
+            SELECT IFNULL(AVG(TIMESTAMPDIFF(SECOND, started_at, finished_at)), 0)
+            FROM ai_parse_task
+            WHERE is_deleted = 0 AND started_at IS NOT NULL AND finished_at IS NOT NULL
             """)
     BigDecimal avgLatencySeconds();
 

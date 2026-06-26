@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: talent-admin
-    datasource:
+  datasource:
     dynamic:
       primary: master
       strict: false
@@ -14,10 +14,22 @@ spring:
           url: jdbc:mysql://127.0.0.1:3307/talent_admin_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
           username: root
           password: root123
-        # 直连 talent_ai_db，仅 @DS("ai") 的 Mapper 使用
+                # 直连 talent_ai_db，仅 @DS("ai") 的 Mapper 使用
         ai:
           driver-class-name: com.mysql.cj.jdbc.Driver
           url: jdbc:mysql://127.0.0.1:3307/talent_ai_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: root123
+        # 直连 talent_auth_db，仅 @DS("auth") 的 Mapper 使用（大屏总用户数）
+        auth:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://127.0.0.1:3307/talent_auth_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+          username: root
+          password: root123
+        # 直连 talent_job_db，仅 @DS("job") 的 Mapper 使用（投递/岗位趋势/行业分布）
+        job:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://127.0.0.1:3307/talent_job_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
           username: root
           password: root123
   data:
@@ -25,7 +37,7 @@ spring:
       host: 127.0.0.1
       port: 6380
     # 如果你有配置 Nacos 注册中心，记得加上这部分
-    cloud:
+  cloud:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
@@ -35,8 +47,23 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-  global-config:
+    global-config:
     db-config:
       logic-delete-field: isDeleted
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+# 数据大屏 - 服务健康探测配置
+dashboard:
+  nacos:
+    server-addr: 127.0.0.1:8848
+    namespace: talent-ai-dev
+  services:
+    - talent-gateway
+    - talent-auth
+    - talent-job
+    - talent-talent-pool
+    - talent-admin
+    - talent-resume
+    - talent-ai-agent
+    - talent-interview
