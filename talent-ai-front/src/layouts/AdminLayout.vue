@@ -11,7 +11,7 @@ const navItems = [
   { icon: Users, label: '账号管理', path: '/admin/accounts' },
   { icon: Shield, label: '权限管理', path: '/admin/permissions' },
   { icon: Bot, label: 'AI模型管理', path: '/admin/ai-models' },
-  { icon: ClipboardList, label: 'AI审计中心', path: '/admin/audit' },
+  // { icon: ClipboardList, label: 'AI审计中心', path: '/admin/audit' },
   { icon: Building2, label: '企业资质审核', path: '/admin/enterprise-audit' },
   { icon: BookOpen, label: '数据字典', path: '/admin/data-dict' },
   { icon: ShieldAlert, label: '职位风控', path: '/admin/job-risk' },
