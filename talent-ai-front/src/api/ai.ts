@@ -115,6 +115,37 @@ export function generateAiInterviewQuestions(payload: {
   ) as Promise<AiInterviewQuestionGenerateResult>
 }
 
+export interface AiInterviewNote {
+  id: number
+  interviewId: number
+  interviewerId: number
+  noteContent?: string | null
+  aiSummary?: string | null
+  aiSuggestedScore?: number | null
+  aiSuggestedConclusion?: number | null
+  aiSuggestedConclusionLabel?: string | null
+  aiDimensionScores?: Record<string, number>
+  aiHighlights?: string[]
+  updatedAt?: string
+}
+
+export function fetchAiInterviewNote(interviewId: number) {
+  return request.get<AiInterviewNote | null>('/api/ai/interview-notes', {
+    params: { interviewId },
+  }) as Promise<AiInterviewNote | null>
+}
+
+export function saveAiInterviewNote(payload: { interviewId: number; noteContent?: string }) {
+  return request.put<AiInterviewNote>('/api/ai/interview-notes', payload) as Promise<AiInterviewNote>
+}
+
+export function synthesizeAiInterviewNote(payload: { interviewId: number; noteContent?: string }) {
+  return request.post<AiInterviewNote>(
+    '/api/ai/interview-notes/synthesize',
+    payload,
+  ) as Promise<AiInterviewNote>
+}
+
 export interface AiTalentProfile {
   profileId: number
   candidateId: number

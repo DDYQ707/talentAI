@@ -15,7 +15,6 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.TokenStream;
-import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
@@ -38,30 +37,41 @@ public class HrRecruitAgentService {
     private final KnowledgeSearchTool knowledgeSearchTool;
     private final ChatCandidateContext chatCandidateContext;
 
-    private HrAssistant hrAssistant;
-    private HrAssistantStream hrAssistantStream;
+    private volatile HrAssistant hrAssistant;
+    private volatile HrAssistantStream hrAssistantStream;
 
-    @PostConstruct
-    void initAssistant() {
-        Object[] tools = {
-            matchQueryTool,
-            jobQueryTool,
-            applicationQueryTool,
-            resumeSearchTool,
-            interviewQueryTool,
-            knowledgeSearchTool
-        };
-        hrAssistant = AiServices.builder(HrAssistant.class)
-                .chatLanguageModel(buildChatModel())
-                .chatMemoryProvider(chatMemoryProvider)
-                .tools(tools)
-                .build();
-        hrAssistantStream = AiServices.builder(HrAssistantStream.class)
-                .chatLanguageModel(buildChatModel())
-                .streamingChatLanguageModel(buildStreamingChatModel())
-                .chatMemoryProvider(chatMemoryProvider)
-                .tools(tools)
-                .build();
+    private void ensureAssistantInitialized() {
+        if (hrAssistant != null && hrAssistantStream != null) {
+            return;
+        }
+        if (!StringUtils.hasText(dashScopeProperties.getApiKey())) {
+            throw new AgentBusinessException("DASHSCOPE_API_KEY 未配置，请设置环境变量后重试");
+        }
+        synchronized (this) {
+            if (hrAssistant != null && hrAssistantStream != null) {
+                return;
+            }
+            Object[] tools = {
+                matchQueryTool,
+                jobQueryTool,
+                applicationQueryTool,
+                resumeSearchTool,
+                interviewQueryTool,
+                knowledgeSearchTool
+            };
+            ChatLanguageModel chatModel = buildChatModel();
+            hrAssistant = AiServices.builder(HrAssistant.class)
+                    .chatLanguageModel(chatModel)
+                    .chatMemoryProvider(chatMemoryProvider)
+                    .tools(tools)
+                    .build();
+            hrAssistantStream = AiServices.builder(HrAssistantStream.class)
+                    .chatLanguageModel(chatModel)
+                    .streamingChatLanguageModel(buildStreamingChatModel())
+                    .chatMemoryProvider(chatMemoryProvider)
+                    .tools(tools)
+                    .build();
+        }
     }
 
     public AgentChatOutcome chat(Long sessionId, String userMessage) {
@@ -71,9 +81,7 @@ public class HrRecruitAgentService {
         if (!StringUtils.hasText(userMessage)) {
             throw new IllegalArgumentException("message 不能为空");
         }
-        if (!StringUtils.hasText(dashScopeProperties.getApiKey())) {
-            throw new AgentBusinessException("DASHSCOPE_API_KEY 未配置，请设置环境变量后重试");
-        }
+        ensureAssistantInitialized();
         chatCandidateContext.clear();
         try {
             log.info("HR agent chat, sessionId={}, messageLength={}", sessionId, userMessage.length());
@@ -101,9 +109,7 @@ public class HrRecruitAgentService {
         if (!StringUtils.hasText(userMessage)) {
             throw new IllegalArgumentException("message 不能为空");
         }
-        if (!StringUtils.hasText(dashScopeProperties.getApiKey())) {
-            throw new AgentBusinessException("DASHSCOPE_API_KEY 未配置，请设置环境变量后重试");
-        }
+        ensureAssistantInitialized();
         chatCandidateContext.clear();
         try {
             log.info("HR agent stream chat, sessionId={}, messageLength={}", sessionId, userMessage.length());

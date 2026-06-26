@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { Plus, Search, Edit, Trash2, Shield, User, CheckCircle, XCircle, Users } from 'lucide-vue-next'
 
 const roles = [
@@ -12,7 +12,7 @@ const roles = [
 const permModules = [
   { module: '招聘管理', perms: ['查看岗位', '发布岗位', '编辑岗位', '关闭岗位'] },
   { module: '简历管理', perms: ['查看简历', '下载简历', '标注简历', '删除简历'] },
-  { module: 'AI功能', perms: ['AI初筛', 'AI助手', 'AI面试官', 'AI报告导出'] },
+  { module: 'AI功能', perms: ['AI初筛', 'AI助手', 'AI面试笔记', 'AI报告导出'] },
   { module: '数据报表', perms: ['查看报表', '导出报表', '自定义报表'] },
   { module: '系统设置', perms: ['用户管理', '角色管理', 'AI模型配置', '系统审计'] },
 ]
@@ -27,7 +27,7 @@ const hrEnabled = new Set([
   '简历管理-标注简历',
   'AI功能-AI初筛',
   'AI功能-AI助手',
-  'AI功能-AI面试官',
+  'AI功能-AI面试笔记',
   '数据报表-查看报表',
   '数据报表-导出报表',
 ])

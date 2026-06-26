@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { EChartsOption } from 'echarts'
 import { useRoute, useRouter } from 'vue-router'
@@ -10,17 +10,19 @@ import {
   Video,
   Star,
   ChevronRight,
-  Mic,
   Lightbulb,
   ClipboardList,
   Loader2,
+  NotebookPen,
 } from 'lucide-vue-next'
 import {
   fetchAiInterviewQuestions,
+  fetchAiInterviewNote,
   fetchAiMatchByApplication,
   generateAiInterviewQuestions,
   parseDimensionScores,
   parseJsonStringArray,
+  type AiInterviewNote,
   type AiInterviewQuestion,
   type AiMatchResult,
 } from '@/api/ai'
@@ -46,6 +48,7 @@ const detail = ref<InterviewDetail | null>(null)
 const aiMatch = ref<AiMatchResult | null>(null)
 const aiLoading = ref(false)
 const aiQuestions = ref<AiInterviewQuestion[]>([])
+const interviewNote = ref<AiInterviewNote | null>(null)
 const questionsLoading = ref(false)
 const generatingQuestions = ref(false)
 
@@ -114,6 +117,32 @@ const canEvaluate = computed(
 
 const hasEvaluation = computed(() => !!detail.value?.evaluation)
 
+const noteDraftApplied = ref(false)
+
+const hasNoteDraft = computed(
+  () => !!interviewNote.value?.aiSummary && !hasEvaluation.value && canEvaluate.value,
+)
+
+const draftDimensionScores = computed(() => {
+  const raw = interviewNote.value?.aiDimensionScores
+  if (!raw || typeof raw !== 'object') return radarData.value
+  return Object.entries(raw).map(([subject, value]) => ({
+    subject,
+    value: Math.min(100, Math.max(0, Number(value) || 0)),
+  }))
+})
+
+function applyNoteDraft() {
+  if (!interviewNote.value?.aiSummary) return
+  comment.value = interviewNote.value.aiSummary
+  noteDraftApplied.value = true
+}
+
+function openNotes() {
+  if (!interviewId.value) return
+  router.push({ path: '/interviewer/notes', query: { id: String(interviewId.value) } })
+}
+
 async function loadDetail() {
   if (!interviewId.value) {
     loading.value = false
@@ -127,6 +156,7 @@ async function loadDetail() {
     await Promise.all([
       loadAiMatch(detail.value.applicationId),
       loadSavedQuestions(interviewId.value),
+      loadInterviewNote(interviewId.value),
     ])
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '面试详情加载失败')
@@ -144,6 +174,14 @@ async function loadSavedQuestions(id: number) {
     aiQuestions.value = []
   } finally {
     questionsLoading.value = false
+  }
+}
+
+async function loadInterviewNote(id: number) {
+  try {
+    interviewNote.value = await fetchAiInterviewNote(id)
+  } catch {
+    interviewNote.value = null
   }
 }
 
@@ -179,11 +217,21 @@ async function handleSubmit(conclusion: number) {
   errorMsg.value = ''
   try {
     await submitInterviewEvaluation(interviewId.value, {
-      overallScore: matchScore.value > 0 ? matchScore.value : 80,
+      overallScore:
+        interviewNote.value?.aiSuggestedScore && noteDraftApplied.value
+          ? interviewNote.value.aiSuggestedScore
+          : matchScore.value > 0
+            ? matchScore.value
+            : 80,
       conclusion,
       comment: comment.value.trim() || undefined,
-      dimensionScores: radarData.value.length
-        ? Object.fromEntries(radarData.value.map((d) => [d.subject, d.value]))
+      dimensionScores: (noteDraftApplied.value ? draftDimensionScores.value : radarData.value).length
+        ? Object.fromEntries(
+            (noteDraftApplied.value ? draftDimensionScores.value : radarData.value).map((d) => [
+              d.subject,
+              d.value,
+            ]),
+          )
         : undefined,
     })
     submitSuccess.value = '评价已提交'
@@ -219,10 +267,10 @@ onMounted(() => loadDetail())
           <button
             type="button"
             class="flex items-center gap-2 px-4 py-2 gradient-purple rounded-xl text-white text-sm font-medium shadow-custom"
-            @click="router.push('/interviewer/ai-mode')"
+            @click="openNotes"
           >
-            <Mic :size="15" />
-            <span>进入AI面试</span>
+            <NotebookPen :size="15" />
+            <span>面试笔记</span>
           </button>
         </div>
       </div>
@@ -230,6 +278,28 @@ onMounted(() => loadDetail())
       <p v-if="errorMsg" class="text-xs text-red-600 mb-4">{{ errorMsg }}</p>
       <p v-if="loading" class="text-sm text-muted-foreground mb-4">加载中...</p>
       <p v-if="submitSuccess" class="text-xs text-brand-green mb-4">{{ submitSuccess }}</p>
+
+      <div
+        v-if="hasNoteDraft"
+        class="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-brand-purple/30 bg-brand-tint-2 px-4 py-3"
+      >
+        <div class="flex items-start gap-2 min-w-0">
+          <Sparkles :size="15" class="text-brand-purple mt-0.5 flex-shrink-0" />
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-foreground">检测到 AI 评估草稿</div>
+            <div class="text-xs text-muted-foreground mt-0.5 truncate">
+              建议分 {{ interviewNote?.aiSuggestedScore }} · {{ interviewNote?.aiSuggestedConclusionLabel }}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium gradient-purple text-white"
+          @click="applyNoteDraft"
+        >
+          应用到评价
+        </button>
+      </div>
 
       <div
         v-if="!interviewId && !loading"

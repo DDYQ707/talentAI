@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Briefcase,
   Star,
+  NotebookPen,
 } from 'lucide-vue-next'
 import {
   fetchAiMatchScoresByApplications,
@@ -108,6 +109,11 @@ function openDetail(interviewId: number) {
   router.push({ path: '/interviewer/detail', query: { id: String(interviewId) } })
 }
 
+function openNotes(interviewId: number, event: Event) {
+  event.stopPropagation()
+  router.push({ path: '/interviewer/notes', query: { id: String(interviewId) } })
+}
+
 watch(statusTab, () => loadData())
 
 onMounted(() => loadData())
@@ -124,10 +130,10 @@ onMounted(() => loadData())
         <button
           type="button"
           class="flex items-center gap-2 px-4 py-2 gradient-purple rounded-xl text-white text-sm font-medium shadow-custom"
-          @click="router.push('/interviewer/ai-mode')"
+          @click="router.push('/interviewer/notes')"
         >
-          <Sparkles :size="15" />
-          <span>AI面试官模式</span>
+          <NotebookPen :size="15" />
+          <span>AI 面试笔记</span>
         </button>
       </div>
 
@@ -217,7 +223,17 @@ onMounted(() => loadData())
                 <span class="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground">
                   {{ iv.roundTypeLabel }}
                 </span>
-                <ChevronRight :size="16" class="text-muted-foreground flex-shrink-0" />
+                <div class="flex items-center gap-2">
+                  <button
+                    v-if="iv.status === INTERVIEW_STATUS.PENDING"
+                    type="button"
+                    class="text-xs px-2 py-1 rounded-lg border border-brand-purple/30 text-brand-purple hover:bg-brand-tint-2"
+                    @click="openNotes(iv.interviewId, $event)"
+                  >
+                    记笔记
+                  </button>
+                  <ChevronRight :size="16" class="text-muted-foreground flex-shrink-0" />
+                </div>
               </div>
             </div>
           </div>

@@ -76,7 +76,7 @@ const router = createRouter({
       children: [
         { path: '', name: 'InterviewList', component: () => import('@/views/interviewer/InterviewListView.vue') },
         { path: 'detail', name: 'InterviewDetail', component: () => import('@/views/interviewer/InterviewDetailView.vue') },
-        { path: 'ai-mode', name: 'AIMode', component: () => import('@/views/interviewer/AIModeView.vue') },
+        { path: 'notes', name: 'InterviewNotes', component: () => import('@/views/interviewer/InterviewNotesView.vue') },
       ],
     },
     {

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 供 talent-analytics 聚合统计（Feign 内部调用） */
+/** 供 talent-analytics 聚合统计 */
 @RestController
 @RequestMapping("/api/job/internal/stats")
 @RequiredArgsConstructor
