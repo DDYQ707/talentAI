@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { EChartsOption } from 'echarts'
 import {
@@ -11,8 +11,6 @@ import {
   Briefcase,
   Sparkles,
   Calendar,
-  Bookmark,
-  Send,
   TrendingUp,
   FileText,
   Eye,
@@ -20,17 +18,21 @@ import {
   FolderKanban,
   Award,
   RotateCw,
+  ClipboardList,
 } from 'lucide-vue-next'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
-import { fetchHrResumeDetail, fetchHrResumePreview, updateHrScreenStatus, type HrResumeDetail } from '@/api/hrResume'
+import { fetchHrResumeDetail, fetchHrResumePreview, type HrResumeDetail } from '@/api/hrResume'
+import { fetchHrJobList, type JobPost } from '@/api/hrJob'
 import {
   aiTaskStatusLabel,
-  fetchAiMatchByApplication,
   fetchAiMatchLatest,
   fetchAiParseLatest,
   fetchAiProfileByApplication,
+  formatMatchErrorMessage,
+  formatMatchLevel,
   generateAiProfile,
   retryAiParse,
+  triggerAiMatch,
   parseDimensionScores,
   parseJsonStringArray,
   type AiMatchResult,
@@ -38,11 +40,18 @@ import {
   type AiTalentProfile,
 } from '@/api/ai'
 import { openResumePreview } from '@/api/resume'
-import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
+import { screenStatusLabel } from '@/constants/resume'
 import { formatDegree, formatResumePeriod, skillProficiencyLabel, skillProficiencyPercent } from '@/utils/resumeFormat'
 import { formatCertType, formatExperienceType } from '@/constants/onlineResume'
 import { getErrorMessage } from '@/utils/validators'
 import InterviewScheduleDialog from '@/components/hr/InterviewScheduleDialog.vue'
+import HrInterviewEvaluationPanel from '@/components/hr/HrInterviewEvaluationPanel.vue'
+import {
+  fetchHrInterviewDetail,
+  fetchInterviewsByApplication,
+  type InterviewListItem,
+} from '@/api/interview'
+import { INTERVIEW_STATUS } from '@/constants/interview'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,8 +60,6 @@ const loading = ref(true)
 const errorMsg = ref('')
 const pdfPreviewUrl = ref('')
 const previewLoading = ref(false)
-const statusUpdating = ref(false)
-const statusSuccessMsg = ref('')
 const aiMatch = ref<AiMatchResult | null>(null)
 const aiParse = ref<AiParseTaskResult | null>(null)
 const aiProfile = ref<AiTalentProfile | null>(null)
@@ -62,7 +69,13 @@ const scheduleOpen = ref(false)
 const scheduleSuccessMsg = ref('')
 const reparseLoading = ref(false)
 const reparseMsg = ref('')
+const jobOptions = ref<JobPost[]>([])
+const selectedJobId = ref<number | null>(null)
+const matchLoading = ref(false)
+const matchMsg = ref('')
+const applicationInterviews = ref<InterviewListItem[]>([])
 let parsePollTimer: ReturnType<typeof setInterval> | null = null
+let matchPollTimer: ReturnType<typeof setInterval> | null = null
 
 const resumeId = computed(() => {
   const id = Number(route.query.id)
@@ -96,66 +109,50 @@ const candidate = computed(() => ({
   attachmentId: detail.value?.attachmentId,
 }))
 
-const currentScreenStatus = computed(() => detail.value?.screenStatus ?? RESUME_SCREEN_STATUS.PENDING)
-
 const canScheduleInterview = computed(() => !!detail.value?.applicationId && detail.value.applicationId > 0)
+
+const completedInterviewsWithEvaluation = computed(() =>
+  applicationInterviews.value.filter(
+    (iv) => iv.status === INTERVIEW_STATUS.COMPLETED && (iv.evaluation || iv.totalScore),
+  ),
+)
+
+async function enrichInterviewEvaluations(list: InterviewListItem[]) {
+  return Promise.all(
+    list.map(async (iv) => {
+      const needsDetail =
+        iv.status === INTERVIEW_STATUS.COMPLETED
+        && !iv.evaluation
+        && (iv.totalScore != null || iv.evaluationConclusion != null)
+      if (!needsDetail) return iv
+      try {
+        const detail = await fetchHrInterviewDetail(iv.interviewId)
+        return {
+          ...iv,
+          evaluation: detail.evaluation ?? iv.evaluation,
+          totalScore: detail.totalScore ?? iv.totalScore,
+          evaluationConclusion: detail.evaluationConclusion ?? iv.evaluationConclusion,
+          evaluationConclusionLabel: detail.evaluationConclusionLabel ?? iv.evaluationConclusionLabel,
+        }
+      } catch {
+        return iv
+      }
+    }),
+  )
+}
+
+async function loadApplicationInterviews(applicationId: number) {
+  try {
+    const list = await fetchInterviewsByApplication(applicationId)
+    applicationInterviews.value = await enrichInterviewEvaluations(list)
+  } catch {
+    applicationInterviews.value = []
+  }
+}
 
 function handleScheduleSuccess() {
   scheduleSuccessMsg.value = '面试已安排成功'
   void loadDetail()
-}
-
-interface ScreenAction {
-  label: string
-  status: number
-  variant: 'primary' | 'success' | 'danger' | 'muted'
-}
-
-const screenActions = computed<ScreenAction[]>(() => {
-  const current = currentScreenStatus.value
-  const actions: ScreenAction[] = []
-  if (current === RESUME_SCREEN_STATUS.PENDING) {
-    actions.push({ label: '进入面试', status: RESUME_SCREEN_STATUS.INTERVIEWING, variant: 'primary' })
-    actions.push({ label: '直接录用', status: RESUME_SCREEN_STATUS.HIRED, variant: 'success' })
-    actions.push({ label: '淘汰', status: RESUME_SCREEN_STATUS.REJECTED, variant: 'danger' })
-  } else if (current === RESUME_SCREEN_STATUS.INTERVIEWING) {
-    actions.push({ label: '录用', status: RESUME_SCREEN_STATUS.HIRED, variant: 'success' })
-    actions.push({ label: '淘汰', status: RESUME_SCREEN_STATUS.REJECTED, variant: 'danger' })
-    actions.push({ label: '退回待初筛', status: RESUME_SCREEN_STATUS.PENDING, variant: 'muted' })
-  } else if (current === RESUME_SCREEN_STATUS.HIRED || current === RESUME_SCREEN_STATUS.REJECTED) {
-    actions.push({ label: '恢复待初筛', status: RESUME_SCREEN_STATUS.PENDING, variant: 'muted' })
-  }
-  return actions
-})
-
-function actionButtonClass(variant: ScreenAction['variant']) {
-  switch (variant) {
-    case 'primary':
-      return 'gradient-blue text-white border-transparent'
-    case 'success':
-      return 'bg-brand-green/10 text-brand-green border-brand-green/30 hover:bg-brand-green/20'
-    case 'danger':
-      return 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-    default:
-      return 'border-border text-muted-foreground hover:bg-muted'
-  }
-}
-
-async function handleUpdateScreenStatus(targetStatus: number) {
-  if (!resumeId.value || statusUpdating.value) return
-  if (targetStatus === currentScreenStatus.value) return
-  statusUpdating.value = true
-  errorMsg.value = ''
-  statusSuccessMsg.value = ''
-  try {
-    await updateHrScreenStatus(resumeId.value, targetStatus)
-    await loadDetail()
-    statusSuccessMsg.value = `已更新为「${screenStatusLabel(targetStatus)}」`
-  } catch (e) {
-    errorMsg.value = getErrorMessage(e, '筛选状态更新失败')
-  } finally {
-    statusUpdating.value = false
-  }
 }
 
 const workExp = computed(() =>
@@ -190,6 +187,19 @@ const profileTags = computed(() => aiProfile.value?.profileTags ?? [])
 const matchAdvantages = computed(() => parseJsonStringArray(aiMatch.value?.advantages))
 const matchDisadvantages = computed(() => parseJsonStringArray(aiMatch.value?.disadvantages))
 const matchQuestions = computed(() => parseJsonStringArray(aiMatch.value?.suggestedQuestions))
+
+const matchLevelText = computed(() =>
+  formatMatchLevel(
+    aiMatch.value?.matchScore ?? (detail.value?.matchScore ?? 0),
+    aiMatch.value?.matchLevel,
+  ),
+)
+
+const matchBusy = computed(() => {
+  if (matchLoading.value) return true
+  const status = aiMatch.value?.matchStatus
+  return status === 0 || status === 1
+})
 
 const radarData = computed(() => {
   const fromAi = parseDimensionScores(aiMatch.value?.dimensionScores)
@@ -277,23 +287,103 @@ async function handleReparse() {
   }
 }
 
+async function loadJobOptions(defaultJobId?: number, defaultTitle?: string) {
+  try {
+    const data = await fetchHrJobList({ status: 1, size: 100 })
+    jobOptions.value = data.records ?? []
+  } catch {
+    jobOptions.value = []
+  }
+  if (defaultJobId && !jobOptions.value.some((j) => j.id === defaultJobId)) {
+    jobOptions.value.unshift({
+      id: defaultJobId,
+      title: defaultTitle || `岗位 #${defaultJobId}`,
+    })
+  }
+  if (selectedJobId.value == null && defaultJobId) {
+    selectedJobId.value = defaultJobId
+  }
+}
+
+async function refreshMatchResult() {
+  if (!resumeId.value || !selectedJobId.value) {
+    aiMatch.value = null
+    return
+  }
+  try {
+    aiMatch.value = await fetchAiMatchLatest(resumeId.value, selectedJobId.value)
+  } catch {
+    aiMatch.value = null
+  }
+}
+
+function stopMatchPolling() {
+  if (matchPollTimer != null) {
+    clearInterval(matchPollTimer)
+    matchPollTimer = null
+  }
+}
+
+function startMatchPolling() {
+  stopMatchPolling()
+  matchPollTimer = setInterval(async () => {
+    if (!resumeId.value || !selectedJobId.value) return
+    try {
+      const match = await fetchAiMatchLatest(resumeId.value, selectedJobId.value)
+      aiMatch.value = match
+      if (match && (match.matchStatus === 2 || match.matchStatus === 3)) {
+        stopMatchPolling()
+        matchLoading.value = false
+        if (match.matchStatus === 2) {
+          matchMsg.value = '匹配分析完成'
+        } else {
+          matchMsg.value = formatMatchErrorMessage(match.errorMessage)
+        }
+      }
+    } catch {
+      /* 轮询失败时继续等待 */
+    }
+  }, 3000)
+}
+
+async function handleMatchAnalysis() {
+  if (!resumeId.value || !selectedJobId.value || matchLoading.value || matchBusy.value) return
+  if (parseBusy.value || aiParse.value?.taskStatus !== 2) {
+    matchMsg.value = '请等待简历解析完成后再进行匹配分析'
+    return
+  }
+  matchLoading.value = true
+  matchMsg.value = ''
+  errorMsg.value = ''
+  try {
+    aiMatch.value = await triggerAiMatch({
+      resumeId: resumeId.value,
+      jobId: selectedJobId.value,
+      applicationId: detail.value?.applicationId,
+      candidateId: detail.value?.candidateId,
+    })
+    matchMsg.value = '匹配分析已提交，请稍候…'
+    startMatchPolling()
+  } catch (e) {
+    matchLoading.value = false
+    const msg = getErrorMessage(e, '匹配分析失败')
+    matchMsg.value = msg
+    if (!msg.includes('解析完成')) {
+      errorMsg.value = msg
+    }
+  }
+}
+
 async function loadAiInsights(data: HrResumeDetail) {
   if (!resumeId.value) return
   aiLoading.value = true
-  aiMatch.value = null
   aiParse.value = null
   aiProfile.value = null
   try {
     aiParse.value = await fetchAiParseLatest(resumeId.value)
+    await refreshMatchResult()
     if (data.applicationId) {
-      const [match, profile] = await Promise.all([
-        fetchAiMatchByApplication(data.applicationId),
-        fetchAiProfileByApplication(data.applicationId).catch(() => null),
-      ])
-      aiMatch.value = match
-      aiProfile.value = profile
-    } else if (data.jobId) {
-      aiMatch.value = await fetchAiMatchLatest(resumeId.value, data.jobId)
+      aiProfile.value = await fetchAiProfileByApplication(data.applicationId).catch(() => null)
     }
   } catch {
     /* AI 服务不可用时保留简历基础数据 */
@@ -352,7 +442,13 @@ async function loadDetail() {
         /* 档案走 auth 直连，失败时仍展示简历服务返回的数据 */
       }
     }
+    await loadJobOptions(data.jobId, data.appliedJobTitle)
     await loadAiInsights(detail.value)
+    if (data.applicationId) {
+      await loadApplicationInterviews(data.applicationId)
+    } else {
+      applicationInterviews.value = []
+    }
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '简历详情加载失败')
     detail.value = null
@@ -386,8 +482,14 @@ onMounted(() => {
   loadDetail()
 })
 
+watch(selectedJobId, () => {
+  matchMsg.value = ''
+  void refreshMatchResult()
+})
+
 onUnmounted(() => {
   stopParsePolling()
+  stopMatchPolling()
 })
 
 const radarOption = computed<EChartsOption>(() => ({
@@ -441,8 +543,45 @@ const radarOption = computed<EChartsOption>(() => ({
         <div class="text-3xl font-black text-brand-purple mb-1">{{ candidate.match }}%</div>
         <div class="text-xs text-muted-foreground">
           AI综合匹配度
-          <span v-if="aiMatch?.matchLevel" class="ml-1 text-brand-purple">· {{ aiMatch.matchLevel }}</span>
+          <span v-if="matchLevelText !== '—'" class="ml-1 text-brand-purple">· {{ matchLevelText }}</span>
         </div>
+      </div>
+      <div class="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs text-muted-foreground">人岗匹配分析</div>
+          <Sparkles :size="14" class="text-brand-purple flex-shrink-0" />
+        </div>
+        <label class="block">
+          <span class="text-[11px] text-muted-foreground">目标岗位</span>
+          <select
+            v-model.number="selectedJobId"
+            class="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground"
+            :disabled="matchLoading || matchBusy || jobOptions.length === 0"
+          >
+            <option v-if="jobOptions.length === 0" :value="null">暂无在招岗位</option>
+            <option v-for="job in jobOptions" :key="job.id" :value="job.id">
+              {{ job.title }}{{ job.workCity ? ` · ${job.workCity}` : '' }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="w-full inline-flex items-center justify-center gap-1.5 text-xs py-2 rounded-lg gradient-purple text-white disabled:opacity-50"
+          :disabled="!selectedJobId || matchLoading || matchBusy || parseBusy"
+          @click="handleMatchAnalysis"
+        >
+          <Sparkles :size="13" :class="matchLoading || matchBusy ? 'animate-pulse' : ''" />
+          {{ matchLoading || matchBusy ? '分析中…' : '匹配分析' }}
+        </button>
+        <p v-if="parseBusy || (aiParse && aiParse.taskStatus !== 2)" class="text-[11px] text-amber-600">
+          请等待简历解析完成后再进行匹配分析
+        </p>
+        <p v-else-if="matchMsg" class="text-[11px]" :class="matchMsg.includes('完成') ? 'text-brand-green' : 'text-muted-foreground'">
+          {{ matchMsg }}
+        </p>
+        <p v-else-if="aiMatch?.matchStatus === 3" class="text-[11px] text-red-600">
+          {{ formatMatchErrorMessage(aiMatch.errorMessage) }}
+        </p>
       </div>
       <div class="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
         <div class="flex items-center justify-between gap-2">
@@ -488,23 +627,7 @@ const radarOption = computed<EChartsOption>(() => ({
       </div>
       <div class="mb-4">
         <div class="text-xs font-semibold text-muted-foreground mb-2">筛选操作</div>
-        <p v-if="statusSuccessMsg" class="text-xs text-brand-green mb-2">{{ statusSuccessMsg }}</p>
-        <div class="flex flex-col gap-2">
-          <button
-            v-for="action in screenActions"
-            :key="action.status"
-            type="button"
-            class="w-full py-2 rounded-xl border text-sm font-medium disabled:opacity-50"
-            :class="actionButtonClass(action.variant)"
-            :disabled="statusUpdating"
-            @click="handleUpdateScreenStatus(action.status)"
-          >
-            {{ statusUpdating ? '更新中...' : action.label }}
-          </button>
-        </div>
-      </div>
-      <div class="flex flex-col gap-2">
-        <p v-if="scheduleSuccessMsg" class="text-xs text-brand-green">{{ scheduleSuccessMsg }}</p>
+        <p v-if="scheduleSuccessMsg" class="text-xs text-brand-green mb-2">{{ scheduleSuccessMsg }}</p>
         <button
           type="button"
           class="w-full py-2.5 rounded-control gradient-blue text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
@@ -514,14 +637,6 @@ const radarOption = computed<EChartsOption>(() => ({
         >
           <Calendar :size="14" />
           <span>安排面试</span>
-        </button>
-        <button type="button" class="w-full py-2.5 rounded-xl border border-border text-sm text-foreground hover:bg-muted flex items-center justify-center gap-2">
-          <Send :size="14" />
-          <span>发送Offer</span>
-        </button>
-        <button type="button" class="w-full py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:bg-muted flex items-center justify-center gap-2">
-          <Bookmark :size="14" />
-          <span>存入人才库</span>
         </button>
       </div>
     </div>
@@ -560,6 +675,30 @@ const radarOption = computed<EChartsOption>(() => ({
           title="简历预览"
         />
         <p v-else class="text-xs text-muted-foreground">点击「在线预览」在页面内查看 PDF；Word 文档将在新窗口打开。</p>
+      </div>
+
+      <div v-if="detail?.applicationId" class="mb-6 bg-card border border-border rounded-xl p-4 shadow-card">
+        <div class="flex items-center gap-2 mb-4">
+          <ClipboardList :size="16" class="text-brand-blue" />
+          <h2 class="text-sm font-bold text-foreground">面试官评价</h2>
+        </div>
+        <p v-if="completedInterviewsWithEvaluation.length === 0" class="text-xs text-muted-foreground">
+          暂无已完成的面试评价，安排面试后由面试官在「我的面试」中提交。
+        </p>
+        <div v-else class="space-y-4">
+          <div
+            v-for="iv in completedInterviewsWithEvaluation"
+            :key="iv.interviewId"
+            class="rounded-xl border border-border bg-muted/20 p-4"
+          >
+            <HrInterviewEvaluationPanel
+              :evaluation="iv.evaluation"
+              :interviewer-name="iv.interviewerName"
+              :round-type-label="iv.roundTypeLabel"
+              :scheduled-start="iv.scheduledStart"
+            />
+          </div>
+        </div>
       </div>
 
       <div class="mb-6">

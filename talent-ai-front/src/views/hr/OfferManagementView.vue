@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import 'element-plus/es/components/message/style/css';
 import 'element-plus/es/components/message-box/style/css';
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   Plus,
   Search,
@@ -11,41 +12,77 @@ import {
   XCircle,
   Send,
   FileText,
-  Sparkles,
-  TrendingUp,
-  Edit,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Loader2,
   AlertCircle,
-  Ban,
   MailCheck,
   MailX,
   Undo2,
   ThumbsUp,
   ThumbsDown,
+  Edit,
+  X,
 } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   fetchOfferList,
+  fetchOfferByApplication,
+  createOffer,
+  updateOffer,
+  issueOffer,
   OFFER_STATUS,
   type OfferListVO,
+  type OfferCreatePayload,
+  type OfferUpdatePayload,
   revokeOffer,
-  acceptOffer,
-  rejectOffer,
+  fetchOfferDetail,
   approveOfferApproval,
   rejectOfferApproval,
+  OFFER_APPROVAL_STATUS,
 } from '@/api/offer'
+import { getErrorMessage } from '@/utils/validators'
+
+const route = useRoute()
+const fromApplicationId = computed(() => {
+  const id = Number(route.query.applicationId)
+  return Number.isFinite(id) && id > 0 ? id : null
+})
+const fromCandidateId = computed(() => {
+  const id = Number(route.query.candidateId)
+  return Number.isFinite(id) && id > 0 ? id : null
+})
+const fromJobId = computed(() => {
+  const id = Number(route.query.jobId)
+  return Number.isFinite(id) && id > 0 ? id : null
+})
+const fromJobTitle = computed(() =>
+  typeof route.query.jobTitle === 'string' ? route.query.jobTitle.trim() : '',
+)
 
 /* ---- 响应式状态 ---- */
 const offers = ref<OfferListVO[]>([])
 const loading = ref(false)
+const errorMsg = ref('')
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const searchKeyword = ref('')
 const statusFilter = ref<number | undefined>(undefined)
+
+const formOpen = ref(false)
+const formMode = ref<'create' | 'edit'>('create')
+const formSubmitting = ref(false)
+const editingOfferId = ref<number | null>(null)
+const form = ref({
+  baseSalary: '',
+  annualSalary: '',
+  positionLevel: '',
+  expectedOnboardDate: '',
+  probationMonths: '3',
+  salaryRemark: '',
+  remark: '',
+})
 
 /* ---- 状态样式映射（数字 Key） ---- */
 const statusStyles: Record<number, { cls: string; icon: typeof Send }> = {
@@ -123,21 +160,144 @@ function formatDate(dateStr: string | null | undefined): string {
 /* ---- 数据加载 ---- */
 async function loadOffers() {
   loading.value = true
+  errorMsg.value = ''
   try {
     const data = await fetchOfferList({
       current: currentPage.value,
       size: pageSize.value,
       status: statusFilter.value,
       candidateName: searchKeyword.value || undefined,
+      applicationId: fromApplicationId.value ?? undefined,
     })
     offers.value = data.records ?? []
     total.value = data.total ?? 0
   } catch (err) {
-    console.error('加载 Offer 列表失败:', err)
+    errorMsg.value = getErrorMessage(err, 'Offer 列表加载失败')
     offers.value = []
     total.value = 0
   } finally {
     loading.value = false
+  }
+}
+
+function resetForm() {
+  form.value = {
+    baseSalary: '',
+    annualSalary: '',
+    positionLevel: '',
+    expectedOnboardDate: '',
+    probationMonths: '3',
+    salaryRemark: '',
+    remark: '',
+  }
+}
+
+function openCreateDialog() {
+  formMode.value = 'create'
+  editingOfferId.value = null
+  resetForm()
+  formOpen.value = true
+}
+
+function openEditDialog(offer: OfferListVO) {
+  formMode.value = 'edit'
+  editingOfferId.value = offer.id
+  form.value = {
+    baseSalary: offer.baseSalary ? String(offer.baseSalary) : '',
+    annualSalary: offer.annualSalary ? String(offer.annualSalary) : '',
+    positionLevel: offer.positionLevel || '',
+    expectedOnboardDate: '',
+    probationMonths: '3',
+    salaryRemark: '',
+    remark: '',
+  }
+  formOpen.value = true
+}
+
+function closeForm() {
+  formOpen.value = false
+}
+
+function buildSalaryPayload(): OfferUpdatePayload {
+  const payload: OfferUpdatePayload = {}
+  const base = Number(form.value.baseSalary)
+  const annual = Number(form.value.annualSalary)
+  if (Number.isFinite(base) && base > 0) payload.baseSalary = base
+  if (Number.isFinite(annual) && annual > 0) payload.annualSalary = annual
+  if (form.value.positionLevel.trim()) payload.positionLevel = form.value.positionLevel.trim()
+  if (form.value.expectedOnboardDate) payload.expectedOnboardDate = form.value.expectedOnboardDate
+  const probation = Number(form.value.probationMonths)
+  if (Number.isFinite(probation) && probation > 0) payload.probationMonths = probation
+  if (form.value.salaryRemark.trim()) payload.salaryRemark = form.value.salaryRemark.trim()
+  if (form.value.remark.trim()) payload.remark = form.value.remark.trim()
+  return payload
+}
+
+async function submitForm() {
+  if (formSubmitting.value) return
+  formSubmitting.value = true
+  try {
+    const salaryPayload = buildSalaryPayload()
+    if (formMode.value === 'create') {
+      if (!fromJobId.value || !fromCandidateId.value) {
+        ElMessage.warning('缺少岗位或候选人信息，请从面试管理或简历详情进入')
+        return
+      }
+      const name =
+        (typeof route.query.candidateName === 'string' && route.query.candidateName.trim()) ||
+        searchKeyword.value.trim() ||
+        '候选人'
+      const payload: OfferCreatePayload = {
+        jobId: fromJobId.value,
+        candidateId: fromCandidateId.value,
+        candidateName: name,
+        applicationId: fromApplicationId.value ?? undefined,
+        ...salaryPayload,
+      }
+      await createOffer(payload)
+      ElMessage.success('Offer 已创建')
+    } else if (editingOfferId.value) {
+      await updateOffer(editingOfferId.value, salaryPayload)
+      ElMessage.success('Offer 已更新')
+    }
+    formOpen.value = false
+    await loadOffers()
+  } catch (err) {
+    ElMessage.error(getErrorMessage(err, '保存失败'))
+  } finally {
+    formSubmitting.value = false
+  }
+}
+
+async function handleIssue(offer: OfferListVO) {
+  try {
+    await ElMessageBox.confirm(
+      `确定向「${offer.candidateName}」发放 Offer 吗？发放后候选人可在端内查看并响应。`,
+      '发放确认',
+      { confirmButtonText: '确认发放', cancelButtonText: '取消', type: 'success' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await issueOffer(offer.id)
+    ElMessage.success('Offer 已发放')
+    await loadOffers()
+  } catch (err) {
+    ElMessage.error(getErrorMessage(err, '发放失败'))
+  }
+}
+
+async function tryOpenCreateFromInterview() {
+  if (!fromApplicationId.value) return
+  try {
+    const existing = await fetchOfferByApplication(fromApplicationId.value)
+    if (existing?.id) return
+  } catch {
+    /* 查询失败时仍允许手动创建 */
+  }
+  if (offers.value.length === 0 && fromJobId.value && fromCandidateId.value) {
+    openCreateDialog()
   }
 }
 
@@ -181,7 +341,7 @@ async function handleRevoke(offer: OfferListVO) {
       { confirmButtonText: '确定撤回', cancelButtonText: '取消', type: 'warning' },
     )
   } catch {
-    return // 用户点了取消
+    return
   }
   try {
     await revokeOffer(offer.id)
@@ -189,46 +349,6 @@ async function handleRevoke(offer: OfferListVO) {
     await loadOffers()
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.message || err?.message || '撤回失败，请稍后重试')
-  }
-}
-
-/* ---- 操作：候选人接受 ---- */
-async function handleAccept(offer: OfferListVO) {
-  try {
-    await ElMessageBox.confirm(
-      `确认标记候选人「${offer.candidateName}」已接受 Offer？`,
-      '接受确认',
-      { confirmButtonText: '确认接受', cancelButtonText: '取消', type: 'success' },
-    )
-  } catch {
-    return
-  }
-  try {
-    await acceptOffer(offer.id)
-    ElMessage.success('已标记为候选人接受')
-    await loadOffers()
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.message || err?.message || '操作失败，请稍后重试')
-  }
-}
-
-/* ---- 操作：候选人拒绝 ---- */
-async function handleReject(offer: OfferListVO) {
-  try {
-    await ElMessageBox.confirm(
-      `确认标记候选人「${offer.candidateName}」已拒绝 Offer？`,
-      '拒绝确认',
-      { confirmButtonText: '确认拒绝', cancelButtonText: '取消', type: 'warning' },
-    )
-  } catch {
-    return
-  }
-  try {
-    await rejectOffer(offer.id)
-    ElMessage.success('已标记为候选人拒绝')
-    await loadOffers()
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.message || err?.message || '操作失败，请稍后重试')
   }
 }
 
@@ -244,7 +364,13 @@ async function handleApprove(offer: OfferListVO) {
     return
   }
   try {
-    await approveOfferApproval(offer.id)
+    const detail = await fetchOfferDetail(offer.id)
+    const pending = detail.approvals?.find((item) => item.status === OFFER_APPROVAL_STATUS.PENDING)
+    if (!pending) {
+      ElMessage.warning('没有待审批节点')
+      return
+    }
+    await approveOfferApproval(pending.id)
     ElMessage.success('审批已通过')
     await loadOffers()
   } catch (err: any) {
@@ -264,7 +390,13 @@ async function handleRejectApproval(offer: OfferListVO) {
     return
   }
   try {
-    await rejectOfferApproval(offer.id)
+    const detail = await fetchOfferDetail(offer.id)
+    const pending = detail.approvals?.find((item) => item.status === OFFER_APPROVAL_STATUS.PENDING)
+    if (!pending) {
+      ElMessage.warning('没有待审批节点')
+      return
+    }
+    await rejectOfferApproval(pending.id)
     ElMessage.success('审批已驳回')
     await loadOffers()
   } catch (err: any) {
@@ -273,9 +405,18 @@ async function handleRejectApproval(offer: OfferListVO) {
 }
 
 /* ---- 初始化 ---- */
-onMounted(() => {
-  loadOffers()
+onMounted(async () => {
+  const name = typeof route.query.candidateName === 'string' ? route.query.candidateName.trim() : ''
+  if (name) {
+    searchKeyword.value = name
+  }
+  await loadOffers()
+  await tryOpenCreateFromInterview()
 })
+
+function isHighlighted(offer: OfferListVO) {
+  return fromApplicationId.value != null && offer.applicationId === fromApplicationId.value
+}
 </script>
 
 <template>
@@ -283,13 +424,22 @@ onMounted(() => {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-xl font-bold text-foreground">Offer管理</h1>
-        <p class="text-sm text-muted-foreground mt-0.5">管理所有候选人的Offer发放与审批</p>
+        <p class="text-sm text-muted-foreground mt-0.5">
+          管理所有候选人的Offer发放与审批
+          <span v-if="fromApplicationId" class="text-brand-green"> · 来自候选人详情（投递 #{{ fromApplicationId }}）</span>
+        </p>
       </div>
-      <button type="button" class="flex items-center gap-2 px-4 py-2.5 rounded-control gradient-blue text-white text-sm font-medium">
+      <button
+        type="button"
+        class="flex items-center gap-2 px-4 py-2.5 rounded-control gradient-blue text-white text-sm font-medium"
+        @click="openCreateDialog"
+      >
         <Plus :size="16" />
         <span>创建Offer</span>
       </button>
     </div>
+
+    <p v-if="errorMsg" class="text-xs text-red-600">{{ errorMsg }}</p>
 
     <div class="flex gap-4">
       <div v-for="s in stats" :key="s.label" class="flex-1 bg-card rounded-xl p-4 shadow-card">
@@ -333,12 +483,6 @@ onMounted(() => {
           </button>
         </div>
       </div>
-      <div class="ml-auto flex items-center gap-2">
-        <button type="button" class="flex items-center gap-1.5 px-3 py-2 rounded-lg gradient-purple text-white text-xs">
-          <Sparkles :size="12" />
-          <span>AI生成Offer</span>
-        </button>
-      </div>
     </div>
 
     <!-- 表格 -->
@@ -365,7 +509,12 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="offer in offers" :key="offer.id" class="border-b border-border hover:bg-muted/30 transition-colors">
+          <tr
+            v-for="offer in offers"
+            :key="offer.id"
+            class="border-b border-border hover:bg-muted/30 transition-colors"
+            :class="isHighlighted(offer) ? 'bg-brand-green/5' : ''"
+          >
             <td class="px-4 py-3">
               <div class="flex items-center gap-2">
                 <div class="w-7 h-7 rounded-full gradient-blue flex items-center justify-center">
@@ -392,10 +541,26 @@ onMounted(() => {
               </div>
             </td>
             <td class="px-4 py-3">
-              <div class="flex items-center gap-1">
-                <!-- 查看（始终可用） -->
-                <button type="button" title="查看" class="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground">
-                  <Eye :size="14" />
+              <div class="flex items-center gap-1 flex-wrap">
+                <!-- 完善薪资：已通过 -->
+                <button
+                  v-if="offer.status === OFFER_STATUS.APPROVED"
+                  type="button"
+                  title="完善薪资"
+                  class="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                  @click="openEditDialog(offer)"
+                >
+                  <Edit :size="14" />
+                </button>
+                <!-- 发放：已通过 -->
+                <button
+                  v-if="offer.status === OFFER_STATUS.APPROVED"
+                  type="button"
+                  title="发放 Offer"
+                  class="p-1.5 rounded-lg hover:bg-brand-tint text-brand-blue"
+                  @click="handleIssue(offer)"
+                >
+                  <Send :size="14" />
                 </button>
                 <!-- 审批通过：待审批 / 审批中 -->
                 <button
@@ -417,27 +582,15 @@ onMounted(() => {
                 >
                   <ThumbsDown :size="14" />
                 </button>
-                <!-- 候选人接受：已发放 -->
-                <button
+                <!-- 已发放：等待候选人确认 -->
+                <span
                   v-if="offer.status === OFFER_STATUS.ISSUED"
-                  type="button"
-                  title="候选人接受"
-                  class="p-1.5 rounded-lg hover:bg-green-50 text-brand-green hover:text-green-700"
-                  @click="handleAccept(offer)"
+                  class="text-[10px] text-brand-blue px-2 py-1 rounded-full bg-brand-tint border border-brand-border"
+                  title="候选人需在端内确认"
                 >
-                  <MailCheck :size="14" />
-                </button>
-                <!-- 候选人拒绝：已发放 -->
-                <button
-                  v-if="offer.status === OFFER_STATUS.ISSUED"
-                  type="button"
-                  title="候选人拒绝"
-                  class="p-1.5 rounded-lg hover:bg-red-50 text-brand-red hover:text-red-700"
-                  @click="handleReject(offer)"
-                >
-                  <MailX :size="14" />
-                </button>
-                <!-- 撤回：待审批 / 审批中 / 已通过 / 已发放 -->
+                  等待候选人确认
+                </span>
+                <!-- 撤回 -->
                 <button
                   v-if="[OFFER_STATUS.PENDING, OFFER_STATUS.APPROVING, OFFER_STATUS.APPROVED, OFFER_STATUS.ISSUED].includes(offer.status)"
                   type="button"
@@ -478,29 +631,57 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="bg-card shadow-card p-5">
-      <div class="flex items-center gap-2 mb-4">
-        <div class="w-7 h-7 rounded-lg gradient-purple flex items-center justify-center">
-          <Sparkles :size="14" class="text-white" />
+    <!-- 创建 / 编辑 Offer -->
+    <div
+      v-if="formOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      @click.self="closeForm"
+    >
+      <div class="bg-card rounded-2xl shadow-panel w-full max-w-md p-5 border border-border">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-foreground">
+            {{ formMode === 'create' ? '创建 Offer' : '完善 Offer 信息' }}
+          </h3>
+          <button type="button" class="p-1 rounded-lg hover:bg-muted text-muted-foreground" @click="closeForm">
+            <X :size="16" />
+          </button>
         </div>
-        <h3 class="text-sm font-semibold text-foreground">AI Offer助手</h3>
-      </div>
-      <div class="flex gap-4">
-        <div
-          v-for="item in [
-            { title: '薪资建议', desc: '基于市场数据，自动生成最具竞争力的薪资方案', action: '生成建议' },
-            { title: 'Offer信件生成', desc: 'AI一键生成个性化Offer信件，提升候选人体验', action: '立即生成' },
-            { title: '风险预测', desc: '分析候选人接受/拒绝概率，提前做好备选方案', action: '查看分析' },
-          ]"
-          :key="item.title"
-          class="flex-1 bg-accent rounded-xl p-4 border border-brand-border/50"
-        >
-          <div class="flex items-center gap-2 mb-2">
-            <TrendingUp :size="14" class="text-brand-purple" />
-            <span class="text-xs font-semibold text-foreground">{{ item.title }}</span>
-          </div>
-          <p class="text-xs text-muted-foreground leading-relaxed mb-3">{{ item.desc }}</p>
-          <button type="button" class="text-xs text-brand-purple font-medium hover:underline">{{ item.action }} →</button>
+        <div v-if="fromApplicationId" class="text-xs text-muted-foreground mb-3">
+          投递 #{{ fromApplicationId }}
+          <span v-if="fromJobTitle"> · {{ fromJobTitle }}</span>
+        </div>
+        <div class="space-y-3">
+          <label class="block text-xs">
+            <span class="text-muted-foreground">月薪（元）</span>
+            <input v-model="form.baseSalary" type="number" class="mt-1 w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" placeholder="例如 25000" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-muted-foreground">年薪（元）</span>
+            <input v-model="form.annualSalary" type="number" class="mt-1 w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" placeholder="例如 300000" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-muted-foreground">职级</span>
+            <input v-model="form.positionLevel" class="mt-1 w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" placeholder="例如 P6" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-muted-foreground">预计入职日期</span>
+            <input v-model="form.expectedOnboardDate" type="date" class="mt-1 w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-muted-foreground">备注</span>
+            <textarea v-model="form.remark" rows="2" class="mt-1 w-full px-3 py-2 rounded-lg border border-border text-sm outline-none resize-none" placeholder="可选" />
+          </label>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button type="button" class="flex-1 py-2 rounded-xl border border-border text-sm" @click="closeForm">取消</button>
+          <button
+            type="button"
+            class="flex-1 py-2 rounded-xl gradient-blue text-white text-sm font-medium disabled:opacity-50"
+            :disabled="formSubmitting"
+            @click="submitForm"
+          >
+            {{ formSubmitting ? '保存中...' : '保存' }}
+          </button>
         </div>
       </div>
     </div>

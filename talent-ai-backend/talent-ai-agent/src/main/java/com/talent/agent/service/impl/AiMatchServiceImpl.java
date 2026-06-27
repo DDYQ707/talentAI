@@ -1,10 +1,13 @@
 package com.talent.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.talent.agent.domain.dto.AiMatchTriggerRequest;
 import com.talent.agent.domain.dto.MatchRequest;
 import com.talent.agent.domain.entity.AiMatchRecord;
+import com.talent.agent.domain.entity.AiParseTask;
 import com.talent.agent.domain.vo.MatchResultVO;
 import com.talent.agent.mapper.AiMatchRecordMapper;
+import com.talent.agent.mapper.AiParseTaskMapper;
 import com.talent.agent.service.AiMatchService;
 import com.talent.agent.service.AiMatchTaskProcessor;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AiMatchServiceImpl implements AiMatchService {
 
     private static final int MATCH_STATUS_PENDING = 0;
+    private static final int PARSE_STATUS_SUCCESS = 2;
 
     private final AiMatchRecordMapper matchRecordMapper;
     private final AiMatchTaskProcessor matchTaskProcessor;
+    private final AiParseTaskMapper parseTaskMapper;
 
     @Override
     @Transactional
@@ -38,6 +43,28 @@ public class AiMatchServiceImpl implements AiMatchService {
 
         matchTaskProcessor.processAsync(record.getId(), request);
         return toVO(record);
+    }
+
+    @Override
+    public MatchResultVO triggerMatchForHr(AiMatchTriggerRequest request) {
+        if (request == null || request.getResumeId() == null || request.getJobId() == null) {
+            throw new IllegalArgumentException("resumeId、jobId 不能为空");
+        }
+        AiParseTask parseTask = parseTaskMapper.selectOne(
+                new LambdaQueryWrapper<AiParseTask>()
+                        .eq(AiParseTask::getResumeId, request.getResumeId())
+                        .orderByDesc(AiParseTask::getCreatedAt)
+                        .last("LIMIT 1"),
+                false);
+        if (parseTask == null || parseTask.getTaskStatus() == null || parseTask.getTaskStatus() != PARSE_STATUS_SUCCESS) {
+            throw new IllegalArgumentException("请等待简历解析完成后再进行匹配分析");
+        }
+        MatchRequest matchRequest = new MatchRequest();
+        matchRequest.setResumeId(request.getResumeId());
+        matchRequest.setJobId(request.getJobId());
+        matchRequest.setApplicationId(request.getApplicationId());
+        matchRequest.setParseTaskId(parseTask.getId());
+        return submitMatch(matchRequest);
     }
 
     @Override

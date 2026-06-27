@@ -37,4 +37,9 @@ public class OfferQueryRequest {
      * 岗位 ID 精确过滤（可选）
      */
     private Long jobId;
+
+    /**
+     * 投递 ID 精确过滤（可选）
+     */
+    private Long applicationId;
 }

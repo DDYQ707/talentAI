@@ -116,7 +116,7 @@ public class ResumeConsolidationService {
     /** HR 列表：每个候选人只保留一条（最新；同时间优先有附件可预览的） */
     public List<Resume> dedupeForHrList(List<Resume> resumes, Map<Long, ResumeAttachment> latestAttachments) {
         if (resumes == null || resumes.isEmpty()) {
-            return List.of();
+            return new ArrayList<>();
         }
         Map<Long, Resume> bestByCandidate = new LinkedHashMap<>();
         for (Resume resume : resumes) {

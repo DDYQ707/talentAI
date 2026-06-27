@@ -23,14 +23,14 @@ const router = useRouter()
 
 const filterTags = [
   { label: '全部', value: undefined as number | undefined },
-  { label: '待初筛', value: RESUME_SCREEN_STATUS.PENDING },
+  { label: '待筛选', value: RESUME_SCREEN_STATUS.PENDING },
   { label: '面试中', value: RESUME_SCREEN_STATUS.INTERVIEWING },
   { label: '已录用', value: RESUME_SCREEN_STATUS.HIRED },
   { label: '已淘汰', value: RESUME_SCREEN_STATUS.REJECTED },
 ]
 
 const statusStyles: Record<string, string> = {
-  待初筛: 'bg-muted text-muted-foreground border-border',
+  待筛选: 'bg-muted text-muted-foreground border-border',
   面试中: 'bg-orange-50 text-brand-orange border-orange-200',
   已录用: 'bg-green-50 text-brand-green border-green-200',
   已淘汰: 'bg-red-50 text-brand-red border-red-200',
@@ -242,7 +242,7 @@ onMounted(() => {
               <span v-else class="text-xs text-muted-foreground">—</span>
             </div>
             <div class="text-center">
-              <span :class="['text-xs px-2 py-0.5 rounded-full border inline-block', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">
+              <span :class="['text-xs px-2 py-0.5 rounded-full border inline-block', statusStyles[screenStatusForItem(c)] || statusStyles['待筛选']]">
                 {{ screenStatusForItem(c) }}
               </span>
             </div>
@@ -304,7 +304,7 @@ onMounted(() => {
                 <span class="text-sm" :class="matchScoreClass(c)">AI 匹配 {{ matchScoreText(c) }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span :class="['text-xs px-2 py-0.5 rounded-full border', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">
+                <span :class="['text-xs px-2 py-0.5 rounded-full border', statusStyles[screenStatusForItem(c)] || statusStyles['待筛选']]">
                   {{ screenStatusForItem(c) }}
                 </span>
                 <div class="flex items-center gap-1">

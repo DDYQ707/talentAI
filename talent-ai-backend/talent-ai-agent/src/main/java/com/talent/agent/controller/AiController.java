@@ -1,5 +1,6 @@
 package com.talent.agent.controller;
 
+import com.talent.agent.domain.dto.AiMatchTriggerRequest;
 import com.talent.agent.domain.dto.AiParseRetryRequest;
 import com.talent.agent.domain.vo.MatchResultVO;
 import com.talent.agent.domain.vo.ParseTaskVO;
@@ -88,6 +89,24 @@ public class AiController {
             return R.fail("未登录或用户信息缺失");
         }
         return R.ok(aiMatchService.getLatestByResumeAndJob(resumeId, jobId));
+    }
+
+    /** HR 手动触发人岗匹配分析 */
+    @PostMapping("/match/trigger")
+    public R<MatchResultVO> triggerMatch(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestBody AiMatchTriggerRequest request) {
+        if (userId == null) {
+            return R.fail("未登录或用户信息缺失");
+        }
+        if (request == null || request.getResumeId() == null || request.getJobId() == null) {
+            return R.fail("resumeId、jobId 不能为空");
+        }
+        try {
+            return R.ok(aiMatchService.triggerMatchForHr(request));
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
     }
 
     /** 候选人：查询岗位预览匹配（不触发新任务） */

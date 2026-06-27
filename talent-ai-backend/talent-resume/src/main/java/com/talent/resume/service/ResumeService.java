@@ -181,7 +181,7 @@ public class ResumeService {
         List<Resume> allMatching = resumeMapper.selectList(wrapper);
         List<Long> allIds = allMatching.stream().map(Resume::getId).toList();
         Map<Long, ResumeAttachment> allAttMap = loadLatestAttachments(allIds);
-        List<Resume> deduped = consolidationService.dedupeForHrList(allMatching, allAttMap);
+        List<Resume> deduped = new ArrayList<>(consolidationService.dedupeForHrList(allMatching, allAttMap));
         deduped.sort((a, b) -> {
             if (a.getUpdatedAt() == null && b.getUpdatedAt() == null) {
                 return Long.compare(b.getId(), a.getId());
@@ -229,7 +229,7 @@ public class ResumeService {
         if (keywordTrimmed != null) {
             filteredRecords = allRecords.stream()
                     .filter(vo -> matchesKeyword(vo, keywordTrimmed))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         }
 
         total = filteredRecords.size();
@@ -237,7 +237,7 @@ public class ResumeService {
         int from = Math.min((pageNum - 1) * pageSize, total);
         int to = Math.min(from + pageSize, total);
         List<HrResumeListVO> records =
-                total == 0 ? List.of() : filteredRecords.subList(from, to);
+                total == 0 ? new ArrayList<>() : new ArrayList<>(filteredRecords.subList(from, to));
 
         fillLatestApplicationsForList(records);
 
@@ -712,6 +712,12 @@ public class ResumeService {
         if (primary != null) {
             resumeId = primary.getId();
             resume = primary;
+        }
+
+        Integer currentStatus = resume.getScreenStatus();
+        if (currentStatus != null
+                && (currentStatus == ResumeConstants.SCREEN_HIRED || currentStatus == ResumeConstants.SCREEN_REJECTED)) {
+            throw new IllegalArgumentException("已录用或已淘汰为终态，不可再变更筛选状态");
         }
 
         if (!screenStatus.equals(resume.getScreenStatus())) {

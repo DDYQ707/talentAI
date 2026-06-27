@@ -1,6 +1,7 @@
 package com.talent.job.service.impl;
 
 import com.talent.job.entity.JobApplication;
+import com.talent.job.entity.Offer;
 import com.talent.job.feign.AuthFeignClient;
 import com.talent.job.service.CandidateNotificationService;
 import java.util.HashMap;
@@ -60,6 +61,51 @@ public class CandidateNotificationServiceImpl implements CandidateNotificationSe
             }
         }
         send(application.getCandidateId(), title, content, notifyType, "application", application.getId());
+    }
+
+    @Override
+    public void notifyOfferIssued(JobApplication application, Offer offer) {
+        if (application == null || application.getCandidateId() == null || offer == null) {
+            return;
+        }
+        String jobTitle = application.getJobTitle() != null ? application.getJobTitle() : "岗位";
+        send(
+                application.getCandidateId(),
+                "收到 Offer",
+                "恭喜！您投递的「" + jobTitle + "」已发放正式 Offer，请在投递记录中查看并确认是否接受。",
+                (byte) 1,
+                "offer",
+                offer.getId());
+    }
+
+    @Override
+    public void notifyOfferAccepted(JobApplication application, Offer offer) {
+        if (application == null || application.getCandidateId() == null || offer == null) {
+            return;
+        }
+        String jobTitle = application.getJobTitle() != null ? application.getJobTitle() : "岗位";
+        send(
+                application.getCandidateId(),
+                "Offer 已确认",
+                "您已接受「" + jobTitle + "」的 Offer，请按约定时间办理入职手续。",
+                (byte) 2,
+                "offer",
+                offer.getId());
+    }
+
+    @Override
+    public void notifyOfferDeclined(JobApplication application, Offer offer) {
+        if (application == null || application.getCandidateId() == null || offer == null) {
+            return;
+        }
+        String jobTitle = application.getJobTitle() != null ? application.getJobTitle() : "岗位";
+        send(
+                application.getCandidateId(),
+                "Offer 已拒绝",
+                "您已拒绝「" + jobTitle + "」的 Offer，如有疑问请联系 HR。",
+                (byte) 2,
+                "offer",
+                offer.getId());
     }
 
     private void send(Long userId, String title, String content, byte notifyType, String bizType, Long bizId) {

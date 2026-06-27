@@ -14,7 +14,7 @@ public final class ResumeConstants {
 
     public static final int UPLOAD_STATUS_SUCCESS = 1;
 
-    /** 筛选状态：待初筛 */
+    /** 筛选状态：待筛选 */
     public static final int SCREEN_PENDING = 1;
 
     /** 筛选状态：面试中 */

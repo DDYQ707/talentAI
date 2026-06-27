@@ -67,6 +67,46 @@ export function fetchAiMatchLatest(resumeId: number, jobId: number) {
   }) as Promise<AiMatchResult | null>
 }
 
+export interface AiMatchTriggerPayload {
+  resumeId: number
+  jobId: number
+  applicationId?: number | null
+  candidateId?: number | null
+}
+
+/** HR 手动触发人岗匹配分析 */
+export function triggerAiMatch(payload: AiMatchTriggerPayload) {
+  return request.post<AiMatchResult>('/api/ai/match/trigger', payload, {
+    timeout: 30000,
+  }) as Promise<AiMatchResult>
+}
+
+/** 按分数映射匹配等级（与后端 MatchLevelUtil 一致） */
+export function formatMatchLevel(score?: number | null, fallback?: string | null): string {
+  if (score != null && score > 0) {
+    if (score >= 80) return '强烈推荐'
+    if (score >= 60) return '可考虑'
+    return '暂不匹配'
+  }
+  return fallback?.trim() || '—'
+}
+
+/** 匹配失败时的友好提示 */
+export function formatMatchErrorMessage(errorMessage?: string | null): string {
+  if (!errorMessage) return 'AI服务繁忙，请稍后重试'
+  const lower = errorMessage.toLowerCase()
+  if (
+    lower.includes('timeout')
+    || lower.includes('timed out')
+    || lower.includes('超时')
+    || lower.includes('繁忙')
+    || lower.includes('rate limit')
+  ) {
+    return 'AI服务繁忙，请稍后重试'
+  }
+  return errorMessage
+}
+
 /** 查询岗位预览匹配（不触发新任务） */
 export function fetchPreviewMatch(jobId: number) {
   return request.get<AiMatchResult | null>('/api/ai/match/preview', {

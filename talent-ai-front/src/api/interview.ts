@@ -29,6 +29,11 @@ export interface InterviewListItem {
   status: number
   statusLabel: string
   totalScore?: number | null
+  /** 1-通过 2-待定 3-不通过 */
+  evaluationConclusion?: number | null
+  evaluationConclusionLabel?: string | null
+  evaluation?: InterviewEvaluation | null
+  resumeId?: number | null
 }
 
 export interface InterviewEvaluation {
@@ -89,10 +94,16 @@ export interface InterviewScheduleResult {
 }
 
 export interface EvaluationPayload {
-  overallScore: number
+  overallScore?: number
   conclusion: number
   comment?: string
-  dimensionScores?: Record<string, number>
+  dimensionScores: Record<string, number>
+}
+
+export function reassignInterview(interviewId: number, interviewerId: number) {
+  return request.put<null>(`/api/interview/hr/${interviewId}/reassign`, {
+    interviewerId,
+  }) as Promise<null>
 }
 
 export interface HrInterviewQuery {
@@ -174,7 +185,7 @@ export interface ScheduleableApplicationOption {
   matchScore?: number | null
 }
 
-/** 拉取可安排面试的投递单（待初筛 / 面试中，且已有投递岗位） */
+/** 拉取可安排面试的投递单（待筛选 / 面试中，且已有投递岗位） */
 export async function fetchScheduleableApplications(): Promise<ScheduleableApplicationOption[]> {
   const [pending, interviewing] = await Promise.all([
     fetchHrResumePage({ current: 1, size: 100, screenStatus: 1 }),

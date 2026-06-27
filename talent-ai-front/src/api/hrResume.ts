@@ -74,7 +74,7 @@ export interface HrResumeListParams {
   current?: number
   size?: number
   keyword?: string
-  /** 1-待初筛 2-面试中 3-已录用 4-已淘汰 */
+  /** 1-待筛选 2-面试中 3-已录用 4-已淘汰 */
   screenStatus?: number
 }
 
@@ -106,7 +106,7 @@ export function fetchHrResumePreview(attachmentId: number) {
   return request.get<ResumePreviewResult>(`/api/resume/file/preview/${attachmentId}`) as Promise<ResumePreviewResult>
 }
 
-/** HR 更新简历筛选状态（1-待初筛 2-面试中 3-已录用 4-已淘汰） */
+/** HR 更新简历筛选状态（1-待筛选 2-面试中 3-已录用 4-已淘汰） */
 export function updateHrScreenStatus(resumeId: number, screenStatus: number, remark?: string) {
   return request.patch<HrResumeDetail>(`/api/resume/hr/${resumeId}/screen-status`, {
     screenStatus,

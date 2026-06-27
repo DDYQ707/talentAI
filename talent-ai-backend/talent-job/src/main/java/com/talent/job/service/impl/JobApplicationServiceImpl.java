@@ -485,10 +485,7 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         if (newStatus == JobApplicationConstants.STATUS_HIRED) {
             candidateStatusHookService.onHired(app, request.getOperatorId());
         }
-        // 淘汰 → 自动归档至人才库（跨服务调用，失败不回滚）
-        if (newStatus == JobApplicationConstants.STATUS_REJECTED) {
-            candidateStatusHookService.onRejected(app);
-        }
+        // 淘汰不再自动归档人才库，由 HR 在详情页手动「存入人才库」
         // 可选：触发 AI 人才画像生成（fire-and-forget）
         candidateStatusHookService.triggerAiProfile(app);
         candidateNotificationService.notifyScreenStatusChanged(app, screenStatus);
