@@ -1,6 +1,8 @@
 package com.talent.analytics.feign;
 
 import com.talent.analytics.feign.dto.OfferStatsDTO;
+import com.talent.analytics.feign.dto.MonthlyCountDTO;
+import com.talent.analytics.feign.dto.DepartmentJobStatDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,4 +27,13 @@ public interface JobFeignClient {
 
     @GetMapping("/offer-metrics")
     OfferStatsDTO getOfferMetrics();
+
+    @GetMapping("/monthly-applications")
+    List<MonthlyCountDTO> getMonthlyApplications(@RequestParam(defaultValue = "6") int months);
+
+    @GetMapping("/monthly-offers")
+    List<MonthlyCountDTO> getMonthlyOffers(@RequestParam(defaultValue = "6") int months);
+
+    @GetMapping("/department-job-stats")
+    List<DepartmentJobStatDTO> getDepartmentJobStats();
 }

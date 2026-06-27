@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,5 +47,33 @@ public class InterviewStatsInternalController {
                 .eq(Interview::getStatus, InterviewConstants.STATUS_COMPLETED)
                 .ge(Interview::getUpdatedAt, start)
                 .lt(Interview::getUpdatedAt, end));
+    }
+
+    /**
+     * 最近N个月每月面试完成量
+     */
+    @GetMapping("/monthly-completed")
+    public Map<String, Long> countMonthlyCompleted(@RequestParam(defaultValue = "6") int months) {
+        LocalDateTime startDate = LocalDate.now().minusMonths(months - 1).withDayOfMonth(1).atStartOfDay();
+        List<Interview> interviews = interviewMapper.selectList(
+                new LambdaQueryWrapper<Interview>()
+                        .eq(Interview::getStatus, InterviewConstants.STATUS_COMPLETED)
+                        .ge(Interview::getUpdatedAt, startDate));
+
+        Map<String, Long> grouped = interviews.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        i -> i.getUpdatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM")),
+                        java.util.stream.Collectors.counting()));
+
+        // 填充缺失月份为0
+        YearMonth current = YearMonth.now().minusMonths(months - 1);
+        YearMonth end = YearMonth.now();
+        java.util.LinkedHashMap<String, Long> result = new java.util.LinkedHashMap<>();
+        while (!current.isAfter(end)) {
+            String key = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            result.put(key, grouped.getOrDefault(key, 0L));
+            current = current.plusMonths(1);
+        }
+        return result;
     }
 }
