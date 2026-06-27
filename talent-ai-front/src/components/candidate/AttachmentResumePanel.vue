@@ -11,6 +11,8 @@ import {
 } from '@/api/resume'
 import { getErrorMessage } from '@/utils/validators'
 
+const emit = defineEmits<{ changed: [] }>()
+
 const props = withDefaults(
   defineProps<{
     embedded?: boolean
@@ -63,6 +65,7 @@ async function onFileSelected(ev: Event) {
     await uploadResumeFile(file, existingId != null ? { resumeId: existingId } : undefined)
     message.value = '上传成功'
     await loadAttachments()
+    emit('changed')
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '上传失败')
   } finally {
@@ -86,6 +89,7 @@ async function handleDelete(id: number) {
     await deleteResume(id)
     message.value = '已删除'
     await loadAttachments()
+    emit('changed')
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '删除失败')
   }

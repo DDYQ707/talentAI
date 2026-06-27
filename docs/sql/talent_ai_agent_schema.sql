@@ -97,7 +97,7 @@ CREATE TABLE `ai_resume_parse_result` (
 
 CREATE TABLE `ai_match_record` (
   `id`                    BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `application_id`        BIGINT UNSIGNED NOT NULL COMMENT '投递ID（逻辑外键->job库）',
+  `application_id`        BIGINT UNSIGNED DEFAULT NULL COMMENT '投递ID（预览匹配可为空；逻辑外键->job库）',
   `job_id`                BIGINT UNSIGNED NOT NULL COMMENT '岗位ID（逻辑外键->job库）',
   `resume_id`             BIGINT UNSIGNED NOT NULL COMMENT '简历ID（逻辑外键->resume库）',
   `model_id`              BIGINT UNSIGNED DEFAULT NULL COMMENT '模型ID',

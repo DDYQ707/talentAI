@@ -2,12 +2,16 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Sparkles, MapPin, Briefcase, Bookmark } from 'lucide-vue-next'
+import { fetchProfileCompleteness } from '@/api/candidateProfile'
 import { fetchActiveAppliedJobIds, fetchMyApplications } from '@/api/delivery'
 import { fetchFavoriteJobIds, toggleJobFavorite } from '@/api/favorite'
 import { fetchJobList, type JobPost } from '@/api/job'
+import { fetchOnlineResumeList } from '@/api/onlineResume'
 import { formatMatchScore } from '@/constants/delivery'
 import { JOB_LIST_CATEGORIES, resolveCategoryDeptNames, type JobListCategory } from '@/constants/jobCategory'
-import { buildCombinedJobMatchScoreMap } from '@/utils/candidateMatch'
+import { ONLINE_RESUME_MIN_SUBMIT_SCORE } from '@/constants/onlineResume'
+import { useMatchScorePoll } from '@/composables/useMatchScorePoll'
+import { loadJobListPreviewMatchStates, sortJobsByMatchScore } from '@/utils/candidateMatch'
 import { formatEmploymentType, formatJobSalary, parseSkillTags } from '@/utils/jobFormat'
 import { getErrorMessage } from '@/utils/validators'
 
@@ -24,8 +28,28 @@ const appliedJobIds = ref<Set<number>>(new Set())
 const favoriteJobIds = ref<Set<number>>(new Set())
 const togglingFavoriteId = ref<number | null>(null)
 const jobMatchScores = ref<Map<number, number>>(new Map())
+const jobMatchPending = ref<Set<number>>(new Set())
+const jobMatchFailed = ref<Set<number>>(new Set())
+const resumeReady = ref(false)
+const checkingResume = ref(false)
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined
+
+const matchPoll = useMatchScorePoll(
+  async () => {
+    if (!resumeReady.value || jobMatchPending.value.size === 0) return true
+    const result = await loadJobListPreviewMatchStates(
+      jobs.value.map((job) => job.id),
+      { triggerMissing: false },
+    )
+    jobMatchScores.value = result.scores
+    jobMatchPending.value = result.pendingIds
+    jobMatchFailed.value = result.failedIds
+    return result.pendingIds.size === 0
+  },
+  4000,
+  30,
+)
 
 const activeCategoryLabel = computed(() => categories[activeCategory.value] as JobListCategory)
 
@@ -46,11 +70,20 @@ const listBannerText = computed(() => {
 })
 
 const listBannerHint = computed(() => {
+  if (!resumeReady.value && !checkingResume.value) {
+    return '完善在线简历（完整度≥80%）后，将自动估算各岗位匹配度并按从高到低排序'
+  }
+  if (jobMatchPending.value.size > 0) {
+    return 'AI 正在估算各岗位匹配度，列表将随评分完成自动重排'
+  }
+  if (resumeReady.value && jobMatchScores.value.size > 0) {
+    return '已按 AI 预估匹配度从高到低排序，分数越高表示与您的简历越契合'
+  }
   if (searchText.value) {
     return '支持岗位名称、部门、城市、技能标签等模糊搜索'
   }
   if (activeCategoryLabel.value !== '推荐') {
-    return `按「${activeCategoryLabel.value}」部门精确筛选，不含关键词模糊匹配`
+    return `「${activeCategoryLabel.value}」部门岗位，按预估匹配度排序`
   }
   return '浏览全部开放岗位，或使用上方搜索快速筛选'
 })
@@ -72,32 +105,77 @@ async function loadAppliedJobs() {
   }
 }
 
-async function refreshMatchScores(records: Awaited<ReturnType<typeof loadAppliedJobs>>) {
+async function checkResumeReady(): Promise<boolean> {
+  checkingResume.value = true
+  try {
+    const [profile, resumes] = await Promise.all([fetchProfileCompleteness(), fetchOnlineResumeList()])
+    if (!profile.complete) return false
+    if (!resumes.length) return false
+    const bestCompleteness = resumes.reduce((max, item) => Math.max(max, item.completeness ?? 0), 0)
+    return bestCompleteness >= ONLINE_RESUME_MIN_SUBMIT_SCORE
+  } catch {
+    return false
+  } finally {
+    checkingResume.value = false
+  }
+}
+
+async function refreshMatchScores() {
+  if (!resumeReady.value) {
+    jobMatchScores.value = new Map()
+    jobMatchPending.value = new Set()
+    jobMatchFailed.value = new Set()
+    matchPoll.stop()
+    return
+  }
   const jobIds = jobs.value.map((job) => job.id)
-  jobMatchScores.value = await buildCombinedJobMatchScoreMap(records, jobIds, appliedJobIds.value)
+  const result = await loadJobListPreviewMatchStates(jobIds, { triggerMissing: true })
+  jobMatchScores.value = result.scores
+  jobMatchPending.value = result.pendingIds
+  jobMatchFailed.value = result.failedIds
+  if (result.pendingIds.size > 0) {
+    matchPoll.start()
+  } else {
+    matchPoll.stop()
+  }
 }
 
 function matchScoreText(jobId: number): string {
-  return formatMatchScore(jobMatchScores.value.get(jobId))
+  if (jobMatchScores.value.has(jobId)) {
+    return formatMatchScore(jobMatchScores.value.get(jobId))
+  }
+  if (jobMatchPending.value.has(jobId)) return '计算中…'
+  if (jobMatchFailed.value.has(jobId)) return '暂不可用'
+  return '—'
 }
 
-function matchScoreHint(jobId: number): string {
-  return isApplied(jobId) ? '匹配度' : '预估匹配度'
+function matchScoreHasPoints(jobId: number): boolean {
+  return jobMatchScores.value.has(jobId)
+}
+
+function matchScoreHint(_jobId: number): string {
+  return '预估匹配度'
+}
+
+function goEditResume() {
+  router.push('/candidate/resume/edit')
 }
 
 async function loadJobs() {
+  matchPoll.stop()
   loading.value = true
   errorMsg.value = ''
   try {
+    resumeReady.value = await checkResumeReady()
     const keyword = searchText.value || undefined
     const deptNames = !keyword ? resolveCategoryDeptNames(activeCategoryLabel.value) : undefined
-    const [data, deliveryRecords] = await Promise.all([
+    const [data] = await Promise.all([
       fetchJobList({ current: 1, size: 50, status: 1, keyword, deptNames }),
       loadAppliedJobs(),
     ])
     jobs.value = data.records ?? []
     total.value = data.total ?? jobs.value.length
-    await refreshMatchScores(deliveryRecords)
+    await refreshMatchScores()
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '岗位列表加载失败')
     jobs.value = []
@@ -176,7 +254,12 @@ function jobTags(job: JobPost): string[] {
   return tags.slice(0, 4)
 }
 
-const displayJobs = computed(() => jobs.value)
+const displayJobs = computed(() => {
+  if (!resumeReady.value) return jobs.value
+  return sortJobsByMatchScore(jobs.value, jobMatchScores.value, jobMatchPending.value)
+})
+
+const showResumeTip = computed(() => !checkingResume.value && !loading.value && !resumeReady.value && jobs.value.length > 0)
 
 watch(searchKeyword, () => {
   if (searchKeyword.value.trim()) {
@@ -229,6 +312,19 @@ onMounted(() => {
       <p class="text-xs text-white/90">
         {{ listBannerHint }}
       </p>
+    </div>
+
+    <div v-if="showResumeTip" class="mx-4 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+      <p class="text-xs text-amber-800 leading-relaxed">
+        完善在线简历（完整度≥80%）后，系统将基于您的简历自动估算各岗位匹配度，并按匹配度从高到低排序推荐。
+      </p>
+      <button
+        type="button"
+        class="mt-2 text-xs font-medium text-brand-blue"
+        @click="goEditResume"
+      >
+        去完善简历 →
+      </button>
     </div>
 
     <div v-if="errorMsg" class="mx-4 mt-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
@@ -299,8 +395,11 @@ onMounted(() => {
             <div class="w-5 h-5 rounded-full gradient-purple flex items-center justify-center">
               <Sparkles :size="10" class="text-white" />
             </div>
-            <span class="text-xs text-brand-purple font-semibold">
-              {{ matchScoreHint(job.id) }} {{ matchScoreText(job.id) }}<span v-if="matchScoreText(job.id) !== '—'"> 分</span>
+            <span
+              class="text-xs font-semibold"
+              :class="jobMatchPending.has(job.id) ? 'text-muted-foreground' : 'text-brand-purple'"
+            >
+              {{ matchScoreHint(job.id) }} {{ matchScoreText(job.id) }}<span v-if="matchScoreHasPoints(job.id)"> 分</span>
             </span>
           </div>
           <button

@@ -36,3 +36,8 @@ export function formatWorkSub(jobTitle: string, start?: string | null, end?: str
   const period = formatResumePeriod(start, end)
   return period ? `${jobTitle} · ${period}` : jobTitle
 }
+
+export {
+  skillProficiencyLabel,
+  skillProficiencyPercent,
+} from '@/utils/onlineResumeCompleteness'

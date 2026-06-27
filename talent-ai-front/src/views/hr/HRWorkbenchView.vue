@@ -32,6 +32,7 @@ const metrics = ref<DashboardMetrics | null>(null)
 const statsCards = computed(() => {
   const m = metrics.value
   const offerRate = m?.offerAcceptRate ? Math.round(m.offerAcceptRate * 100) : 0
+  const offerPending = m?.placeholderFields?.includes('offerAcceptRate')
   return [
     {
       label: '在招岗位',
@@ -66,7 +67,7 @@ const statsCards = computed(() => {
       isProgress: true,
       progressRate: offerRate > 0 ? offerRate : (m?.monthlyHired ? 100 : 0),
       subLabel: 'Offer接受率',
-      subValue: offerRate > 0 ? `${offerRate}%` : '待对接',
+      subValue: offerPending ? '待对接' : `${offerRate}%`,
       icon: CheckCircle,
       color: 'text-orange-500',
       bg: 'bg-orange-50',

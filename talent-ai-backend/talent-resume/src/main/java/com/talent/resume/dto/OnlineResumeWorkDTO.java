@@ -11,6 +11,9 @@ public class OnlineResumeWorkDTO {
 
     private String jobTitle;
 
+    /** 1-全职 2-实习 3-兼职 */
+    private Integer experienceType;
+
     private String startDate;
 
     private String endDate;

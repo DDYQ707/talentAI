@@ -17,4 +17,8 @@ public class OnlineResumeSaveRequest {
     private List<OnlineResumeWorkDTO> workExperiences;
 
     private List<OnlineResumeSkillDTO> skills;
+
+    private List<OnlineResumeProjectDTO> projects;
+
+    private List<OnlineResumeCertificateDTO> certificates;
 }

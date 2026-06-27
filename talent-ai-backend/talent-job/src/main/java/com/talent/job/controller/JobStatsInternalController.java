@@ -2,10 +2,14 @@ package com.talent.job.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.talent.job.constant.JobApplicationConstants;
+import com.talent.job.constant.OfferConstants;
 import com.talent.job.entity.JobApplication;
 import com.talent.job.entity.JobPost;
+import com.talent.job.entity.Offer;
+import com.talent.job.mapper.OfferMapper;
 import com.talent.job.service.IJobApplicationService;
 import com.talent.job.service.IJobPostService;
+import com.talent.job.vo.OfferStatsVO;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -25,6 +29,7 @@ public class JobStatsInternalController {
 
     private final IJobPostService jobPostService;
     private final IJobApplicationService jobApplicationService;
+    private final OfferMapper offerMapper;
 
     @GetMapping("/active-job-count")
     public Long countActiveJobs() {
@@ -71,5 +76,39 @@ public class JobStatsInternalController {
             result.put(status, count);
         }
         return result;
+    }
+
+    /** Offer 看板指标：本月发放量 + 本月候选人接受率 */
+    @GetMapping("/offer-metrics")
+    public OfferStatsVO offerMetrics() {
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+
+        List<Byte> sentStatuses = List.of(
+                OfferConstants.OFFER_STATUS_APPROVED,
+                OfferConstants.OFFER_STATUS_ISSUED,
+                OfferConstants.OFFER_STATUS_ACCEPTED,
+                OfferConstants.OFFER_STATUS_DECLINED);
+
+        Long monthlyOfferSent = offerMapper.selectCount(new LambdaQueryWrapper<Offer>()
+                .in(Offer::getStatus, sentStatuses)
+                .ge(Offer::getCreatedAt, monthStart));
+
+        Long acceptedThisMonth = offerMapper.selectCount(new LambdaQueryWrapper<Offer>()
+                .eq(Offer::getStatus, OfferConstants.OFFER_STATUS_ACCEPTED)
+                .ge(Offer::getUpdatedAt, monthStart));
+
+        Long declinedThisMonth = offerMapper.selectCount(new LambdaQueryWrapper<Offer>()
+                .eq(Offer::getStatus, OfferConstants.OFFER_STATUS_DECLINED)
+                .ge(Offer::getUpdatedAt, monthStart));
+
+        long decided = acceptedThisMonth + declinedThisMonth;
+        double offerAcceptRate = decided > 0
+                ? acceptedThisMonth.doubleValue() / decided
+                : 0.0;
+
+        return OfferStatsVO.builder()
+                .monthlyOfferSent(monthlyOfferSent)
+                .offerAcceptRate(offerAcceptRate)
+                .build();
     }
 }

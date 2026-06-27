@@ -34,7 +34,8 @@ import {
 } from '@/api/ai'
 import { openResumePreview } from '@/api/resume'
 import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
-import { formatDegree, formatResumePeriod } from '@/utils/resumeFormat'
+import { formatDegree, formatResumePeriod, skillProficiencyLabel, skillProficiencyPercent } from '@/utils/resumeFormat'
+import { formatCertType, formatExperienceType } from '@/constants/onlineResume'
 import { getErrorMessage } from '@/utils/validators'
 import InterviewScheduleDialog from '@/components/hr/InterviewScheduleDialog.vue'
 
@@ -147,16 +148,21 @@ async function handleUpdateScreenStatus(targetStatus: number) {
 const workExp = computed(() =>
   (detail.value?.workExperiences ?? []).map((w) => ({
     company: w.companyName,
-    title: w.jobTitle,
+    title: `${formatExperienceType(w.experienceType)} · ${w.jobTitle}`,
     period: formatResumePeriod(w.startDate, w.endDate) || '—',
     desc: w.jobDescription ?? '',
   })),
 )
 
+const projectList = computed(() => detail.value?.projects ?? [])
+
+const certificateList = computed(() => detail.value?.certificates ?? [])
+
 const skills = computed(() =>
   (detail.value?.skills ?? []).map((s) => ({
     name: s.skillName,
-    level: s.proficiencyLevel ?? 60,
+    level: skillProficiencyPercent(s.proficiencyLevel),
+    label: skillProficiencyLabel(s.proficiencyLevel),
   })),
 )
 
@@ -486,6 +492,23 @@ const radarOption = computed<EChartsOption>(() => ({
         </div>
       </div>
 
+      <div v-if="projectList.length" class="mb-6">
+        <div class="flex items-center gap-2 mb-4">
+          <Briefcase :size="16" class="text-brand-orange" />
+          <h2 class="text-sm font-bold text-foreground">项目经历</h2>
+        </div>
+        <div class="space-y-3">
+          <div v-for="(p, i) in projectList" :key="p.id ?? i" class="bg-card border border-border rounded-xl p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-semibold text-foreground">{{ p.projectName }}</span>
+              <span class="text-xs text-muted-foreground">{{ formatResumePeriod(p.startDate, p.endDate) }}</span>
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">{{ [p.role, p.techStack].filter(Boolean).join(' · ') || '—' }}</div>
+            <p v-if="p.description" class="text-xs text-muted-foreground mt-2 leading-relaxed">{{ p.description }}</p>
+          </div>
+        </div>
+      </div>
+
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-4">
           <TrendingUp :size="16" class="text-brand-green" />
@@ -504,7 +527,20 @@ const radarOption = computed<EChartsOption>(() => ({
                 }"
               />
             </div>
-            <div class="text-xs text-muted-foreground w-8 text-right">{{ s.level }}</div>
+            <div class="text-xs text-muted-foreground w-10 text-right">{{ s.label }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="certificateList.length" class="mb-6">
+        <div class="flex items-center gap-2 mb-4">
+          <GraduationCap :size="16" class="text-brand-purple" />
+          <h2 class="text-sm font-bold text-foreground">证书与荣誉</h2>
+        </div>
+        <div class="space-y-2">
+          <div v-for="(c, i) in certificateList" :key="c.id ?? i" class="flex items-center justify-between text-xs">
+            <span class="text-foreground">{{ c.name }}</span>
+            <span class="text-muted-foreground">{{ formatCertType(c.certType) }}</span>
           </div>
         </div>
       </div>

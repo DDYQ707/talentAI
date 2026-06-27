@@ -4,12 +4,20 @@ server:
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # 本机 MySQL 默认 3306；若改用 Docker MySQL，改为 3307 且 password 改为 root123
-    url: jdbc:mysql://127.0.0.1:3307/talent_auth_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    # 本机 MySQL 3306（团队默认）；Docker MySQL 映射 3307 时改为 3307 + root123
+    url: jdbc:mysql://127.0.0.1:3306/talent_auth_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
-    password: root123
+    password: dyq!
   data:
     redis:
       # 注意这里使用了你 docker-compose 映射的 6380 端口
       host: 127.0.0.1
       port: 6380
+
+# 登录验证码（实训环境 dev-expose=true 会在接口响应中返回 devCode，生产务必关闭）
+talent:
+  auth:
+    otp:
+      expire-seconds: 300
+      send-cooldown-seconds: 60
+      dev-expose: true

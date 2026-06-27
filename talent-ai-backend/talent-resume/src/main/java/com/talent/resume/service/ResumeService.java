@@ -4,14 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.talent.resume.constant.ResumeConstants;
 import com.talent.resume.entity.Resume;
 import com.talent.resume.entity.ResumeAttachment;
+import com.talent.resume.entity.ResumeCertificate;
 import com.talent.resume.entity.ResumeEducation;
+import com.talent.resume.entity.ResumeProject;
 import com.talent.resume.entity.ResumeSkill;
 import com.talent.resume.entity.ResumeWorkExperience;
 import com.talent.resume.feign.AuthFeignClient;
 import com.talent.resume.feign.JobFeignClient;
 import com.talent.resume.mapper.ResumeAttachmentMapper;
+import com.talent.resume.mapper.ResumeCertificateMapper;
 import com.talent.resume.mapper.ResumeEducationMapper;
 import com.talent.resume.mapper.ResumeMapper;
+import com.talent.resume.mapper.ResumeProjectMapper;
 import com.talent.resume.mapper.ResumeSkillMapper;
 import com.talent.resume.mapper.ResumeWorkExperienceMapper;
 import com.talent.resume.service.MinioStorageService.StoredObject;
@@ -20,7 +24,9 @@ import com.talent.resume.vo.HrResumeListVO;
 import com.talent.resume.vo.ResumeListVO;
 import com.talent.resume.vo.ResumePreviewVO;
 import com.talent.resume.vo.ResumeUploadVO;
+import com.talent.resume.dto.OnlineResumeCertificateDTO;
 import com.talent.resume.dto.OnlineResumeEducationDTO;
+import com.talent.resume.dto.OnlineResumeProjectDTO;
 import com.talent.resume.dto.OnlineResumeSkillDTO;
 import com.talent.resume.dto.OnlineResumeWorkDTO;
 import java.time.LocalDate;
@@ -52,6 +58,8 @@ public class ResumeService {
     private final ResumeEducationMapper educationMapper;
     private final ResumeWorkExperienceMapper workExperienceMapper;
     private final ResumeSkillMapper skillMapper;
+    private final ResumeProjectMapper projectMapper;
+    private final ResumeCertificateMapper certificateMapper;
     private final MinioStorageService minioStorageService;
     private final AuthFeignClient authFeignClient;
     private final JobFeignClient jobFeignClient;
@@ -410,7 +418,12 @@ public class ResumeService {
                 new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
         Long skill = skillMapper.selectCount(
                 new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
-        return (edu == null ? 0 : edu) + (work == null ? 0 : work) + (skill == null ? 0 : skill);
+        Long project = projectMapper.selectCount(
+                new LambdaQueryWrapper<ResumeProject>().eq(ResumeProject::getResumeId, resumeId));
+        Long cert = certificateMapper.selectCount(
+                new LambdaQueryWrapper<ResumeCertificate>().eq(ResumeCertificate::getResumeId, resumeId));
+        return (edu == null ? 0 : edu) + (work == null ? 0 : work) + (skill == null ? 0 : skill)
+                + (project == null ? 0 : project) + (cert == null ? 0 : cert);
     }
 
     private void fillOnlineContent(HrResumeDetailVO vo, Long resumeId) {
@@ -431,6 +444,18 @@ public class ResumeService {
                         .eq(ResumeSkill::getResumeId, resumeId)
                         .orderByAsc(ResumeSkill::getSortOrder));
         vo.setSkills(skills.stream().map(this::toSkillDto).toList());
+
+        List<ResumeProject> projects = projectMapper.selectList(
+                new LambdaQueryWrapper<ResumeProject>()
+                        .eq(ResumeProject::getResumeId, resumeId)
+                        .orderByAsc(ResumeProject::getSortOrder));
+        vo.setProjects(projects.stream().map(this::toProjectDto).toList());
+
+        List<ResumeCertificate> certificates = certificateMapper.selectList(
+                new LambdaQueryWrapper<ResumeCertificate>()
+                        .eq(ResumeCertificate::getResumeId, resumeId)
+                        .orderByAsc(ResumeCertificate::getSortOrder));
+        vo.setCertificates(certificates.stream().map(this::toCertificateDto).toList());
     }
 
     private void fillLatestApplicationForCandidate(HrResumeDetailVO vo, Long candidateId) {
@@ -755,6 +780,7 @@ public class ResumeService {
         dto.setId(w.getId());
         dto.setCompanyName(w.getCompanyName());
         dto.setJobTitle(w.getJobTitle());
+        dto.setExperienceType(w.getExperienceType());
         dto.setStartDate(formatDate(w.getStartDate()));
         dto.setEndDate(formatDate(w.getEndDate()));
         dto.setJobDescription(w.getJobDescription());
@@ -768,6 +794,32 @@ public class ResumeService {
         dto.setSkillName(s.getSkillName());
         dto.setProficiencyLevel(s.getProficiencyLevel());
         dto.setSortOrder(s.getSortOrder());
+        return dto;
+    }
+
+    private OnlineResumeProjectDTO toProjectDto(ResumeProject p) {
+        OnlineResumeProjectDTO dto = new OnlineResumeProjectDTO();
+        dto.setId(p.getId());
+        dto.setProjectName(p.getProjectName());
+        dto.setRole(p.getRole());
+        dto.setTechStack(p.getTechStack());
+        dto.setStartDate(formatDate(p.getStartDate()));
+        dto.setEndDate(formatDate(p.getEndDate()));
+        dto.setDescription(p.getDescription());
+        dto.setLinkUrl(p.getLinkUrl());
+        dto.setSortOrder(p.getSortOrder());
+        return dto;
+    }
+
+    private OnlineResumeCertificateDTO toCertificateDto(ResumeCertificate c) {
+        OnlineResumeCertificateDTO dto = new OnlineResumeCertificateDTO();
+        dto.setId(c.getId());
+        dto.setCertType(c.getCertType());
+        dto.setName(c.getName());
+        dto.setIssuer(c.getIssuer());
+        dto.setIssueDate(formatDate(c.getIssueDate()));
+        dto.setDescription(c.getDescription());
+        dto.setSortOrder(c.getSortOrder());
         return dto;
     }
 

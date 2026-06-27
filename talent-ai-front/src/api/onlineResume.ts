@@ -15,9 +15,34 @@ export interface OnlineWorkExperience {
   id?: number
   companyName: string
   jobTitle: string
+  /** 1-全职 2-实习 3-兼职 */
+  experienceType?: number
   startDate?: string
   endDate?: string
   jobDescription?: string
+  sortOrder?: number
+}
+
+export interface OnlineProject {
+  id?: number
+  projectName: string
+  role?: string
+  techStack?: string
+  startDate?: string
+  endDate?: string
+  description?: string
+  linkUrl?: string
+  sortOrder?: number
+}
+
+export interface OnlineCertificate {
+  id?: number
+  /** 1-证书 2-荣誉 3-职称 */
+  certType: number
+  name: string
+  issuer?: string
+  issueDate?: string
+  description?: string
   sortOrder?: number
 }
 
@@ -48,6 +73,9 @@ export interface OnlineResumeDetail {
   educations: OnlineEducation[]
   workExperiences: OnlineWorkExperience[]
   skills: OnlineSkill[]
+  projects?: OnlineProject[]
+  certificates?: OnlineCertificate[]
+  workYears?: number | null
 }
 
 export interface OnlineResumeSavePayload {
@@ -57,6 +85,8 @@ export interface OnlineResumeSavePayload {
   educations?: OnlineEducation[]
   workExperiences?: OnlineWorkExperience[]
   skills?: OnlineSkill[]
+  projects?: OnlineProject[]
+  certificates?: OnlineCertificate[]
 }
 
 export function fetchOnlineResumeList() {

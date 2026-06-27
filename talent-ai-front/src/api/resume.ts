@@ -75,6 +75,19 @@ export function openResumePreview(preview: ResumePreviewResult) {
   window.open(preview.presignedUrl, '_blank', 'noopener,noreferrer')
 }
 
+/** 触发附件下载（预签名 URL） */
+export async function downloadResumeAttachment(attachmentId: number, fileName?: string) {
+  const url = await fetchResumeDownloadUrl(attachmentId)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName || 'resume'
+  link.rel = 'noopener noreferrer'
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 /** @deprecated 请使用 fetchResumePreview */
 export function fetchResumeDownloadUrl(attachmentId: number) {
   return request.get<string>(`/api/resume/file/download/${attachmentId}`) as Promise<string>

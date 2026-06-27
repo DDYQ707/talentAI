@@ -4,12 +4,16 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.talent.resume.entity.Resume;
 import com.talent.resume.entity.ResumeAttachment;
+import com.talent.resume.entity.ResumeCertificate;
 import com.talent.resume.entity.ResumeEducation;
+import com.talent.resume.entity.ResumeProject;
 import com.talent.resume.entity.ResumeSkill;
 import com.talent.resume.entity.ResumeWorkExperience;
 import com.talent.resume.mapper.ResumeAttachmentMapper;
+import com.talent.resume.mapper.ResumeCertificateMapper;
 import com.talent.resume.mapper.ResumeEducationMapper;
 import com.talent.resume.mapper.ResumeMapper;
+import com.talent.resume.mapper.ResumeProjectMapper;
 import com.talent.resume.mapper.ResumeSkillMapper;
 import com.talent.resume.mapper.ResumeWorkExperienceMapper;
 import java.util.ArrayList;
@@ -36,6 +40,8 @@ public class ResumeConsolidationService {
     private final ResumeEducationMapper educationMapper;
     private final ResumeWorkExperienceMapper workExperienceMapper;
     private final ResumeSkillMapper skillMapper;
+    private final ResumeProjectMapper projectMapper;
+    private final ResumeCertificateMapper certificateMapper;
 
     /** HR 列表加载前：持久化合并库中所有重复简历 */
     @Transactional(rollbackFor = Exception.class)
@@ -133,6 +139,9 @@ public class ResumeConsolidationService {
         workExperienceMapper.delete(
                 new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
         skillMapper.delete(new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
+        projectMapper.delete(new LambdaQueryWrapper<ResumeProject>().eq(ResumeProject::getResumeId, resumeId));
+        certificateMapper.delete(
+                new LambdaQueryWrapper<ResumeCertificate>().eq(ResumeCertificate::getResumeId, resumeId));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -191,8 +200,10 @@ public class ResumeConsolidationService {
 
     /** 将更完整的在线简历内容合并到保留记录（附件简历常无子表数据） */
     private void mergeOnlineContentPreferRicher(Long fromResumeId, Long keepResumeId) {
-        long fromScore = countEducations(fromResumeId) + countWorks(fromResumeId) + countSkills(fromResumeId);
-        long keepScore = countEducations(keepResumeId) + countWorks(keepResumeId) + countSkills(keepResumeId);
+        long fromScore = countEducations(fromResumeId) + countWorks(fromResumeId) + countSkills(fromResumeId)
+                + countProjects(fromResumeId) + countCertificates(fromResumeId);
+        long keepScore = countEducations(keepResumeId) + countWorks(keepResumeId) + countSkills(keepResumeId)
+                + countProjects(keepResumeId) + countCertificates(keepResumeId);
         if (fromScore <= keepScore) {
             copyOnlineContentIfEmpty(fromResumeId, keepResumeId);
             return;
@@ -201,6 +212,8 @@ public class ResumeConsolidationService {
         copyEducations(fromResumeId, keepResumeId);
         copyWorks(fromResumeId, keepResumeId);
         copySkills(fromResumeId, keepResumeId);
+        copyProjects(fromResumeId, keepResumeId);
+        copyCertificates(fromResumeId, keepResumeId);
     }
 
     private void copyOnlineContentIfEmpty(Long fromResumeId, Long keepResumeId) {
@@ -212,6 +225,12 @@ public class ResumeConsolidationService {
         }
         if (countSkills(keepResumeId) == 0 && countSkills(fromResumeId) > 0) {
             copySkills(fromResumeId, keepResumeId);
+        }
+        if (countProjects(keepResumeId) == 0 && countProjects(fromResumeId) > 0) {
+            copyProjects(fromResumeId, keepResumeId);
+        }
+        if (countCertificates(keepResumeId) == 0 && countCertificates(fromResumeId) > 0) {
+            copyCertificates(fromResumeId, keepResumeId);
         }
     }
 
@@ -240,6 +259,7 @@ public class ResumeConsolidationService {
             copy.setResumeId(keepResumeId);
             copy.setCompanyName(src.getCompanyName());
             copy.setJobTitle(src.getJobTitle());
+            copy.setExperienceType(src.getExperienceType());
             copy.setStartDate(src.getStartDate());
             copy.setEndDate(src.getEndDate());
             copy.setJobDescription(src.getJobDescription());
@@ -261,6 +281,40 @@ public class ResumeConsolidationService {
         }
     }
 
+    private void copyProjects(Long fromResumeId, Long keepResumeId) {
+        List<ResumeProject> list = projectMapper.selectList(
+                new LambdaQueryWrapper<ResumeProject>().eq(ResumeProject::getResumeId, fromResumeId));
+        for (ResumeProject src : list) {
+            ResumeProject copy = new ResumeProject();
+            copy.setResumeId(keepResumeId);
+            copy.setProjectName(src.getProjectName());
+            copy.setRole(src.getRole());
+            copy.setTechStack(src.getTechStack());
+            copy.setStartDate(src.getStartDate());
+            copy.setEndDate(src.getEndDate());
+            copy.setDescription(src.getDescription());
+            copy.setLinkUrl(src.getLinkUrl());
+            copy.setSortOrder(src.getSortOrder());
+            projectMapper.insert(copy);
+        }
+    }
+
+    private void copyCertificates(Long fromResumeId, Long keepResumeId) {
+        List<ResumeCertificate> list = certificateMapper.selectList(
+                new LambdaQueryWrapper<ResumeCertificate>().eq(ResumeCertificate::getResumeId, fromResumeId));
+        for (ResumeCertificate src : list) {
+            ResumeCertificate copy = new ResumeCertificate();
+            copy.setResumeId(keepResumeId);
+            copy.setCertType(src.getCertType());
+            copy.setName(src.getName());
+            copy.setIssuer(src.getIssuer());
+            copy.setIssueDate(src.getIssueDate());
+            copy.setDescription(src.getDescription());
+            copy.setSortOrder(src.getSortOrder());
+            certificateMapper.insert(copy);
+        }
+    }
+
     private long countEducations(Long resumeId) {
         Long c = educationMapper.selectCount(
                 new LambdaQueryWrapper<ResumeEducation>().eq(ResumeEducation::getResumeId, resumeId));
@@ -276,6 +330,18 @@ public class ResumeConsolidationService {
     private long countSkills(Long resumeId) {
         Long c = skillMapper.selectCount(
                 new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
+        return c == null ? 0 : c;
+    }
+
+    private long countProjects(Long resumeId) {
+        Long c = projectMapper.selectCount(
+                new LambdaQueryWrapper<ResumeProject>().eq(ResumeProject::getResumeId, resumeId));
+        return c == null ? 0 : c;
+    }
+
+    private long countCertificates(Long resumeId) {
+        Long c = certificateMapper.selectCount(
+                new LambdaQueryWrapper<ResumeCertificate>().eq(ResumeCertificate::getResumeId, resumeId));
         return c == null ? 0 : c;
     }
 

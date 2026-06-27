@@ -1,5 +1,6 @@
 package com.talent.analytics.feign;
 
+import com.talent.analytics.feign.dto.OfferStatsDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,4 +22,7 @@ public interface JobFeignClient {
 
     @GetMapping("/application-count-by-status")
     Map<Integer, Long> countApplicationsByStatus(@RequestParam("statuses") List<Integer> statuses);
+
+    @GetMapping("/offer-metrics")
+    OfferStatsDTO getOfferMetrics();
 }

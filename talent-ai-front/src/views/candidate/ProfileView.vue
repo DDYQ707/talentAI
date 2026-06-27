@@ -8,9 +8,7 @@ import {
   ChevronRight,
   Bell,
   Star,
-  Shield,
   Settings,
-  HelpCircle,
   LogOut,
   Sparkles,
   AlertCircle,
@@ -22,28 +20,23 @@ import { fetchUnreadNotificationCount } from '@/api/notification'
 import { computeDeliveryStats } from '@/constants/delivery'
 import { profileDisplayName, profileSubtitle } from '@/constants/candidateProfile'
 import { useAuthStore } from '@/stores/auth'
-import { useCandidateHint } from '@/composables/useCandidateHint'
 import { getErrorMessage } from '@/utils/validators'
 
-type ProfileMenuKey = 'notifications' | 'interviews' | 'favorites' | 'privacy' | 'account' | 'help'
+type ProfileMenuKey = 'notifications' | 'interviews' | 'favorites' | 'account'
 
 const menuItems: Array<{
   icon: typeof Bell
   label: string
   key: ProfileMenuKey
-  comingSoon?: boolean
 }> = [
   { icon: Bell, label: '消息通知', key: 'notifications' },
   { icon: Calendar, label: '我的面试', key: 'interviews' },
   { icon: Star, label: '我的收藏', key: 'favorites' },
-  { icon: Shield, label: '隐私设置', key: 'privacy', comingSoon: true },
   { icon: Settings, label: '账号设置', key: 'account' },
-  { icon: HelpCircle, label: '帮助与反馈', key: 'help', comingSoon: true },
 ]
 
 const router = useRouter()
 const auth = useAuthStore()
-const { showComingSoon } = useCandidateHint()
 const { userInfo } = storeToRefs(auth)
 
 const profile = ref<CandidateProfile | null>(null)
@@ -100,10 +93,6 @@ function goEdit() {
 }
 
 function handleMenuClick(item: (typeof menuItems)[number]) {
-  if (item.comingSoon) {
-    showComingSoon(item.label)
-    return
-  }
   switch (item.key) {
     case 'notifications':
       router.push('/candidate/notifications')
@@ -234,10 +223,6 @@ onActivated(() => {
             <component :is="item.icon" :size="14" class="text-muted-foreground" />
           </div>
           <span class="text-sm text-foreground flex-1">{{ item.label }}</span>
-          <span
-            v-if="item.comingSoon"
-            class="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted shrink-0"
-          >敬请期待</span>
           <div
             v-if="item.key === 'notifications' && unreadCount > 0"
             class="min-w-5 h-5 px-1 rounded-full bg-brand-red flex items-center justify-center"

@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ChevronDown, Brain, Calendar, FileText, Users, Repeat2, Sparkles, Zap, Shield, Eye, EyeOff } from 'lucide-vue-next'
 import { useAuthStore, type PortalRole } from '@/stores/auth'
-import { loginByPassword, register as registerApi } from '@/api/auth'
+import { loginByPassword, loginByOtp, register as registerApi, sendLoginOtp } from '@/api/auth'
 import { PORTAL_ROLES, SELF_REGISTER_ROLE, roleOptionLabel } from '@/constants/portal'
 import { AUTH_INPUT_CLASS, AUTH_SAGE, ENTERPRISE_ACCOUNT_HINT } from '@/constants/auth-ui'
 import {
@@ -71,6 +71,7 @@ const otpAccountInput = ref('')
 const otpCodeInput = ref('')
 const otpCountdown = ref(0)
 const otpSending = ref(false)
+const otpDevHint = ref('')
 let otpTimer: ReturnType<typeof setInterval> | null = null
 
 const OTP_COUNTDOWN_SEC = 60
@@ -126,6 +127,7 @@ function startOtpCountdown() {
 
 async function handleSendOtp() {
   loginFormError.value = ''
+  otpDevHint.value = ''
   if (otpCountdown.value > 0 || otpSending.value) return
   if (!isPhoneOrEmail(otpAccountInput.value)) {
     loginFormError.value = '请输入正确的手机号或邮箱'
@@ -133,11 +135,41 @@ async function handleSendOtp() {
   }
   otpSending.value = true
   try {
-    // TODO: 对接后端发送验证码接口
-    await new Promise((r) => setTimeout(r, 400))
+    const res = await sendLoginOtp(otpAccountInput.value)
     startOtpCountdown()
+    if (res.devCode) {
+      otpDevHint.value = `开发环境验证码：${res.devCode}（${res.expireSeconds ?? 300} 秒内有效）`
+    }
+  } catch (e) {
+    loginFormError.value = getErrorMessage(e, '验证码发送失败，请稍后重试')
   } finally {
     otpSending.value = false
+  }
+}
+
+async function completeLogin(res: Awaited<ReturnType<typeof loginByPassword>>) {
+  if (!res.token || !res.userInfo) {
+    loginFormError.value = res.msg || '登录失败，请重试'
+    return
+  }
+
+  const accountRole = auth.portalRoleFromUserType(res.userInfo.userType)
+  if (!accountRole) {
+    loginFormError.value = '账号类型未知，请联系管理员'
+    return
+  }
+  if (accountRole !== selectedRole.value) {
+    portalMismatchRole.value = accountRole
+    loginFormError.value = `该账号属于「${roleOptionLabel(accountRole)}」，与当前门户不一致`
+    return
+  }
+
+  auth.setSession(res.token, res.userInfo)
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : ''
+  if (redirect && redirect.startsWith('/') && !PUBLIC_REDIRECT_PATHS.has(redirect.split('?')[0])) {
+    await router.push(redirect)
+  } else {
+    await router.push(auth.pathForRole(accountRole))
   }
 }
 
@@ -213,11 +245,19 @@ async function handleLogin() {
       loginFormError.value = '请输入正确的手机号或邮箱'
       return
     }
-    if (!/^\d{4,6}$/.test(otpCodeInput.value.trim())) {
-      loginFormError.value = '请输入验证码'
+    if (!/^\d{6}$/.test(otpCodeInput.value.trim())) {
+      loginFormError.value = '请输入 6 位数字验证码'
       return
     }
-    loginFormError.value = '验证码登录暂未开放，请使用密码登录'
+    loginSubmitting.value = true
+    try {
+      const res = await loginByOtp(otpAccountInput.value, otpCodeInput.value)
+      await completeLogin(res)
+    } catch (e) {
+      loginFormError.value = getErrorMessage(e, '登录失败，请检查验证码或稍后重试')
+    } finally {
+      loginSubmitting.value = false
+    }
     return
   }
 
@@ -235,29 +275,7 @@ async function handleLogin() {
   loginSubmitting.value = true
   try {
     const res = await loginByPassword(accountInput.value, passwordInput.value)
-    if (!res.token || !res.userInfo) {
-      loginFormError.value = res.msg || '登录失败，请重试'
-      return
-    }
-
-    const accountRole = auth.portalRoleFromUserType(res.userInfo.userType)
-    if (!accountRole) {
-      loginFormError.value = '账号类型未知，请联系管理员'
-      return
-    }
-    if (accountRole !== selectedRole.value) {
-      portalMismatchRole.value = accountRole
-      loginFormError.value = `该账号属于「${roleOptionLabel(accountRole)}」，与当前门户不一致`
-      return
-    }
-
-    auth.setSession(res.token, res.userInfo)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : ''
-    if (redirect && redirect.startsWith('/') && !PUBLIC_REDIRECT_PATHS.has(redirect.split('?')[0])) {
-      router.push(redirect)
-    } else {
-      router.push(auth.pathForRole(accountRole))
-    }
+    await completeLogin(res)
   } catch (e) {
     loginFormError.value = getErrorMessage(e, '登录失败，请检查网络或稍后重试')
   } finally {
@@ -424,7 +442,7 @@ async function handleLogin() {
                           ? 'bg-white text-[#1a1a1a] shadow-sm'
                           : 'text-[#6f6f6f] hover:text-[#3a3a3a]'
                       "
-                      @click="loginMethod = 'otp'; loginFormError = ''"
+                      @click="loginMethod = 'otp'; loginFormError = ''; otpDevHint = ''"
                     >
                       验证码登录
                     </button>
@@ -506,6 +524,7 @@ async function handleLogin() {
                           <span v-else>获取验证码</span>
                         </button>
                       </div>
+                      <p v-if="otpDevHint" class="mt-2 text-[12px] font-medium text-[#3d8b7a]" role="status">{{ otpDevHint }}</p>
                     </div>
                   </div>
 

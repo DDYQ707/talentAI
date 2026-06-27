@@ -29,4 +29,14 @@ public final class ResumeConstants {
     public static boolean isValidScreenStatus(Integer status) {
         return status != null && status >= SCREEN_PENDING && status <= SCREEN_REJECTED;
     }
+
+    /** 工作经历类型 */
+    public static final int EXP_FULL_TIME = 1;
+    public static final int EXP_INTERNSHIP = 2;
+    public static final int EXP_PART_TIME = 3;
+
+    /** 证书/荣誉类型 */
+    public static final int CERT_TYPE_CERTIFICATE = 1;
+    public static final int CERT_TYPE_HONOR = 2;
+    public static final int CERT_TYPE_TITLE = 3;
 }

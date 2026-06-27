@@ -11,6 +11,8 @@ import {
   Briefcase,
   Code,
   Edit,
+  FolderKanban,
+  Award,
 } from 'lucide-vue-next'
 import AttachmentResumePanel from '@/components/candidate/AttachmentResumePanel.vue'
 import {
@@ -19,7 +21,13 @@ import {
   fetchOnlineResumeList,
   type OnlineResumeDetail,
 } from '@/api/onlineResume'
-import { fetchAttachmentResumes } from '@/api/resume'
+import {
+  downloadResumeAttachment,
+  fetchAttachmentResumes,
+  fetchResumePreview,
+  openResumePreview,
+  type ResumeListItem,
+} from '@/api/resume'
 import {
   evaluateAiResumeQuality,
   fetchAiParseLatest,
@@ -30,14 +38,17 @@ import {
   formatEducationSub,
   formatResumePeriod,
   formatWorkSub,
+  skillProficiencyLabel,
 } from '@/utils/resumeFormat'
+import { formatCertType, formatExperienceType } from '@/constants/onlineResume'
 import { getErrorMessage } from '@/utils/validators'
-import { useCandidateHint } from '@/composables/useCandidateHint'
 
 const router = useRouter()
-const { showComingSoon } = useCandidateHint()
 
 const detail = ref<OnlineResumeDetail | null>(null)
+const primaryAttachment = ref<ResumeListItem | null>(null)
+const previewLoading = ref(false)
+const downloadLoading = ref(false)
 const loading = ref(false)
 const errorMsg = ref('')
 const resumeId = ref<number | null>(null)
@@ -127,11 +138,62 @@ async function handleRefreshQuality() {
   await loadQualityScore({ forceEvaluate: true })
 }
 
+async function loadAttachmentInfo() {
+  try {
+    const list = await fetchAttachmentResumes()
+    primaryAttachment.value = list?.find((item) => item.attachmentId) ?? null
+  } catch {
+    primaryAttachment.value = null
+  }
+}
+
+function noAttachmentHint() {
+  return detail.value
+    ? '暂无附件简历，在线内容已在下方展示；如需预览文件请先上传 pdf/doc/docx'
+    : '请先上传附件简历'
+}
+
+async function handlePreview() {
+  const attachmentId = primaryAttachment.value?.attachmentId
+  if (!attachmentId) {
+    errorMsg.value = noAttachmentHint()
+    return
+  }
+  previewLoading.value = true
+  errorMsg.value = ''
+  try {
+    const preview = await fetchResumePreview(attachmentId)
+    openResumePreview(preview)
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '无法打开预览，请确认 MinIO 已启动')
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+async function handleDownload() {
+  const item = primaryAttachment.value
+  if (!item?.attachmentId) {
+    errorMsg.value = noAttachmentHint()
+    return
+  }
+  downloadLoading.value = true
+  errorMsg.value = ''
+  try {
+    await downloadResumeAttachment(item.attachmentId, item.fileName || item.resumeName)
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '下载失败，请确认 MinIO 已启动')
+  } finally {
+    downloadLoading.value = false
+  }
+}
+
 async function loadOnlineResume() {
   loading.value = true
   errorMsg.value = ''
   try {
     await resolveResumeId()
+    await loadAttachmentInfo()
     const list = await fetchOnlineResumeList()
     if (!list?.length) {
       detail.value = null
@@ -149,7 +211,7 @@ async function loadOnlineResume() {
   }
 }
 
-function goEdit(section?: 'education' | 'work' | 'skills') {
+function goEdit(section?: 'education' | 'work' | 'projects' | 'skills' | 'certificates') {
   const id = detail.value?.id
   router.push({
     path: '/candidate/resume/edit',
@@ -190,17 +252,19 @@ onActivated(() => {
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="p-1.5 rounded-lg hover:bg-muted"
-            title="预览"
-            @click="showComingSoon('在线简历预览')"
+            class="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40"
+            :disabled="previewLoading || !primaryAttachment?.attachmentId"
+            :title="primaryAttachment?.attachmentId ? '预览附件' : '需先上传附件简历'"
+            @click="handlePreview"
           >
             <Eye :size="16" class="text-muted-foreground" />
           </button>
           <button
             type="button"
-            class="p-1.5 rounded-lg hover:bg-muted"
-            title="下载"
-            @click="showComingSoon('简历下载')"
+            class="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40"
+            :disabled="downloadLoading || !primaryAttachment?.attachmentId"
+            :title="primaryAttachment?.attachmentId ? '下载附件' : '需先上传附件简历'"
+            @click="handleDownload"
           >
             <Download :size="16" class="text-muted-foreground" />
           </button>
@@ -342,11 +406,35 @@ onActivated(() => {
           >
             <div class="text-xs font-semibold text-foreground">{{ w.companyName }}</div>
             <div class="text-xs text-muted-foreground mt-0.5">
-              {{ formatWorkSub(w.jobTitle, w.startDate, w.endDate) }}
+              {{ formatExperienceType(w.experienceType) }} · {{ formatWorkSub(w.jobTitle, w.startDate, w.endDate) }}
             </div>
+            <p v-if="w.jobDescription" class="text-xs text-muted-foreground mt-1 line-clamp-2">{{ w.jobDescription }}</p>
           </div>
         </template>
         <p v-else class="text-xs text-muted-foreground py-2">暂无工作经历，点击右上角编辑</p>
+      </div>
+
+      <!-- 项目经历 -->
+      <div class="bg-card shadow-card p-4 border border-border">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <FolderKanban :size="15" class="text-brand-orange" />
+            <span class="text-sm font-semibold text-foreground">项目经历</span>
+          </div>
+          <button type="button" class="p-1.5 rounded-lg hover:bg-muted" title="编辑" @click="detail ? goEdit('projects') : ensureAndEdit()">
+            <Edit :size="14" class="text-muted-foreground" />
+          </button>
+        </div>
+        <template v-if="detail?.projects?.length">
+          <div v-for="(p, i) in detail.projects" :key="p.id ?? i" class="py-2 border-b border-border last:border-0">
+            <div class="flex items-start justify-between gap-2">
+              <div class="text-xs font-semibold text-foreground">{{ p.projectName }}</div>
+              <span class="text-xs text-muted-foreground flex-shrink-0">{{ formatResumePeriod(p.startDate, p.endDate) }}</span>
+            </div>
+            <div class="text-xs text-muted-foreground mt-0.5">{{ [p.role, p.techStack].filter(Boolean).join(' · ') || '—' }}</div>
+          </div>
+        </template>
+        <p v-else class="text-xs text-muted-foreground py-2">暂无项目经历，点击右上角编辑</p>
       </div>
 
       <!-- 技能标签 -->
@@ -371,10 +459,35 @@ onActivated(() => {
             :key="s.id ?? i"
             class="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground"
           >
-            {{ s.skillName }}
+            {{ s.skillName }}<span v-if="skillProficiencyLabel(s.proficiencyLevel)" class="opacity-70"> · {{ skillProficiencyLabel(s.proficiencyLevel) }}</span>
           </span>
         </div>
         <p v-else class="text-xs text-muted-foreground py-2">暂无技能标签，点击右上角编辑</p>
+      </div>
+
+      <!-- 证书与荣誉 -->
+      <div class="bg-card shadow-card p-4 border border-border">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <Award :size="15" class="text-brand-purple" />
+            <span class="text-sm font-semibold text-foreground">证书与荣誉</span>
+          </div>
+          <button type="button" class="p-1.5 rounded-lg hover:bg-muted" title="编辑" @click="detail ? goEdit('certificates') : ensureAndEdit()">
+            <Edit :size="14" class="text-muted-foreground" />
+          </button>
+        </div>
+        <template v-if="detail?.certificates?.length">
+          <div v-for="(c, i) in detail.certificates" :key="c.id ?? i" class="py-2 border-b border-border last:border-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-medium text-foreground">{{ c.name }}</span>
+              <span class="text-[10px] text-muted-foreground shrink-0">{{ formatCertType(c.certType) }}</span>
+            </div>
+            <div class="text-xs text-muted-foreground mt-0.5">
+              {{ [c.issuer, c.issueDate?.slice(0, 7)].filter(Boolean).join(' · ') || '—' }}
+            </div>
+          </div>
+        </template>
+        <p v-else class="text-xs text-muted-foreground py-2">暂无证书/荣誉/职称，点击右上角编辑</p>
       </div>
 
       <div class="pt-2 border-t border-border">
@@ -382,7 +495,7 @@ onActivated(() => {
           附件简历
           <span class="text-[11px] font-normal text-muted-foreground">（pdf/doc/docx，用于岗位投递）</span>
         </h2>
-        <AttachmentResumePanel embedded />
+        <AttachmentResumePanel embedded @changed="loadAttachmentInfo" />
       </div>
     </div>
   </div>

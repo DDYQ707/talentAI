@@ -2,11 +2,17 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft, MapPin, Briefcase, Users, Building2, Sparkles, CheckCircle, Share, Bookmark } from 'lucide-vue-next'
-import { fetchActiveAppliedJobIds, fetchMyApplications } from '@/api/delivery'
+import { fetchActiveAppliedJobIds, fetchMyApplications, type DeliveryRecord } from '@/api/delivery'
 import { fetchFavoriteJobIds, toggleJobFavorite } from '@/api/favorite'
 import { fetchJobDetail, type JobPost } from '@/api/job'
 import { formatMatchScore } from '@/constants/delivery'
-import { resolveApplicationMatchScore, resolveJobPreviewMatchScore } from '@/utils/candidateMatch'
+import { useMatchScorePoll } from '@/composables/useMatchScorePoll'
+import {
+  fetchPreviewMatchState,
+  resolveApplicationMatchState,
+  resolveJobPreviewMatchState,
+  type MatchScoreState,
+} from '@/utils/candidateMatch'
 import { formatEmploymentType, formatJobSalary, parseSkillTags } from '@/utils/jobFormat'
 import { useCandidateHint } from '@/composables/useCandidateHint'
 import { getErrorMessage } from '@/utils/validators'
@@ -21,8 +27,9 @@ const errorMsg = ref('')
 const applied = ref(false)
 const favorited = ref(false)
 const togglingFavorite = ref(false)
-const matchScore = ref<number | null>(null)
+const matchState = ref<MatchScoreState>({ score: null, pending: false, failed: false })
 const matchLoading = ref(false)
+const applicationRecord = ref<DeliveryRecord | null>(null)
 
 const jobId = computed(() => {
   const id = Number(route.query.id)
@@ -36,14 +43,45 @@ const requirements = computed(() => {
   return text.split(/\n+/).map((s) => s.trim()).filter(Boolean)
 })
 
+async function fetchMatchState(): Promise<MatchScoreState> {
+  if (!jobId.value) {
+    return { score: null, pending: false, failed: false }
+  }
+  if (applied.value && applicationRecord.value) {
+    return resolveApplicationMatchState(applicationRecord.value)
+  }
+  if (applied.value) {
+    return fetchPreviewMatchState(jobId.value)
+  }
+  return fetchPreviewMatchState(jobId.value)
+}
+
+const matchPoll = useMatchScorePoll(
+  async () => {
+    if (!matchState.value.pending) return true
+    const next = await fetchMatchState()
+    matchState.value = next
+    return !next.pending
+  },
+  4000,
+  30,
+  () => {
+    if (matchState.value.pending) {
+      matchState.value = { score: null, pending: false, failed: true }
+    }
+  },
+)
+
 async function loadAppliedStatus() {
   if (!jobId.value) {
     applied.value = false
     favorited.value = false
-    matchScore.value = null
+    matchState.value = { score: null, pending: false, failed: false }
+    applicationRecord.value = null
     return
   }
   matchLoading.value = true
+  matchPoll.stop()
   try {
     const [appliedData, appPage, favoriteData] = await Promise.all([
       fetchActiveAppliedJobIds(),
@@ -52,27 +90,37 @@ async function loadAppliedStatus() {
     ])
     applied.value = (appliedData.jobIds ?? []).includes(jobId.value)
     favorited.value = (favoriteData.jobIds ?? []).includes(jobId.value)
-    matchScore.value = null
-    if (applied.value) {
-      const record = (appPage.records ?? []).find((r) => r.jobId === jobId.value)
-      if (record) {
-        matchScore.value = await resolveApplicationMatchScore(record)
-      }
+    const record = (appPage.records ?? []).find((r) => r.jobId === jobId.value) ?? null
+    applicationRecord.value = record
+
+    let state: MatchScoreState
+    if (applied.value && record) {
+      state = await resolveApplicationMatchState(record)
+    } else if (applied.value) {
+      state = await fetchPreviewMatchState(jobId.value)
     } else {
-      matchScore.value = await resolveJobPreviewMatchScore(jobId.value)
+      state = await resolveJobPreviewMatchState(jobId.value)
+    }
+    matchState.value = state
+    if (state.pending) {
+      matchPoll.start()
     }
   } catch {
     applied.value = false
     favorited.value = false
-    matchScore.value = null
+    matchState.value = { score: null, pending: false, failed: false }
+    applicationRecord.value = null
   } finally {
     matchLoading.value = false
   }
 }
 
-const matchScoreDisplay = computed(() => formatMatchScore(matchScore.value))
+const matchScoreDisplay = computed(() => formatMatchScore(matchState.value.score))
+const matchPending = computed(() => matchState.value.pending)
+const matchFailed = computed(() => matchState.value.failed)
 
 async function loadJob() {
+  matchPoll.stop()
   if (!jobId.value) {
     errorMsg.value = '缺少岗位信息'
     job.value = null
@@ -208,8 +256,18 @@ watch(jobId, loadJob)
               }}
             </p>
           </template>
-          <template v-else-if="matchLoading">
-            <p class="text-xs text-muted-foreground leading-relaxed">AI 匹配分析生成中，请稍后刷新…</p>
+          <template v-else-if="matchPending || matchLoading">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm font-semibold text-muted-foreground">AI 匹配分析计算中…</span>
+            </div>
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              通常需要几秒到一分钟，页面将自动刷新评分，无需手动操作。
+            </p>
+          </template>
+          <template v-else-if="matchFailed">
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              AI 匹配分析暂时不可用，请稍后刷新或完善简历后重试。
+            </p>
           </template>
           <template v-else-if="applied">
             <p class="text-xs text-muted-foreground leading-relaxed">
@@ -217,7 +275,7 @@ watch(jobId, loadJob)
             </p>
           </template>
           <p v-else class="text-xs text-muted-foreground leading-relaxed">
-            基于您当前简历对该岗位的 AI 预估匹配度；完善简历后可获得更准结果。若显示为空，请稍等片刻后刷新。
+            基于您当前简历对该岗位的 AI 预估匹配度；完善简历后可获得更准结果。
           </p>
         </div>
 

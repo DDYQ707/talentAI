@@ -1,28 +1,37 @@
 package com.talent.resume.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.talent.resume.dto.OnlineResumeCertificateDTO;
 import com.talent.resume.dto.OnlineResumeEducationDTO;
+import com.talent.resume.dto.OnlineResumeProjectDTO;
 import com.talent.resume.dto.OnlineResumeSaveRequest;
 import com.talent.resume.dto.OnlineResumeSkillDTO;
 import com.talent.resume.dto.OnlineResumeWorkDTO;
 import com.talent.resume.entity.Resume;
 import com.talent.resume.entity.ResumeAttachment;
+import com.talent.resume.entity.ResumeCertificate;
 import com.talent.resume.entity.ResumeEducation;
+import com.talent.resume.entity.ResumeProject;
 import com.talent.resume.entity.ResumeSkill;
 import com.talent.resume.entity.ResumeWorkExperience;
+import com.talent.resume.feign.AuthFeignClient;
 import com.talent.resume.mapper.ResumeAttachmentMapper;
+import com.talent.resume.mapper.ResumeCertificateMapper;
 import com.talent.resume.mapper.ResumeEducationMapper;
 import com.talent.resume.mapper.ResumeMapper;
+import com.talent.resume.mapper.ResumeProjectMapper;
 import com.talent.resume.mapper.ResumeSkillMapper;
 import com.talent.resume.mapper.ResumeWorkExperienceMapper;
 import com.talent.resume.vo.OnlineResumeDetailVO;
 import com.talent.resume.vo.OnlineResumeListVO;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +51,10 @@ public class OnlineResumeService {
     private final ResumeEducationMapper educationMapper;
     private final ResumeWorkExperienceMapper workExperienceMapper;
     private final ResumeSkillMapper skillMapper;
+    private final ResumeProjectMapper projectMapper;
+    private final ResumeCertificateMapper certificateMapper;
     private final ResumeConsolidationService consolidationService;
+    private final AuthFeignClient authFeignClient;
 
     public List<OnlineResumeListVO> listMyOnlineResumes(Long candidateId) {
         Resume primary = consolidationService.getPrimaryResume(candidateId);
@@ -55,7 +67,7 @@ public class OnlineResumeService {
         vo.setSummary(primary.getSummary());
         vo.setIsDefault(primary.getIsDefault());
         vo.setUpdatedAt(primary.getUpdatedAt());
-        vo.setCompleteness(calcCompleteness(primary.getId()));
+        vo.setCompleteness(calcCompleteness(primary.getId(), candidateId));
         return List.of(vo);
     }
 
@@ -139,6 +151,9 @@ public class OnlineResumeService {
         workExperienceMapper.delete(
                 new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
         skillMapper.delete(new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
+        projectMapper.delete(new LambdaQueryWrapper<ResumeProject>().eq(ResumeProject::getResumeId, resumeId));
+        certificateMapper.delete(
+                new LambdaQueryWrapper<ResumeCertificate>().eq(ResumeCertificate::getResumeId, resumeId));
         saveChildren(resumeId, request);
     }
 
@@ -149,6 +164,8 @@ public class OnlineResumeService {
         saveEducations(resumeId, request.getEducations());
         saveWorks(resumeId, request.getWorkExperiences());
         saveSkills(resumeId, request.getSkills());
+        saveProjects(resumeId, request.getProjects());
+        saveCertificates(resumeId, request.getCertificates());
     }
 
     private void saveEducations(Long resumeId, List<OnlineResumeEducationDTO> list) {
@@ -179,13 +196,16 @@ public class OnlineResumeService {
         }
         int order = 0;
         for (OnlineResumeWorkDTO dto : list) {
-            if (!StringUtils.hasText(dto.getCompanyName()) || !StringUtils.hasText(dto.getJobTitle())) {
+            if (!StringUtils.hasText(dto.getCompanyName())
+                    || !StringUtils.hasText(dto.getJobTitle())
+                    || !StringUtils.hasText(dto.getStartDate())) {
                 continue;
             }
             ResumeWorkExperience entity = new ResumeWorkExperience();
             entity.setResumeId(resumeId);
             entity.setCompanyName(dto.getCompanyName().trim());
             entity.setJobTitle(dto.getJobTitle().trim());
+            entity.setExperienceType(dto.getExperienceType() != null ? dto.getExperienceType() : 1);
             entity.setStartDate(parseDate(dto.getStartDate()));
             entity.setEndDate(parseDate(dto.getEndDate()));
             entity.setJobDescription(trimToNull(dto.getJobDescription()));
@@ -212,6 +232,50 @@ public class OnlineResumeService {
         }
     }
 
+    private void saveProjects(Long resumeId, List<OnlineResumeProjectDTO> list) {
+        if (CollectionUtils.isEmpty(list)) {
+            return;
+        }
+        int order = 0;
+        for (OnlineResumeProjectDTO dto : list) {
+            if (!StringUtils.hasText(dto.getProjectName()) || !StringUtils.hasText(dto.getStartDate())) {
+                continue;
+            }
+            ResumeProject entity = new ResumeProject();
+            entity.setResumeId(resumeId);
+            entity.setProjectName(dto.getProjectName().trim());
+            entity.setRole(trimToNull(dto.getRole()));
+            entity.setTechStack(trimToNull(dto.getTechStack()));
+            entity.setStartDate(parseDate(dto.getStartDate()));
+            entity.setEndDate(parseDate(dto.getEndDate()));
+            entity.setDescription(trimToNull(dto.getDescription()));
+            entity.setLinkUrl(trimToNull(dto.getLinkUrl()));
+            entity.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : order++);
+            projectMapper.insert(entity);
+        }
+    }
+
+    private void saveCertificates(Long resumeId, List<OnlineResumeCertificateDTO> list) {
+        if (CollectionUtils.isEmpty(list)) {
+            return;
+        }
+        int order = 0;
+        for (OnlineResumeCertificateDTO dto : list) {
+            if (!StringUtils.hasText(dto.getName()) || dto.getCertType() == null) {
+                continue;
+            }
+            ResumeCertificate entity = new ResumeCertificate();
+            entity.setResumeId(resumeId);
+            entity.setCertType(dto.getCertType());
+            entity.setName(dto.getName().trim());
+            entity.setIssuer(trimToNull(dto.getIssuer()));
+            entity.setIssueDate(parseDate(dto.getIssueDate()));
+            entity.setDescription(trimToNull(dto.getDescription()));
+            entity.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : order++);
+            certificateMapper.insert(entity);
+        }
+    }
+
     private OnlineResumeDetailVO buildDetailVo(Resume resume) {
         Long resumeId = resume.getId();
         OnlineResumeDetailVO vo = new OnlineResumeDetailVO();
@@ -221,7 +285,8 @@ public class OnlineResumeService {
         vo.setIsDefault(resume.getIsDefault());
         vo.setCreatedAt(resume.getCreatedAt());
         vo.setUpdatedAt(resume.getUpdatedAt());
-        vo.setCompleteness(calcCompleteness(resumeId));
+        vo.setWorkYears(resolveWorkYears(resume.getCandidateId()));
+        vo.setCompleteness(calcCompleteness(resumeId, resume.getCandidateId()));
 
         List<ResumeEducation> educations = educationMapper.selectList(
                 new LambdaQueryWrapper<ResumeEducation>()
@@ -240,6 +305,18 @@ public class OnlineResumeService {
                         .eq(ResumeSkill::getResumeId, resumeId)
                         .orderByAsc(ResumeSkill::getSortOrder));
         vo.setSkills(skills.stream().map(this::toSkillDto).toList());
+
+        List<ResumeProject> projects = projectMapper.selectList(
+                new LambdaQueryWrapper<ResumeProject>()
+                        .eq(ResumeProject::getResumeId, resumeId)
+                        .orderByAsc(ResumeProject::getSortOrder));
+        vo.setProjects(projects.stream().map(this::toProjectDto).toList());
+
+        List<ResumeCertificate> certificates = certificateMapper.selectList(
+                new LambdaQueryWrapper<ResumeCertificate>()
+                        .eq(ResumeCertificate::getResumeId, resumeId)
+                        .orderByAsc(ResumeCertificate::getSortOrder));
+        vo.setCertificates(certificates.stream().map(this::toCertificateDto).toList());
         return vo;
     }
 
@@ -261,6 +338,7 @@ public class OnlineResumeService {
         dto.setId(w.getId());
         dto.setCompanyName(w.getCompanyName());
         dto.setJobTitle(w.getJobTitle());
+        dto.setExperienceType(w.getExperienceType());
         dto.setStartDate(formatDate(w.getStartDate()));
         dto.setEndDate(formatDate(w.getEndDate()));
         dto.setJobDescription(w.getJobDescription());
@@ -277,34 +355,167 @@ public class OnlineResumeService {
         return dto;
     }
 
-    private int calcCompleteness(Long resumeId) {
+    private OnlineResumeProjectDTO toProjectDto(ResumeProject p) {
+        OnlineResumeProjectDTO dto = new OnlineResumeProjectDTO();
+        dto.setId(p.getId());
+        dto.setProjectName(p.getProjectName());
+        dto.setRole(p.getRole());
+        dto.setTechStack(p.getTechStack());
+        dto.setStartDate(formatDate(p.getStartDate()));
+        dto.setEndDate(formatDate(p.getEndDate()));
+        dto.setDescription(p.getDescription());
+        dto.setLinkUrl(p.getLinkUrl());
+        dto.setSortOrder(p.getSortOrder());
+        return dto;
+    }
+
+    private OnlineResumeCertificateDTO toCertificateDto(ResumeCertificate c) {
+        OnlineResumeCertificateDTO dto = new OnlineResumeCertificateDTO();
+        dto.setId(c.getId());
+        dto.setCertType(c.getCertType());
+        dto.setName(c.getName());
+        dto.setIssuer(c.getIssuer());
+        dto.setIssueDate(formatDate(c.getIssueDate()));
+        dto.setDescription(c.getDescription());
+        dto.setSortOrder(c.getSortOrder());
+        return dto;
+    }
+
+    private int calcCompleteness(Long resumeId, Long candidateId) {
         Resume resume = resumeMapper.selectById(resumeId);
         if (resume == null) {
             return 0;
         }
         int score = 0;
-        if (StringUtils.hasText(resume.getResumeName())) {
+        String summary = resume.getSummary() != null ? resume.getSummary().trim() : "";
+        if (summary.length() >= 10) {
             score += 15;
+        } else if (!summary.isEmpty()) {
+            score += 5;
         }
-        if (StringUtils.hasText(resume.getSummary())) {
-            score += 15;
-        }
-        Long edu = educationMapper.selectCount(
+
+        List<ResumeEducation> educations = educationMapper.selectList(
                 new LambdaQueryWrapper<ResumeEducation>().eq(ResumeEducation::getResumeId, resumeId));
-        if (edu != null && edu > 0) {
-            score += 25;
-        }
-        Long work = workExperienceMapper.selectCount(
-                new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
-        if (work != null && work > 0) {
-            score += 25;
-        }
-        Long skill = skillMapper.selectCount(
-                new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
-        if (skill != null && skill > 0) {
+        if (hasValidEducation(educations)) {
             score += 20;
+        } else if (!educations.isEmpty()) {
+            score += 10;
         }
+
+        List<ResumeWorkExperience> works = workExperienceMapper.selectList(
+                new LambdaQueryWrapper<ResumeWorkExperience>().eq(ResumeWorkExperience::getResumeId, resumeId));
+        List<ResumeProject> projects = projectMapper.selectList(
+                new LambdaQueryWrapper<ResumeProject>().eq(ResumeProject::getResumeId, resumeId));
+        List<ResumeCertificate> certificates = certificateMapper.selectList(
+                new LambdaQueryWrapper<ResumeCertificate>().eq(ResumeCertificate::getResumeId, resumeId));
+        List<ResumeSkill> skills = skillMapper.selectList(
+                new LambdaQueryWrapper<ResumeSkill>().eq(ResumeSkill::getResumeId, resumeId));
+
+        boolean freshGraduate = isFreshGraduate(resolveWorkYears(candidateId));
+
+        if (freshGraduate) {
+            if (hasValidProject(projects)) {
+                score += 25;
+            } else if (!projects.isEmpty()) {
+                score += 12;
+            }
+            if (hasValidWork(works)) {
+                score += 5;
+            }
+            boolean hasDesc = hasProjectDescription(projects) || hasWorkDescription(works);
+            if (hasDesc) {
+                score += 10;
+            }
+        } else {
+            if (hasValidWork(works)) {
+                score += 25;
+            } else if (!works.isEmpty()) {
+                score += 12;
+            }
+            if (hasWorkDescription(works)) {
+                score += 10;
+            }
+            if (hasValidProject(projects)) {
+                score += 5;
+            }
+        }
+
+        if (hasValidSkill(skills)) {
+            score += 15;
+        } else if (!skills.isEmpty()) {
+            score += 6;
+        }
+
+        if (hasValidCertificate(certificates)) {
+            score += 5;
+        }
+
         return Math.min(100, score);
+    }
+
+    private boolean isFreshGraduate(BigDecimal workYears) {
+        return workYears == null || workYears.compareTo(BigDecimal.ONE) < 0;
+    }
+
+    private BigDecimal resolveWorkYears(Long candidateId) {
+        if (candidateId == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> brief = authFeignClient.getCandidateProfileBrief(candidateId);
+            if (brief == null || brief.get("workYears") == null) {
+                return null;
+            }
+            Object val = brief.get("workYears");
+            if (val instanceof BigDecimal bd) {
+                return bd;
+            }
+            if (val instanceof Number n) {
+                return BigDecimal.valueOf(n.doubleValue());
+            }
+            return new BigDecimal(val.toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean hasValidProject(List<ResumeProject> list) {
+        return list.stream().anyMatch(p ->
+                StringUtils.hasText(p.getProjectName())
+                        && StringUtils.hasText(p.getRole())
+                        && p.getStartDate() != null);
+    }
+
+    private boolean hasProjectDescription(List<ResumeProject> list) {
+        return list.stream()
+                .anyMatch(p -> p.getDescription() != null && p.getDescription().trim().length() >= 10);
+    }
+
+    private boolean hasWorkDescription(List<ResumeWorkExperience> list) {
+        return list.stream()
+                .anyMatch(w -> w.getJobDescription() != null && w.getJobDescription().trim().length() >= 10);
+    }
+
+    private boolean hasValidCertificate(List<ResumeCertificate> list) {
+        return list.stream().anyMatch(c ->
+                StringUtils.hasText(c.getName()) && c.getCertType() != null);
+    }
+
+    private boolean hasValidEducation(List<ResumeEducation> list) {
+        return list.stream().anyMatch(e ->
+                StringUtils.hasText(e.getSchoolName()) && e.getDegree() != null);
+    }
+
+    private boolean hasValidWork(List<ResumeWorkExperience> list) {
+        return list.stream().anyMatch(w ->
+                StringUtils.hasText(w.getCompanyName())
+                        && StringUtils.hasText(w.getJobTitle())
+                        && w.getStartDate() != null);
+    }
+
+    private boolean hasValidSkill(List<ResumeSkill> list) {
+        return list.stream().anyMatch(s ->
+                StringUtils.hasText(s.getSkillName()) && s.getProficiencyLevel() != null);
     }
 
     private String resolveResumeName(OnlineResumeSaveRequest request, String defaultName) {

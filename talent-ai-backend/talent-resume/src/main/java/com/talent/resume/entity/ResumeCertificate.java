@@ -12,8 +12,8 @@ import lombok.Setter;
 
 @Getter
 @Setter
-@TableName("resume_work_experience")
-public class ResumeWorkExperience implements Serializable {
+@TableName("resume_certificate")
+public class ResumeCertificate implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -22,18 +22,16 @@ public class ResumeWorkExperience implements Serializable {
 
     private Long resumeId;
 
-    private String companyName;
+    /** 1-证书 2-荣誉 3-职称 */
+    private Integer certType;
 
-    private String jobTitle;
+    private String name;
 
-    /** 1-全职 2-实习 3-兼职 */
-    private Integer experienceType;
+    private String issuer;
 
-    private LocalDate startDate;
+    private LocalDate issueDate;
 
-    private LocalDate endDate;
-
-    private String jobDescription;
+    private String description;
 
     private Integer sortOrder;
 

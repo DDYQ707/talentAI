@@ -41,7 +41,7 @@ function goBack() {
         ref="editorRef"
         :active="true"
         :initial-resume-id="resumeId"
-        :focus-section="(route.query.section as 'education' | 'work' | 'skills') || ''"
+        :focus-section="(route.query.section as 'education' | 'work' | 'projects' | 'skills' | 'certificates') || ''"
         @saved="goBack"
       />
     </div>

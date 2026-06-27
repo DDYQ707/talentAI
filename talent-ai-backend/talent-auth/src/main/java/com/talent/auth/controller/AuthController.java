@@ -8,6 +8,7 @@ import com.talent.auth.service.AdminAccountService;
 import com.talent.auth.service.CandidateMyProfileService;
 import com.talent.auth.service.ICandidateProfileService;
 import com.talent.auth.service.ISysUserService;
+import com.talent.auth.service.LoginOtpService;
 import com.talent.common.utils.JwtUtil; // 如果你把它移到了 common，注意改一下导入路径
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +36,22 @@ public class AuthController {
 
     @Autowired
     private CandidateMyProfileService candidateMyProfileService;
+
+    @Autowired
+    private LoginOtpService loginOtpService;
+
+    /** 发送登录验证码（手机号/邮箱，实训环境写日志，不实际发短信/邮件） */
+    @PostMapping("/otp/send")
+    public Map<String, Object> sendLoginOtp(@RequestParam("account") String account) {
+        return loginOtpService.sendLoginCode(account);
+    }
+
+    /** 验证码登录 */
+    @PostMapping("/login/otp")
+    public Map<String, Object> loginByOtp(@RequestParam("account") String account,
+                                          @RequestParam("code") String code) {
+        return loginOtpService.loginByCode(account, code);
+    }
 
     @GetMapping("/getUserName")
     public String getUserName(@RequestParam("id") Long id) {

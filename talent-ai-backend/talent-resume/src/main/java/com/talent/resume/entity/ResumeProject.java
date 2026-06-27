@@ -12,8 +12,8 @@ import lombok.Setter;
 
 @Getter
 @Setter
-@TableName("resume_work_experience")
-public class ResumeWorkExperience implements Serializable {
+@TableName("resume_project")
+public class ResumeProject implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -22,18 +22,19 @@ public class ResumeWorkExperience implements Serializable {
 
     private Long resumeId;
 
-    private String companyName;
+    private String projectName;
 
-    private String jobTitle;
+    private String role;
 
-    /** 1-全职 2-实习 3-兼职 */
-    private Integer experienceType;
+    private String techStack;
 
     private LocalDate startDate;
 
     private LocalDate endDate;
 
-    private String jobDescription;
+    private String description;
+
+    private String linkUrl;
 
     private Integer sortOrder;
 

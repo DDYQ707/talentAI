@@ -15,8 +15,8 @@ import {
   stepProgressState,
   type ApplicationUiStatus,
 } from '@/constants/delivery'
-import { buildApplicationMatchScoreMap } from '@/utils/candidateMatch'
-import { useCandidateHint } from '@/composables/useCandidateHint'
+import { useMatchScorePoll } from '@/composables/useMatchScorePoll'
+import { loadApplicationMatchStates } from '@/utils/candidateMatch'
 import { formatDateTime } from '@/utils/jobFormat'
 import { getErrorMessage } from '@/utils/validators'
 
@@ -36,16 +36,28 @@ interface AppItem {
   attachmentFileType?: string
   hasAttachment: boolean
   matchScore?: number | null
+  matchPending?: boolean
+  matchFailed?: boolean
 }
 
 const router = useRouter()
-const { showComingSoon } = useCandidateHint()
 const apps = ref<AppItem[]>([])
 const deliveryTotal = ref(0)
 const rawRecords = ref<DeliveryRecord[]>([])
 const loading = ref(false)
 const previewingId = ref<number | null>(null)
 const errorMsg = ref('')
+const matchPendingIds = ref<Set<number>>(new Set())
+const matchFailedIds = ref<Set<number>>(new Set())
+
+const matchPoll = useMatchScorePoll(async () => {
+  if (matchPendingIds.value.size === 0) return true
+  const batch = await loadApplicationMatchStates(rawRecords.value)
+  matchPendingIds.value = batch.pendingIds
+  matchFailedIds.value = batch.failedIds
+  apps.value = rawRecords.value.map((r) => mapRecord(r, batch.scores, batch.pendingIds, batch.failedIds))
+  return batch.pendingIds.size === 0
+})
 
 const statusConf: Record<string, { cls: string; label: string; icon: typeof Clock }> = {
   进行中: { cls: 'text-brand-blue', label: '进行中', icon: Clock },
@@ -56,7 +68,12 @@ const statusConf: Record<string, { cls: string; label: string; icon: typeof Cloc
 
 const stages = [...APPLICATION_STAGES]
 
-function mapRecord(record: DeliveryRecord, scoreMap: Map<number, number>): AppItem {
+function mapRecord(
+  record: DeliveryRecord,
+  scoreMap: Map<number, number>,
+  pendingIds: Set<number>,
+  failedIds: Set<number>,
+): AppItem {
   const uiStatus = statusToUi(record.status)
   const stageName = stageLabel(record.currentStage)
   const stageIndex = resolveStageIndex(record.currentStage)
@@ -66,6 +83,8 @@ function mapRecord(record: DeliveryRecord, scoreMap: Map<number, number>): AppIt
   else if (uiStatus === '进行中') next = `当前阶段：${stageName}`
 
   const matchScore = scoreMap.get(record.id) ?? record.matchScore ?? null
+  const matchPending = pendingIds.has(record.id)
+  const matchFailed = failedIds.has(record.id)
 
   return {
     id: record.id,
@@ -83,11 +102,19 @@ function mapRecord(record: DeliveryRecord, scoreMap: Map<number, number>): AppIt
     attachmentFileType: record.attachmentFileType,
     hasAttachment: !!(record.attachmentId || record.attachmentFileName),
     matchScore,
+    matchPending,
+    matchFailed,
   }
 }
 
 function displayMatchScore(app: AppItem): string {
+  if (app.matchPending) return '计算中…'
+  if (app.matchFailed) return '暂不可用'
   return formatMatchScore(app.matchScore)
+}
+
+function showMatchRow(app: AppItem): boolean {
+  return app.matchPending || app.matchFailed || displayMatchScore(app) !== '—'
 }
 
 function viewResume(app: AppItem) {
@@ -122,6 +149,7 @@ const summary = computed(() => {
 })
 
 async function loadApplications() {
+  matchPoll.stop()
   loading.value = true
   errorMsg.value = ''
   try {
@@ -129,13 +157,20 @@ async function loadApplications() {
     const records = data.records ?? []
     rawRecords.value = records
     deliveryTotal.value = data.total ?? records.length
-    const scoreMap = await buildApplicationMatchScoreMap(records)
-    apps.value = records.map((r) => mapRecord(r, scoreMap))
+    const batch = await loadApplicationMatchStates(records)
+    matchPendingIds.value = batch.pendingIds
+    matchFailedIds.value = batch.failedIds
+    apps.value = records.map((r) => mapRecord(r, batch.scores, batch.pendingIds, batch.failedIds))
+    if (batch.pendingIds.size > 0) {
+      matchPoll.start()
+    }
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '投递记录加载失败')
     apps.value = []
     rawRecords.value = []
     deliveryTotal.value = 0
+    matchPendingIds.value = new Set()
+    matchFailedIds.value = new Set()
   } finally {
     loading.value = false
   }
@@ -217,11 +252,12 @@ onMounted(() => {
 
         <div class="text-xs text-muted-foreground mb-1">当前：{{ app.stage }}</div>
         <div
-          v-if="displayMatchScore(app) !== '—'"
-          class="flex items-center gap-1.5 text-xs text-brand-purple mb-2"
+          v-if="showMatchRow(app)"
+          class="flex items-center gap-1.5 text-xs mb-2"
+          :class="app.matchPending ? 'text-muted-foreground' : app.matchFailed ? 'text-muted-foreground' : 'text-brand-purple'"
         >
           <Sparkles :size="12" />
-          <span>AI 匹配度 {{ displayMatchScore(app) }} 分</span>
+          <span>AI 匹配度 {{ displayMatchScore(app) }}<span v-if="!app.matchPending && !app.matchFailed && app.matchScore"> 分</span></span>
         </div>
         <div
           v-if="app.next"
@@ -260,16 +296,8 @@ onMounted(() => {
             }}
           </button>
         </div>
-        <div class="flex items-center justify-between mt-2">
+        <div class="mt-2">
           <span class="text-xs text-muted-foreground">投递时间：{{ app.date }}</span>
-          <button
-            type="button"
-            class="flex items-center gap-1 text-xs text-brand-blue opacity-80"
-            @click="showComingSoon('AI 跟进建议')"
-          >
-            <Sparkles :size="11" />
-            <span>AI跟进建议</span>
-          </button>
         </div>
       </div>
     </div>

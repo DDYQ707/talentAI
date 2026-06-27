@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft, FileText, Sparkles, CheckCircle, Upload, X, PenLine } from 'lucide-vue-next'
 import { fetchProfileCompleteness } from '@/api/candidateProfile'
 import { fetchActiveAppliedJobIds, submitApplication } from '@/api/delivery'
-import { fetchOnlineResumeList, type OnlineResumeListItem } from '@/api/onlineResume'
+import { fetchOnlineResumeList, fetchOnlineResumeDetail, type OnlineResumeListItem } from '@/api/onlineResume'
 import { deleteResume, fetchAttachmentResumes, uploadResumeFile, type ResumeListItem } from '@/api/resume'
+import { ONLINE_RESUME_MIN_SUBMIT_SCORE } from '@/constants/onlineResume'
+import { analyzeOnlineResumeDetail } from '@/utils/onlineResumeCompleteness'
 import { getErrorMessage } from '@/utils/validators'
 import { useCandidateHint } from '@/composables/useCandidateHint'
 
@@ -22,6 +24,9 @@ const { showComingSoon } = useCandidateHint()
 const activeTab = ref<'attachment' | 'online'>('attachment')
 const resumes = ref<ResumeOption[]>([])
 const onlineResumes = ref<OnlineResumeListItem[]>([])
+const onlineResumeMissing = ref<string[]>([])
+const onlineResumeScore = ref(100)
+const loadingOnlineDetail = ref(false)
 const selectedResumeId = ref<number | null>(null)
 const loadingOnline = ref(false)
 const pendingFile = ref<File | null>(null)
@@ -103,6 +108,17 @@ function syncSelectionForActiveTab() {
 
 const hasSelectedResume = computed(() => selectedResumeId.value != null)
 
+const selectedOnlineResume = computed(() =>
+  onlineResumes.value.find((o) => o.id === selectedResumeId.value),
+)
+
+const onlineResumeReady = computed(
+  () =>
+    activeTab.value !== 'online' ||
+    !selectedResumeId.value ||
+    onlineResumeScore.value >= ONLINE_RESUME_MIN_SUBMIT_SCORE,
+)
+
 const canSubmit = computed(
   () =>
     profileComplete.value &&
@@ -113,7 +129,9 @@ const canSubmit = computed(
     hasSelectedResume.value &&
     !pendingFile.value &&
     !uploading.value &&
-    !submitting.value,
+    !submitting.value &&
+    !loadingOnlineDetail.value &&
+    onlineResumeReady.value,
 )
 
 const submitButtonLabel = computed(() => {
@@ -128,6 +146,9 @@ const submitButtonLabel = computed(() => {
     return '请先创建在线简历'
   }
   if (!hasSelectedResume.value) return '请选择一份简历'
+  if (activeTab.value === 'online' && !onlineResumeReady.value) {
+    return `在线简历完整度 ${onlineResumeScore.value}%，需 ≥${ONLINE_RESUME_MIN_SUBMIT_SCORE}%`
+  }
   if (submitting.value) return '投递中...'
   return '确认投递'
 })
@@ -249,6 +270,46 @@ function goCompleteProfile() {
   router.push('/candidate/profile/edit')
 }
 
+function goEditOnlineResume() {
+  const id = selectedResumeId.value
+  router.push(id ? `/candidate/resume/edit?id=${id}` : '/candidate/resume/edit')
+}
+
+async function refreshOnlineResumeGate(resumeId: number | null) {
+  onlineResumeMissing.value = []
+  onlineResumeScore.value = 100
+  if (activeTab.value !== 'online' || !resumeId) return
+
+  const fromList = onlineResumes.value.find((o) => o.id === resumeId)
+  if (fromList?.completeness != null) {
+    onlineResumeScore.value = fromList.completeness
+  }
+
+  loadingOnlineDetail.value = true
+  try {
+    const detail = await fetchOnlineResumeDetail(resumeId)
+    const analysis = analyzeOnlineResumeDetail(detail)
+    onlineResumeScore.value = analysis.score
+    onlineResumeMissing.value = analysis.missing
+  } catch {
+    if (fromList?.completeness != null) {
+      onlineResumeScore.value = fromList.completeness
+    }
+    onlineResumeMissing.value = ['无法加载简历详情，请稍后重试']
+  } finally {
+    loadingOnlineDetail.value = false
+  }
+}
+
+watch([selectedResumeId, activeTab], ([id, tab]) => {
+  if (tab === 'online') {
+    void refreshOnlineResumeGate(id)
+  } else {
+    onlineResumeMissing.value = []
+    onlineResumeScore.value = 100
+  }
+})
+
 async function handleSubmit() {
   errorMsg.value = ''
   successMsg.value = ''
@@ -276,6 +337,13 @@ async function handleSubmit() {
   if (!selectedResumeId.value) {
     errorMsg.value =
       activeTab.value === 'online' ? '请选择一份在线简历' : '请上传或选择一份附件简历'
+    return
+  }
+  if (activeTab.value === 'online' && !onlineResumeReady.value) {
+    errorMsg.value =
+      onlineResumeMissing.value.length > 0
+        ? `在线简历完整度 ${onlineResumeScore.value}%，请完善：${onlineResumeMissing.value.join('、')}`
+        : `在线简历完整度需达到 ${ONLINE_RESUME_MIN_SUBMIT_SCORE}% 后再投递`
     return
   }
 
@@ -506,8 +574,22 @@ onMounted(async () => {
 
         <template v-else>
           <p v-if="profileComplete" class="text-xs text-muted-foreground mb-3">
-            选择一份在线简历即可投递；也可在「我的简历」中继续编辑完善。
+            选择在线简历投递，完整度需 ≥{{ ONLINE_RESUME_MIN_SUBMIT_SCORE }}%。
           </p>
+          <div
+            v-if="profileComplete && selectedOnlineResume && onlineResumeScore < ONLINE_RESUME_MIN_SUBMIT_SCORE"
+            class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-3 mb-3"
+          >
+            <p class="font-medium mb-1">
+              「{{ selectedOnlineResume.resumeName }}」完整度 {{ onlineResumeScore }}%，建议完善后再投递
+            </p>
+            <p v-if="onlineResumeMissing.length" class="text-amber-700 mb-2">
+              待补充：{{ onlineResumeMissing.join('、') }}
+            </p>
+            <button type="button" class="text-brand-blue font-medium" @click="goEditOnlineResume">
+              去完善在线简历
+            </button>
+          </div>
           <p v-if="loadingOnline" class="text-xs text-muted-foreground py-2">加载中...</p>
           <p v-else-if="!onlineResumes.length" class="text-xs text-muted-foreground py-2">
             暂无在线简历，请前往「我的简历」创建并完善
@@ -534,7 +616,8 @@ onMounted(async () => {
               </div>
               <div class="text-[11px] text-muted-foreground">
                 完整度 {{ o.completeness ?? 0 }}%
-                <span v-if="profileComplete"> · 可用于投递</span>
+                <span v-if="profileComplete && (o.completeness ?? 0) >= ONLINE_RESUME_MIN_SUBMIT_SCORE"> · 可投递</span>
+                <span v-else-if="profileComplete" class="text-amber-600"> · 待完善</span>
               </div>
             </div>
             <CheckCircle v-if="selectedResumeId === o.id" :size="16" class="text-brand-blue flex-shrink-0" />

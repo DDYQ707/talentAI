@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import com.talent.analytics.feign.dto.OfferStatsDTO;
+
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -48,12 +50,19 @@ public class DashboardService {
             return map.getOrDefault(2, 0L);
         }, 0L);
 
-        Long monthlyOfferSent = 0L;
-        Double offerAcceptRate = 0.0;
+        OfferStatsDTO offerStats = safeCall(jobFeign::getOfferMetrics, null);
+        Long monthlyOfferSent = offerStats != null && offerStats.getMonthlyOfferSent() != null
+                ? offerStats.getMonthlyOfferSent()
+                : 0L;
+        Double offerAcceptRate = offerStats != null && offerStats.getOfferAcceptRate() != null
+                ? offerStats.getOfferAcceptRate()
+                : 0.0;
 
         Long approxHired = safeCall(() -> interviewFeign.countPassedInterviews(currentYearMonth), 0L);
 
-        List<String> placeholders = Arrays.asList("monthlyOfferSent", "offerAcceptRate");
+        List<String> placeholders = offerStats == null
+                ? List.of("monthlyOfferSent", "offerAcceptRate")
+                : Collections.emptyList();
         List<FunnelStage> funnel = buildFunnel(monthlyApplications, initialScreenPass, ongoingInterviews, monthlyOfferSent, monthlyHired);
 
         return DashboardMetrics.builder()
