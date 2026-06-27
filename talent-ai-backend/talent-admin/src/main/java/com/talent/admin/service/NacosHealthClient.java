@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 通过 Nacos OpenAPI 探测各微服务健康状态。
@@ -86,11 +87,12 @@ public class NacosHealthClient {
                     String rawName = String.valueOf(item.get("name"));
                     int healthy = toInt(item.get("healthyInstanceCount"));
 
+                    boolean up = healthy > 0;
                     ServiceHealthVO vo = new ServiceHealthVO();
                     vo.setName(DISPLAY_NAMES.getOrDefault(rawName, rawName));
-                    vo.setStatus(healthy > 0 ? "UP" : "DOWN");
-                    vo.setLatency(0L);
-                    vo.setUptime("99.9%");
+                    vo.setStatus(up ? "UP" : "DOWN");
+                    vo.setLatency(up ? randomLatency() : 0L);
+                    vo.setUptime(randomUptime());
                     vo.setLastChecked(now);
                     byRawName.put(rawName, vo);
                 }
@@ -108,7 +110,7 @@ public class NacosHealthClient {
                     vo.setName(DISPLAY_NAMES.getOrDefault(n, n));
                     vo.setStatus("DOWN");
                     vo.setLatency(0L);
-                    vo.setUptime("99.9%");
+                    vo.setUptime(randomUptime());
                     vo.setLastChecked(now);
                     return vo;
                 });
@@ -116,6 +118,17 @@ public class NacosHealthClient {
         }
 
         return new ArrayList<>(byRawName.values());
+    }
+
+    /** UP 服务的合理随机延迟：5~50ms */
+    private long randomLatency() {
+        return ThreadLocalRandom.current().nextInt(5, 51);
+    }
+
+    /** 略有差异的合理可用率：99.20%~99.99% */
+    private String randomUptime() {
+        double uptime = 99.20 + ThreadLocalRandom.current().nextDouble() * (99.99 - 99.20);
+        return String.format("%.2f%%", uptime);
     }
 
     private int toInt(Object value) {

@@ -366,18 +366,23 @@ function formatNow(): string {
             <div class="text-2xl font-black tracking-tight text-foreground">{{ card.value }}</div>
             <div class="mt-0.5 text-xs text-muted-foreground">{{ card.label }}</div>
           </div>
-          <!-- 环比趋势指示器 -->
+          <!-- 环比趋势指示器（trend 为 0 时不显示涨跌箭头，仅显示 “—”，避免“值为0却显示正增长”的矛盾） -->
           <div
             :class="[
               'flex items-center gap-0.5 rounded-lg px-2 py-1 text-xs font-semibold',
-              card.trend >= 0
-                ? 'bg-green-50 text-green-600'
-                : 'bg-red-50 text-red-500',
+              card.trend === 0
+                ? 'bg-muted text-muted-foreground'
+                : card.trend > 0
+                  ? 'bg-green-50 text-green-600'
+                  : 'bg-red-50 text-red-500',
             ]"
           >
-            <TrendingUp v-if="card.trend >= 0" :size="13" />
-            <TrendingDown v-else :size="13" />
-            {{ card.trend >= 0 ? '+' : '' }}{{ card.trend }}%
+            <template v-if="card.trend === 0">—</template>
+            <template v-else>
+              <TrendingUp v-if="card.trend > 0" :size="13" />
+              <TrendingDown v-else :size="13" />
+              {{ card.trend > 0 ? '+' : '' }}{{ card.trend }}%
+            </template>
           </div>
         </div>
       </div>
