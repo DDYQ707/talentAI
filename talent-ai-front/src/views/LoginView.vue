@@ -71,7 +71,9 @@ const otpAccountInput = ref('')
 const otpCodeInput = ref('')
 const otpCountdown = ref(0)
 const otpSending = ref(false)
-const otpDevHint = ref('')
+const otpDevDialogOpen = ref(false)
+const otpDevCode = ref('')
+const otpDevExpireSec = ref(300)
 let otpTimer: ReturnType<typeof setInterval> | null = null
 
 const OTP_COUNTDOWN_SEC = 60
@@ -127,7 +129,6 @@ function startOtpCountdown() {
 
 async function handleSendOtp() {
   loginFormError.value = ''
-  otpDevHint.value = ''
   if (otpCountdown.value > 0 || otpSending.value) return
   if (!isPhoneOrEmail(otpAccountInput.value)) {
     loginFormError.value = '请输入正确的手机号或邮箱'
@@ -138,12 +139,34 @@ async function handleSendOtp() {
     const res = await sendLoginOtp(otpAccountInput.value)
     startOtpCountdown()
     if (res.devCode) {
-      otpDevHint.value = `开发环境验证码：${res.devCode}（${res.expireSeconds ?? 300} 秒内有效）`
+      otpDevCode.value = res.devCode
+      otpDevExpireSec.value = res.expireSeconds ?? 300
+      otpDevDialogOpen.value = true
     }
   } catch (e) {
     loginFormError.value = getErrorMessage(e, '验证码发送失败，请稍后重试')
   } finally {
     otpSending.value = false
+  }
+}
+
+function closeOtpDevDialog() {
+  otpDevDialogOpen.value = false
+}
+
+function applyOtpDevCode() {
+  if (otpDevCode.value) {
+    otpCodeInput.value = otpDevCode.value
+  }
+  closeOtpDevDialog()
+}
+
+async function copyOtpDevCode() {
+  if (!otpDevCode.value) return
+  try {
+    await navigator.clipboard.writeText(otpDevCode.value)
+  } catch {
+    // ignore clipboard failure
   }
 }
 
@@ -442,7 +465,7 @@ async function handleLogin() {
                           ? 'bg-white text-[#1a1a1a] shadow-sm'
                           : 'text-[#6f6f6f] hover:text-[#3a3a3a]'
                       "
-                      @click="loginMethod = 'otp'; loginFormError = ''; otpDevHint = ''"
+                      @click="loginMethod = 'otp'; loginFormError = ''"
                     >
                       验证码登录
                     </button>
@@ -524,7 +547,6 @@ async function handleLogin() {
                           <span v-else>获取验证码</span>
                         </button>
                       </div>
-                      <p v-if="otpDevHint" class="mt-2 text-[12px] font-medium text-[#3d8b7a]" role="status">{{ otpDevHint }}</p>
                     </div>
                   </div>
 
@@ -713,6 +735,54 @@ async function handleLogin() {
         </p>
       </footer>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="otpDevDialogOpen"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="otp-dev-dialog-title"
+        @click.self="closeOtpDevDialog"
+      >
+        <div class="w-full max-w-sm rounded-2xl border border-white/60 bg-gradient-to-b from-[#FFFCF8] to-[#F8E4B8] p-6 shadow-2xl">
+          <h3 id="otp-dev-dialog-title" class="text-lg font-bold text-[#1a1a1a]">验证码已发送</h3>
+          <p class="mt-2 text-[13px] leading-relaxed text-[#6f6f6f]">
+            开发环境暂未接入短信/邮件，请使用下方验证码完成登录（{{ otpDevExpireSec }} 秒内有效）
+          </p>
+          <div
+            class="mt-5 rounded-xl border border-[#85A185]/40 bg-white/80 px-4 py-5 text-center tracking-[0.35em] text-2xl font-bold text-[#3d8b7a]"
+            aria-live="polite"
+          >
+            {{ otpDevCode }}
+          </div>
+          <div class="mt-6 flex gap-3">
+            <button
+              type="button"
+              class="flex-1 rounded-xl border border-[#85A185]/50 py-2.5 text-[13px] font-semibold text-[#5a8a82] transition-colors hover:bg-[#85A185]/10"
+              @click="copyOtpDevCode"
+            >
+              复制验证码
+            </button>
+            <button
+              type="button"
+              class="flex-1 rounded-xl py-2.5 text-[13px] font-bold text-white shadow-md transition-all hover:-translate-y-0.5"
+              :style="{ backgroundColor: sage }"
+              @click="applyOtpDevCode"
+            >
+              填入并关闭
+            </button>
+          </div>
+          <button
+            type="button"
+            class="mt-3 w-full py-2 text-[12px] text-[#8a9a96] transition-colors hover:text-[#5a8a82]"
+            @click="closeOtpDevDialog"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
