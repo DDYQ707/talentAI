@@ -56,19 +56,30 @@ public class DashboardServiceImpl implements IDashboardService {
         return data;
     }
 
-    /** overview：4 个真查 + 4 个写死环比 */
+    /** overview：4 个真查 + 4 个写死环比（真实值为 0 时环比强制归 0，避免“0 个却上涨”的矛盾） */
     private OverviewVO buildOverview() {
         OverviewVO vo = new OverviewVO();
-        vo.setTotalUsers(safe("totalUsers", dashboardAuthMapper::countUsers, 0L));
-        vo.setTotalEnterprises(safe("totalEnterprises", dashboardMasterMapper::countEnterprises, 0L));
-        vo.setAiRiskBlocked(safe("aiRiskBlocked", dashboardMasterMapper::countRiskBlocked, 0L));
-        vo.setTodayDeliveryPeak(safe("todayDeliveryPeak", dashboardJobMapper::countTodayDelivery, 0L));
-        // 环比无历史快照，写死合理值
-        vo.setTotalUsersTrend(12.6);
-        vo.setTotalEnterprisesTrend(5.3);
-        vo.setTodayDeliveryPeakTrend(-3.1);
-        vo.setAiRiskBlockedTrend(18.7);
+        long totalUsers = safe("totalUsers", dashboardAuthMapper::countUsers, 0L);
+        long totalEnterprises = safe("totalEnterprises", dashboardMasterMapper::countEnterprises, 0L);
+        long aiRiskBlocked = safe("aiRiskBlocked", dashboardMasterMapper::countRiskBlocked, 0L);
+        long todayDeliveryPeak = safe("todayDeliveryPeak", dashboardJobMapper::countTodayDelivery, 0L);
+
+        vo.setTotalUsers(totalUsers);
+        vo.setTotalEnterprises(totalEnterprises);
+        vo.setAiRiskBlocked(aiRiskBlocked);
+        vo.setTodayDeliveryPeak(todayDeliveryPeak);
+
+        // 环比无历史快照，写死合理值；但真实统计值为 0 时强制返回 0，避免矛盾
+        vo.setTotalUsersTrend(trendFor(totalUsers, 12.6));
+        vo.setTotalEnterprisesTrend(trendFor(totalEnterprises, 5.3));
+        vo.setTodayDeliveryPeakTrend(trendFor(todayDeliveryPeak, -3.1));
+        vo.setAiRiskBlockedTrend(trendFor(aiRiskBlocked, 18.7));
         return vo;
+    }
+
+    /** 真实值为 0 时环比归 0，否则使用预设趋势值 */
+    private double trendFor(long actualValue, double presetTrend) {
+        return actualValue == 0L ? 0.0 : presetTrend;
     }
 
     /** supplyDemandTrend：近30天，补 0，MM-dd 升序 */
