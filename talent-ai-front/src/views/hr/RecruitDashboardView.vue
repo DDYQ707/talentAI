@@ -2,35 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import type { EChartsOption } from 'echarts'
 import { TrendingUp, Users, Briefcase, Calendar, Sparkles, Zap, AlertTriangle, CheckCircle, Loader2 } from 'lucide-vue-next'
-import { fetchHrDashboard, type DashboardMetrics, type FunnelStage } from '@/api/analytics'
+import { fetchHrDashboard, fetchRecruitmentTrend, fetchDepartmentProgress, type DashboardMetrics, type FunnelStage, type TrendPoint, type DepartmentProgress } from '@/api/analytics'
 
 const FUNNEL_COLORS = ['#3d8b7a', '#3B82F6', '#5a8a82', '#8B5CF6', '#10B981']
 
 const loading = ref(true)
 const error = ref('')
 const metrics = ref<DashboardMetrics | null>(null)
-
-const nowLabel = computed(() => {
-  const d = new Date()
-  return `${d.getFullYear()}年${d.getMonth() + 1}月`
-})
-
-const trendData = [
-  { month: '1月', 投递: 120, 面试: 45, offer: 12 },
-  { month: '2月', 投递: 98, 面试: 38, offer: 9 },
-  { month: '3月', 投递: 156, 面试: 62, offer: 18 },
-  { month: '4月', 投递: 142, 面试: 55, offer: 14 },
-  { month: '5月', 投递: 189, 面试: 71, offer: 22 },
-  { month: '6月', 投递: 234, 面试: 88, offer: 28 },
-]
-
-const deptData = [
-  { dept: '技术部', 缺口: 8, 在招: 5 },
-  { dept: '产品部', 缺口: 3, 在招: 3 },
-  { dept: '运营部', 缺口: 5, 在招: 4 },
-  { dept: '设计部', 缺口: 2, 在招: 1 },
-  { dept: '市场部', 缺口: 4, 在招: 3 },
-]
+const trendData = ref<TrendPoint[]>([])
+const deptData = ref<DepartmentProgress[]>([])
 
 const channelData = [
   { name: 'BOSS直聘', value: 38, color: '#3d8b7a' },
@@ -98,7 +78,14 @@ async function loadDashboard() {
   loading.value = true
   error.value = ''
   try {
-    metrics.value = await fetchHrDashboard()
+    const [dashboard, trend, dept] = await Promise.all([
+      fetchHrDashboard(),
+      fetchRecruitmentTrend(),
+      fetchDepartmentProgress(),
+    ])
+    metrics.value = dashboard
+    trendData.value = trend || []
+    deptData.value = dept || []
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载失败'
   } finally {
@@ -114,7 +101,7 @@ const trendOption = computed<EChartsOption>(() => ({
   legend: { data: ['投递', '面试', 'offer'], textStyle: { fontSize: 11 } },
   xAxis: {
     type: 'category',
-    data: trendData.map((d) => d.month),
+    data: trendData.value.map((d) => d.month),
     axisLine: { show: false },
     axisTick: { show: false },
     axisLabel: { color: '#94a3b8', fontSize: 11 },
@@ -130,7 +117,7 @@ const trendOption = computed<EChartsOption>(() => ({
       type: 'line',
       smooth: true,
       showSymbol: false,
-      data: trendData.map((d) => d['投递']),
+      data: trendData.value.map((d) => d.applications),
       lineStyle: { color: '#3d8b7a', width: 2 },
       areaStyle: { color: 'rgba(37,99,235,0.12)' },
     },
@@ -139,14 +126,14 @@ const trendOption = computed<EChartsOption>(() => ({
       type: 'line',
       smooth: true,
       showSymbol: false,
-      data: trendData.map((d) => d['面试']),
+      data: trendData.value.map((d) => d.completedInterviews),
       lineStyle: { color: '#5a8a82', width: 2 },
       areaStyle: { color: 'rgba(124,58,237,0.12)' },
     },
     {
       name: 'offer',
       type: 'line',
-      data: trendData.map((d) => d.offer),
+      data: trendData.value.map((d) => d.offers),
       lineStyle: { color: '#10B981', width: 2 },
       symbolSize: 6,
       itemStyle: { color: '#10B981' },
@@ -161,14 +148,14 @@ const deptBarOption = computed<EChartsOption>(() => ({
   xAxis: { type: 'value', splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLabel: { color: '#94a3b8', fontSize: 11 } },
   yAxis: {
     type: 'category',
-    data: deptData.map((d) => d.dept),
+    data: deptData.value.map((d) => d.dept),
     axisLine: { show: false },
     axisTick: { show: false },
     axisLabel: { color: '#94a3b8', fontSize: 11 },
   },
   series: [
-    { name: '缺口', type: 'bar', data: deptData.map((d) => d['缺口']), itemStyle: { color: '#E2E8F0', borderRadius: [0, 4, 4, 0] } },
-    { name: '在招', type: 'bar', data: deptData.map((d) => d['在招']), itemStyle: { color: '#3d8b7a', borderRadius: [0, 4, 4, 0] } },
+    { name: '缺口', type: 'bar', data: deptData.value.map((d) => d.gap), itemStyle: { color: '#E2E8F0', borderRadius: [0, 4, 4, 0] } },
+    { name: '在招', type: 'bar', data: deptData.value.map((d) => d.active), itemStyle: { color: '#3d8b7a', borderRadius: [0, 4, 4, 0] } },
   ],
 }))
 
@@ -226,7 +213,7 @@ const pieOption = computed<EChartsOption>(() => ({
       <div class="flex gap-5">
         <div class="flex-[2] bg-card shadow-card p-5">
           <h3 class="text-sm font-semibold text-foreground mb-1">招聘趋势 (近6个月)</h3>
-          <p class="text-xs text-muted-foreground mb-3">历史趋势待后续版本接入，当前展示示例数据</p>
+          <p class="text-xs text-muted-foreground mb-3">按月度统计投递 / 面试完成 / Offer发放量</p>
           <VChart :option="trendOption" autoresize style="height: 200px" />
         </div>
         <div class="flex-1 bg-card shadow-card p-5">
@@ -254,7 +241,7 @@ const pieOption = computed<EChartsOption>(() => ({
       <div class="flex gap-5">
         <div class="flex-[2] bg-card shadow-card p-5">
           <h3 class="text-sm font-semibold text-foreground mb-1">各部门招聘进度</h3>
-          <p class="text-xs text-muted-foreground mb-3">部门维度统计待后续版本接入</p>
+          <p class="text-xs text-muted-foreground mb-3">缺口 = 部门总编制 | 在招 = 当前活跃岗位数</p>
           <VChart :option="deptBarOption" autoresize style="height: 180px" />
         </div>
         <div class="flex-1 bg-card shadow-card p-5">
