@@ -43,6 +43,18 @@ export function fetchAiParseLatest(resumeId: number) {
   }) as Promise<AiParseTaskResult | null>
 }
 
+export interface AiParseRetryPayload {
+  resumeId: number
+  applicationId?: number | null
+  jobId?: number | null
+  candidateId?: number | null
+}
+
+/** HR 手动重新解析简历 */
+export function retryAiParse(payload: AiParseRetryPayload) {
+  return request.post<AiParseTaskResult>('/api/ai/parse/retry', payload) as Promise<AiParseTaskResult>
+}
+
 export function fetchAiMatchByApplication(applicationId: number) {
   return request.get<AiMatchResult | null>('/api/ai/match/by-application', {
     params: { applicationId },

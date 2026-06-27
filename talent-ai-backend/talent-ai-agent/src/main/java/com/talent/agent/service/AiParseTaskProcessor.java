@@ -43,6 +43,7 @@ public class AiParseTaskProcessor {
     private final AiMatchService aiMatchService;
     private final AiResumeQualityService resumeQualityService;
     private final JobFeignClient jobFeignClient;
+    private final ResumeParseBackfillInvoker parseBackfillInvoker;
 
     @Async
     public void processAsync(Long taskId, ParseTaskRequest request) {
@@ -75,6 +76,7 @@ public class AiParseTaskProcessor {
             Long resumeId = firstNonNull(request.getResumeId(), attachment.getResumeId());
             parseResultService.save(taskId, resumeId, parseOutcome, textLength);
             markSuccess(taskId, request, attachment, textLength);
+            parseBackfillInvoker.backfillAfterParse(taskId, request, parseOutcome);
 
             log.info(
                     "简历结构化解析成功 taskId={} resumeId={} targetPosition={}",
@@ -86,6 +88,7 @@ public class AiParseTaskProcessor {
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             markFailed(taskId, request, reason, textLength);
+            parseBackfillInvoker.markParseFailed(request.getResumeId());
             log.warn(
                     "简历解析失败 taskId={} attachmentId={} resumeId={} reason={}",
                     taskId,
@@ -120,6 +123,7 @@ public class AiParseTaskProcessor {
             Long resumeId = firstNonNull(request.getResumeId(), attachment.getResumeId());
             parseResultService.save(taskId, resumeId, mergedOutcome, textLength);
             markMergedSuccess(taskId, request, attachment, textLength);
+            parseBackfillInvoker.backfillAfterParse(taskId, request, mergedOutcome);
 
             log.info(
                     "合并简历解析成功 taskId={} resumeId={} targetPosition={}",
@@ -131,6 +135,7 @@ public class AiParseTaskProcessor {
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             markFailed(taskId, request, reason, textLength);
+            parseBackfillInvoker.markParseFailed(request.getResumeId());
             log.warn(
                     "合并简历解析失败 taskId={} attachmentId={} resumeId={} reason={}",
                     taskId,
@@ -149,6 +154,7 @@ public class AiParseTaskProcessor {
 
             parseResultService.save(taskId, request.getResumeId(), parseOutcome, textLength);
             markOnlineSuccess(taskId, request, textLength);
+            parseBackfillInvoker.backfillAfterParse(taskId, request, parseOutcome);
 
             log.info(
                     "在线简历结构化解析成功 taskId={} resumeId={} targetPosition={}",
@@ -160,6 +166,7 @@ public class AiParseTaskProcessor {
         } catch (Exception e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             markFailed(taskId, request, reason, textLength);
+            parseBackfillInvoker.markParseFailed(request.getResumeId());
             log.warn(
                     "在线简历解析失败 taskId={} resumeId={} reason={}",
                     taskId,

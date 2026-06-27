@@ -1,7 +1,9 @@
 import request from '@/utils/request'
 import type { ResumePreviewResult } from '@/api/resume'
 import type {
+  OnlineCertificate,
   OnlineEducation,
+  OnlineProject,
   OnlineSkill,
   OnlineWorkExperience,
 } from '@/api/onlineResume'
@@ -64,6 +66,8 @@ export interface HrResumeDetail {
   educations?: OnlineEducation[]
   workExperiences?: OnlineWorkExperience[]
   skills?: OnlineSkill[]
+  projects?: OnlineProject[]
+  certificates?: OnlineCertificate[]
 }
 
 export interface HrResumeListParams {

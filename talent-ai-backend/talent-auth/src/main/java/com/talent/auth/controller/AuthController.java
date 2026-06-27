@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.talent.auth.entity.CandidateProfile;
 import com.talent.auth.entity.SysUser;
 import com.talent.auth.dto.AdminAccountSaveRequest;
+import com.talent.auth.dto.ParseProfilePatchRequest;
 import com.talent.auth.service.AdminAccountService;
 import com.talent.auth.service.CandidateMyProfileService;
 import com.talent.auth.service.ICandidateProfileService;
@@ -72,6 +73,12 @@ public class AuthController {
     @GetMapping("/internal/candidateBrief")
     public Map<String, Object> internalCandidateBrief(@RequestParam("userId") Long userId) {
         return candidateMyProfileService.getProfileBrief(userId);
+    }
+
+    /** 微服务内部：AI 解析结果回填候选人档案（仅补空字段） */
+    @PostMapping("/internal/patch-from-parse")
+    public Map<String, Object> patchProfileFromParse(@RequestBody ParseProfilePatchRequest request) {
+        return candidateMyProfileService.patchFromParse(request);
     }
 
     /** 微服务内部：用户简要信息（安排面试、查昵称） */

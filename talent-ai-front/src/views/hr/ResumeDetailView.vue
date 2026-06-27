@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import type { EChartsOption } from 'echarts'
 import {
   User,
@@ -16,6 +16,10 @@ import {
   TrendingUp,
   FileText,
   Eye,
+  ChevronLeft,
+  FolderKanban,
+  Award,
+  RotateCw,
 } from 'lucide-vue-next'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
 import { fetchHrResumeDetail, fetchHrResumePreview, updateHrScreenStatus, type HrResumeDetail } from '@/api/hrResume'
@@ -26,6 +30,7 @@ import {
   fetchAiParseLatest,
   fetchAiProfileByApplication,
   generateAiProfile,
+  retryAiParse,
   parseDimensionScores,
   parseJsonStringArray,
   type AiMatchResult,
@@ -40,6 +45,7 @@ import { getErrorMessage } from '@/utils/validators'
 import InterviewScheduleDialog from '@/components/hr/InterviewScheduleDialog.vue'
 
 const route = useRoute()
+const router = useRouter()
 const detail = ref<HrResumeDetail | null>(null)
 const loading = ref(true)
 const errorMsg = ref('')
@@ -54,6 +60,9 @@ const aiLoading = ref(false)
 const profileGenerating = ref(false)
 const scheduleOpen = ref(false)
 const scheduleSuccessMsg = ref('')
+const reparseLoading = ref(false)
+const reparseMsg = ref('')
+let parsePollTimer: ReturnType<typeof setInterval> | null = null
 
 const resumeId = computed(() => {
   const id = Number(route.query.id)
@@ -63,6 +72,10 @@ const resumeId = computed(() => {
 function formatDateTime(iso?: string | null) {
   if (!iso) return '—'
   return iso.slice(0, 10)
+}
+
+function goBack() {
+  router.push('/hr/resumes')
 }
 
 const candidate = computed(() => ({
@@ -208,6 +221,62 @@ const aiSummaryText = computed(() => {
 
 const parseStatusText = computed(() => aiTaskStatusLabel(aiParse.value?.taskStatus))
 
+const parseBusy = computed(() => {
+  const status = aiParse.value?.taskStatus
+  return status === 0 || status === 1
+})
+
+function stopParsePolling() {
+  if (parsePollTimer != null) {
+    clearInterval(parsePollTimer)
+    parsePollTimer = null
+  }
+}
+
+function startParsePolling() {
+  stopParsePolling()
+  parsePollTimer = setInterval(async () => {
+    if (!resumeId.value) return
+    try {
+      const task = await fetchAiParseLatest(resumeId.value)
+      aiParse.value = task
+      if (task && (task.taskStatus === 2 || task.taskStatus === 3)) {
+        stopParsePolling()
+        reparseLoading.value = false
+        if (task.taskStatus === 2) {
+          reparseMsg.value = '解析完成，已更新简历内容'
+          await loadDetail()
+        } else {
+          reparseMsg.value = task.errorMessage || '解析失败，请稍后重试'
+        }
+      }
+    } catch {
+      /* 轮询失败时继续等待 */
+    }
+  }, 3000)
+}
+
+async function handleReparse() {
+  if (!resumeId.value || reparseLoading.value || parseBusy.value) return
+  const data = detail.value
+  reparseLoading.value = true
+  reparseMsg.value = ''
+  errorMsg.value = ''
+  try {
+    aiParse.value = await retryAiParse({
+      resumeId: resumeId.value,
+      applicationId: data?.applicationId,
+      jobId: data?.jobId,
+      candidateId: data?.candidateId,
+    })
+    reparseMsg.value = '已提交重新解析，请稍候…'
+    startParsePolling()
+  } catch (e) {
+    reparseLoading.value = false
+    errorMsg.value = getErrorMessage(e, '重新解析失败')
+  }
+}
+
 async function loadAiInsights(data: HrResumeDetail) {
   if (!resumeId.value) return
   aiLoading.value = true
@@ -317,6 +386,10 @@ onMounted(() => {
   loadDetail()
 })
 
+onUnmounted(() => {
+  stopParsePolling()
+})
+
 const radarOption = computed<EChartsOption>(() => ({
   radar: {
     indicator: radarData.value.map((d) => ({ name: d.subject, max: 100 })),
@@ -343,6 +416,14 @@ const radarOption = computed<EChartsOption>(() => ({
 <template>
   <div data-cmp="ResumeDetail" class="flex h-full" style="height: calc(100vh - 64px)">
     <div class="w-72 flex-shrink-0 border-r border-border bg-card overflow-y-auto scrollbar-thin p-5">
+      <button
+        type="button"
+        class="flex items-center gap-1 text-sm text-muted-foreground hover:text-brand-blue mb-4 -ml-1 px-1 py-1 rounded-lg hover:bg-muted transition-colors"
+        @click="goBack"
+      >
+        <ChevronLeft :size="18" />
+        <span>返回简历列表</span>
+      </button>
       <div class="flex flex-col items-center text-center mb-5 pt-2">
         <div class="w-20 h-20 rounded-full gradient-blue-purple flex items-center justify-center mb-3 shadow-card">
           <User :size="32" class="text-white" />
@@ -363,12 +444,25 @@ const radarOption = computed<EChartsOption>(() => ({
           <span v-if="aiMatch?.matchLevel" class="ml-1 text-brand-purple">· {{ aiMatch.matchLevel }}</span>
         </div>
       </div>
-      <div v-if="aiParse" class="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
-        <div class="text-xs text-muted-foreground">简历解析</div>
-        <div class="text-xs font-medium text-foreground mt-0.5">{{ parseStatusText }}</div>
-        <div v-if="aiParse.taskStatus === 3 && aiParse.errorMessage" class="text-xs text-red-600 mt-1">
+      <div class="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs text-muted-foreground">简历解析</div>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg border border-brand-blue/30 text-brand-blue hover:bg-brand-tint disabled:opacity-50"
+            :disabled="reparseLoading || parseBusy"
+            @click="handleReparse"
+          >
+            <RotateCw :size="12" :class="reparseLoading || parseBusy ? 'animate-spin' : ''" />
+            {{ reparseLoading || parseBusy ? '解析中…' : '重新解析' }}
+          </button>
+        </div>
+        <div class="text-xs font-medium text-foreground mt-1">{{ parseStatusText }}</div>
+        <div v-if="aiParse?.taskStatus === 3 && aiParse.errorMessage" class="text-xs text-red-600 mt-1">
           {{ aiParse.errorMessage }}
         </div>
+        <p v-else-if="reparseMsg" class="text-xs text-brand-green mt-1">{{ reparseMsg }}</p>
+        <p v-else-if="!aiParse" class="text-xs text-muted-foreground mt-1">尚未解析，可点击重新解析触发</p>
       </div>
       <div class="space-y-3 mb-4">
         <div
@@ -492,16 +586,17 @@ const radarOption = computed<EChartsOption>(() => ({
         </div>
       </div>
 
-      <div v-if="projectList.length" class="mb-6">
+      <div class="mb-6">
         <div class="flex items-center gap-2 mb-4">
-          <Briefcase :size="16" class="text-brand-orange" />
+          <FolderKanban :size="16" class="text-brand-orange" />
           <h2 class="text-sm font-bold text-foreground">项目经历</h2>
         </div>
-        <div class="space-y-3">
+        <p v-if="projectList.length === 0" class="text-xs text-muted-foreground">暂无项目经历</p>
+        <div v-else class="space-y-3">
           <div v-for="(p, i) in projectList" :key="p.id ?? i" class="bg-card border border-border rounded-xl p-3">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <span class="text-sm font-semibold text-foreground">{{ p.projectName }}</span>
-              <span class="text-xs text-muted-foreground">{{ formatResumePeriod(p.startDate, p.endDate) }}</span>
+              <span class="text-xs text-muted-foreground flex-shrink-0">{{ formatResumePeriod(p.startDate, p.endDate) || '—' }}</span>
             </div>
             <div class="text-xs text-muted-foreground mt-1">{{ [p.role, p.techStack].filter(Boolean).join(' · ') || '—' }}</div>
             <p v-if="p.description" class="text-xs text-muted-foreground mt-2 leading-relaxed">{{ p.description }}</p>
@@ -532,15 +627,26 @@ const radarOption = computed<EChartsOption>(() => ({
         </div>
       </div>
 
-      <div v-if="certificateList.length" class="mb-6">
+      <div class="mb-6">
         <div class="flex items-center gap-2 mb-4">
-          <GraduationCap :size="16" class="text-brand-purple" />
+          <Award :size="16" class="text-brand-purple" />
           <h2 class="text-sm font-bold text-foreground">证书与荣誉</h2>
         </div>
-        <div class="space-y-2">
-          <div v-for="(c, i) in certificateList" :key="c.id ?? i" class="flex items-center justify-between text-xs">
-            <span class="text-foreground">{{ c.name }}</span>
-            <span class="text-muted-foreground">{{ formatCertType(c.certType) }}</span>
+        <p v-if="certificateList.length === 0" class="text-xs text-muted-foreground">暂无证书与荣誉</p>
+        <div v-else class="space-y-3">
+          <div
+            v-for="(c, i) in certificateList"
+            :key="c.id ?? i"
+            class="bg-card border border-border rounded-xl p-3"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-semibold text-foreground">{{ c.name }}</span>
+              <span class="text-xs text-muted-foreground flex-shrink-0">{{ formatCertType(c.certType) }}</span>
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              {{ [c.issuer, c.issueDate?.slice(0, 7)].filter(Boolean).join(' · ') || '—' }}
+            </div>
+            <p v-if="c.description" class="text-xs text-muted-foreground mt-2 leading-relaxed">{{ c.description }}</p>
           </div>
         </div>
       </div>

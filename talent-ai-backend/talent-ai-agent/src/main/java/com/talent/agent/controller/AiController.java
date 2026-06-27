@@ -1,5 +1,6 @@
 package com.talent.agent.controller;
 
+import com.talent.agent.domain.dto.AiParseRetryRequest;
 import com.talent.agent.domain.vo.MatchResultVO;
 import com.talent.agent.domain.vo.ParseTaskVO;
 import com.talent.agent.service.AiMatchPreviewService;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,6 +47,24 @@ public class AiController {
             return R.fail("未登录或用户信息缺失");
         }
         return R.ok(aiParseService.getLatestByResumeId(resumeId));
+    }
+
+    /** HR 手动重新解析简历（覆盖最新解析结果并回填详情） */
+    @PostMapping("/parse/retry")
+    public R<ParseTaskVO> retryParse(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestBody AiParseRetryRequest request) {
+        if (userId == null) {
+            return R.fail("未登录或用户信息缺失");
+        }
+        if (request == null || request.getResumeId() == null) {
+            return R.fail("resumeId 不能为空");
+        }
+        try {
+            return R.ok(aiParseService.submitReparse(request));
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
     }
 
     /** HR 查询投递匹配结果 */
