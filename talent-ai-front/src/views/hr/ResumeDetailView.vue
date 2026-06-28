@@ -19,9 +19,11 @@ import {
   Award,
   RotateCw,
   ClipboardList,
+  Users,
+  XCircle,
 } from 'lucide-vue-next'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
-import { fetchHrResumeDetail, fetchHrResumePreview, type HrResumeDetail } from '@/api/hrResume'
+import { fetchHrResumeDetail, fetchHrResumePreview, updateHrScreenStatus, type HrResumeDetail } from '@/api/hrResume'
 import { fetchHrJobList, type JobPost } from '@/api/hrJob'
 import {
   aiTaskStatusLabel,
@@ -40,7 +42,7 @@ import {
   type AiTalentProfile,
 } from '@/api/ai'
 import { openResumePreview } from '@/api/resume'
-import { screenStatusLabel } from '@/constants/resume'
+import { screenStatusLabel, RESUME_SCREEN_STATUS, isTerminalScreenStatus } from '@/constants/resume'
 import { formatDegree, formatResumePeriod, skillProficiencyLabel, skillProficiencyPercent } from '@/utils/resumeFormat'
 import { formatCertType, formatExperienceType } from '@/constants/onlineResume'
 import { getErrorMessage } from '@/utils/validators'
@@ -52,6 +54,8 @@ import {
   type InterviewListItem,
 } from '@/api/interview'
 import { INTERVIEW_STATUS } from '@/constants/interview'
+import { archiveTalent, fetchTalentPoolExists } from '@/api/talentPool'
+import { buildTalentArchivePayload, firstWorkCompany } from '@/utils/talentArchive'
 
 const route = useRoute()
 const router = useRouter()
@@ -74,6 +78,10 @@ const selectedJobId = ref<number | null>(null)
 const matchLoading = ref(false)
 const matchMsg = ref('')
 const applicationInterviews = ref<InterviewListItem[]>([])
+const inTalentPool = ref(false)
+const archiveLoading = ref(false)
+const archiveMsg = ref('')
+const rejectLoading = ref(false)
 let parsePollTimer: ReturnType<typeof setInterval> | null = null
 let matchPollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -110,6 +118,10 @@ const candidate = computed(() => ({
 }))
 
 const canScheduleInterview = computed(() => !!detail.value?.applicationId && detail.value.applicationId > 0)
+
+const canMarkRejected = computed(
+  () => detail.value != null && !isTerminalScreenStatus(detail.value.screenStatus),
+)
 
 const completedInterviewsWithEvaluation = computed(() =>
   applicationInterviews.value.filter(
@@ -427,6 +439,11 @@ async function loadDetail() {
     detail.value = data
     if (data.candidateId) {
       try {
+        inTalentPool.value = await fetchTalentPoolExists(data.candidateId)
+      } catch {
+        inTalentPool.value = false
+      }
+      try {
         const brief = await fetchHrCandidateBrief(data.candidateId)
         detail.value = {
           ...data,
@@ -454,6 +471,70 @@ async function loadDetail() {
     detail.value = null
   } finally {
     loading.value = false
+  }
+}
+
+async function handleMarkRejected() {
+  if (!detail.value?.id) return
+  if (!window.confirm(`确定将「${detail.value.candidateName}」标记为已淘汰？`)) return
+
+  let archiveToTalentPool = false
+  let archiveReason: string | undefined
+  if (window.confirm('是否存入人才库以备后续联系？')) {
+    const reason = window.prompt('请输入归档原因（可选）', '淘汰后归档')
+    if (reason !== null) {
+      archiveToTalentPool = true
+      archiveReason = reason.trim() || '淘汰后归档'
+    }
+  }
+
+  rejectLoading.value = true
+  errorMsg.value = ''
+  try {
+    const updated = await updateHrScreenStatus(detail.value.id, {
+      screenStatus: RESUME_SCREEN_STATUS.REJECTED,
+      archiveToTalentPool,
+      archiveReason,
+    })
+    detail.value = updated
+    if (archiveToTalentPool) inTalentPool.value = true
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '标记淘汰失败')
+  } finally {
+    rejectLoading.value = false
+  }
+}
+
+async function handleArchiveToTalentPool() {
+  if (!detail.value?.candidateId) return
+  if (inTalentPool.value) {
+    archiveMsg.value = '该候选人已在人才库中'
+    return
+  }
+  const reason = window.prompt('请输入归档原因（可选）', '简历详情归档')
+  if (reason === null) return
+  archiveLoading.value = true
+  archiveMsg.value = ''
+  try {
+    await archiveTalent(
+      buildTalentArchivePayload({
+        candidateId: detail.value.candidateId,
+        candidateName: detail.value.candidateName,
+        resumeId: detail.value.id,
+        applicationId: detail.value.applicationId,
+        appliedJobTitle: detail.value.appliedJobTitle,
+        matchScore: aiMatch.value?.matchScore ?? detail.value.matchScore,
+        currentTitle: detail.value.currentTitle,
+        currentCompany: firstWorkCompany(detail.value.workExperiences),
+        archiveReason: reason.trim() || '简历详情归档',
+      }),
+    )
+    inTalentPool.value = true
+    archiveMsg.value = '已存入人才库'
+  } catch (e) {
+    archiveMsg.value = getErrorMessage(e, '存入人才库失败')
+  } finally {
+    archiveLoading.value = false
   }
 }
 
@@ -628,15 +709,37 @@ const radarOption = computed<EChartsOption>(() => ({
       <div class="mb-4">
         <div class="text-xs font-semibold text-muted-foreground mb-2">筛选操作</div>
         <p v-if="scheduleSuccessMsg" class="text-xs text-brand-green mb-2">{{ scheduleSuccessMsg }}</p>
+        <p v-if="archiveMsg" class="text-xs mb-2" :class="archiveMsg.includes('失败') ? 'text-red-600' : 'text-brand-green'">
+          {{ archiveMsg }}
+        </p>
         <button
           type="button"
-          class="w-full py-2.5 rounded-control gradient-blue text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+          class="w-full py-2.5 rounded-control gradient-blue text-white text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 mb-2"
           :disabled="!canScheduleInterview"
           :title="canScheduleInterview ? '' : '需先有投递记录'"
           @click="scheduleOpen = true"
         >
           <Calendar :size="14" />
           <span>安排面试</span>
+        </button>
+        <button
+          v-if="canMarkRejected"
+          type="button"
+          class="w-full py-2.5 rounded-control border border-red-200 text-red-600 text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50 mb-2 hover:bg-red-50"
+          :disabled="rejectLoading"
+          @click="handleMarkRejected"
+        >
+          <XCircle :size="14" />
+          <span>{{ rejectLoading ? '处理中…' : '标记淘汰' }}</span>
+        </button>
+        <button
+          type="button"
+          class="w-full py-2.5 rounded-control border border-border text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+          :disabled="archiveLoading || inTalentPool || !detail?.candidateId"
+          @click="handleArchiveToTalentPool"
+        >
+          <Users :size="14" />
+          <span>{{ inTalentPool ? '已在人才库' : archiveLoading ? '归档中…' : '存入人才库' }}</span>
         </button>
       </div>
     </div>

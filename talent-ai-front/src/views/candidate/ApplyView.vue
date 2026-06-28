@@ -173,8 +173,8 @@ function onFileSelected(ev: Event) {
 
   errorMsg.value = ''
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (!['pdf', 'doc', 'docx'].includes(ext)) {
-    errorMsg.value = '仅支持 pdf、doc、docx 格式'
+  if (ext !== 'pdf') {
+    errorMsg.value = '仅支持 PDF 格式'
     return
   }
   if (file.size > 10 * 1024 * 1024) {
@@ -481,7 +481,7 @@ onMounted(async () => {
         <template v-if="activeTab === 'attachment'">
         <p v-if="loadingResumes" class="text-xs text-muted-foreground py-2">加载中...</p>
         <p v-else-if="resumes.length === 0 && !pendingFile" class="text-xs text-muted-foreground py-2">
-          暂无附件，请上传 pdf/doc/docx 用于投递
+          暂无附件，请上传 PDF 格式简历（最大 10MB）
         </p>
 
         <div
@@ -536,7 +536,7 @@ onMounted(async () => {
         <input
           ref="fileInputRef"
           type="file"
-          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,application/pdf"
           class="hidden"
           @change="onFileSelected"
         />

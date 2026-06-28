@@ -74,8 +74,17 @@ export interface HrResumeListParams {
   current?: number
   size?: number
   keyword?: string
-  /** 1-待筛选 2-面试中 3-已录用 4-已淘汰 */
+  /** 1-待筛选 2-面试中 3-已录用 4-已淘汰 5-待录用 */
   screenStatus?: number
+}
+
+/** HR 更新筛选状态请求体 */
+export interface ScreenStatusUpdatePayload {
+  screenStatus: number
+  remark?: string
+  archiveToTalentPool?: boolean
+  archiveReason?: string
+  interviewSummary?: string
 }
 
 /** 合并库中重复简历（同一候选人只保留一条） */
@@ -106,10 +115,13 @@ export function fetchHrResumePreview(attachmentId: number) {
   return request.get<ResumePreviewResult>(`/api/resume/file/preview/${attachmentId}`) as Promise<ResumePreviewResult>
 }
 
-/** HR 更新简历筛选状态（1-待筛选 2-面试中 3-已录用 4-已淘汰） */
-export function updateHrScreenStatus(resumeId: number, screenStatus: number, remark?: string) {
-  return request.patch<HrResumeDetail>(`/api/resume/hr/${resumeId}/screen-status`, {
-    screenStatus,
-    remark,
-  }) as Promise<HrResumeDetail>
+/** HR 更新简历筛选状态（支持淘汰时联动归档人才库） */
+export function updateHrScreenStatus(
+  resumeId: number,
+  payload: ScreenStatusUpdatePayload | number,
+  remark?: string,
+) {
+  const body: ScreenStatusUpdatePayload =
+    typeof payload === 'number' ? { screenStatus: payload, remark } : payload
+  return request.patch<HrResumeDetail>(`/api/resume/hr/${resumeId}/screen-status`, body) as Promise<HrResumeDetail>
 }

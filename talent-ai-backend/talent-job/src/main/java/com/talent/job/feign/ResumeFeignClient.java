@@ -22,4 +22,7 @@ public interface ResumeFeignClient {
 
     @PostMapping("/api/resume/internal/on-delivery")
     Map<String, Object> markPendingOnDelivery(@RequestBody Map<String, Object> body);
+
+    @PostMapping("/api/resume/internal/set-screen-status-only")
+    Map<String, Object> setScreenStatusOnly(@RequestBody Map<String, Object> body);
 }

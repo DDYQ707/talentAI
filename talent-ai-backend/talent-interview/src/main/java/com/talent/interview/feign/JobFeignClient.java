@@ -15,4 +15,7 @@ public interface JobFeignClient {
 
     @PostMapping("/api/job/internal/application/sync-by-screen-status")
     Map<String, Object> syncByScreenStatus(@RequestBody Map<String, Object> body);
+
+    @PostMapping("/api/job/internal/offer/latest-by-applications")
+    Map<String, Object> latestOfferByApplications(@RequestBody Map<String, Object> body);
 }

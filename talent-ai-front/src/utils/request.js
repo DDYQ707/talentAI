@@ -65,6 +65,7 @@ request.interceptors.response.use(
     }
     const msg =
       error.response?.data?.msg ||
+      (status === 503 ? '人才库服务不可用(503)，请启动 talent-talent-pool 微服务(8086)后重试' : null) ||
       (status === 404 ? '接口不存在(404)，请重启 talent-auth 与 talent-gateway 后重试' : null) ||
       (status === 403 ? '无权限访问，请使用管理员账号登录' : null) ||
       (error.code === 'ECONNABORTED' ? '请求超时，请稍后重试' : null) ||

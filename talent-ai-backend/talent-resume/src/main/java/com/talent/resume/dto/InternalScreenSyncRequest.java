@@ -11,7 +11,7 @@ public class InternalScreenSyncRequest {
 
     private Long candidateId;
 
-    /** 1-待初筛 2-面试中 3-已录用 4-已淘汰 */
+    /** 1-待初筛 2-面试中 3-已录用 4-已淘汰 5-待录用 */
     private Integer screenStatus;
 
     private Long operatorId;

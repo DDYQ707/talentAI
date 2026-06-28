@@ -143,6 +143,23 @@ public class ResumeInternalController {
         }
     }
 
+    /** 微服务内部：仅更新主简历筛选状态（不回写投递单） */
+    @PostMapping("/set-screen-status-only")
+    public Map<String, Object> setScreenStatusOnly(@RequestBody InternalScreenSyncRequest request) {
+        if (request == null || request.getCandidateId() == null || request.getScreenStatus() == null) {
+            return Map.of("code", 400, "msg", "candidateId 与 screenStatus 不能为空");
+        }
+        try {
+            resumeService.internalSetScreenStatusOnly(
+                    request.getResumeId(),
+                    request.getCandidateId(),
+                    request.getScreenStatus());
+            return Map.of("code", 200, "msg", "ok");
+        } catch (IllegalArgumentException e) {
+            return Map.of("code", 400, "msg", e.getMessage());
+        }
+    }
+
     /** 微服务内部：同步主简历筛选状态 */
     @PostMapping("/sync-screen-status")
     public Map<String, Object> syncScreenStatus(@RequestBody InternalScreenSyncRequest request) {

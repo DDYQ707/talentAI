@@ -23,6 +23,7 @@ import {
   ThumbsDown,
   Edit,
   X,
+  Users,
 } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -41,6 +42,8 @@ import {
   rejectOfferApproval,
   OFFER_APPROVAL_STATUS,
 } from '@/api/offer'
+import { archiveTalent, fetchTalentPoolExistsBatch } from '@/api/talentPool'
+import { buildTalentArchivePayload } from '@/utils/talentArchive'
 import { getErrorMessage } from '@/utils/validators'
 
 const route = useRoute()
@@ -69,6 +72,7 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const searchKeyword = ref('')
 const statusFilter = ref<number | undefined>(undefined)
+const talentPoolMap = ref<Record<string, boolean>>({})
 
 const formOpen = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
@@ -157,6 +161,36 @@ function formatDate(dateStr: string | null | undefined): string {
   return dateStr.slice(0, 10)
 }
 
+function canArchiveOffer(offer: OfferListVO) {
+  if (!offer.candidateId) return false
+  if (talentPoolMap.value[String(offer.candidateId)]) return false
+  return [OFFER_STATUS.DECLINED, OFFER_STATUS.REJECTED, OFFER_STATUS.REVOKED].includes(offer.status)
+}
+
+async function handleArchiveToTalentPool(offer: OfferListVO) {
+  if (!offer.candidateId) {
+    ElMessage.warning('缺少候选人信息')
+    return
+  }
+  const reason = window.prompt('请输入归档原因（可选）', 'Offer 结束后归档')
+  if (reason === null) return
+  try {
+    await archiveTalent(
+      buildTalentArchivePayload({
+        candidateId: offer.candidateId,
+        candidateName: offer.candidateName,
+        applicationId: offer.applicationId,
+        appliedJobTitle: offer.jobTitle,
+        archiveReason: reason.trim() || 'Offer 结束后归档',
+      }),
+    )
+    talentPoolMap.value[String(offer.candidateId)] = true
+    ElMessage.success('已存入人才库')
+  } catch (err) {
+    ElMessage.error(getErrorMessage(err, '存入人才库失败'))
+  }
+}
+
 /* ---- 数据加载 ---- */
 async function loadOffers() {
   loading.value = true
@@ -171,6 +205,18 @@ async function loadOffers() {
     })
     offers.value = data.records ?? []
     total.value = data.total ?? 0
+    const ids = offers.value
+      .map((o) => o.candidateId)
+      .filter((id): id is number => id != null && id > 0)
+    if (ids.length) {
+      try {
+        talentPoolMap.value = await fetchTalentPoolExistsBatch(ids)
+      } catch {
+        talentPoolMap.value = {}
+      }
+    } else {
+      talentPoolMap.value = {}
+    }
   } catch (err) {
     errorMsg.value = getErrorMessage(err, 'Offer 列表加载失败')
     offers.value = []
@@ -590,6 +636,16 @@ function isHighlighted(offer: OfferListVO) {
                 >
                   等待候选人确认
                 </span>
+                <!-- 存入人才库：候选人拒绝 / 审批驳回 / 已撤回 -->
+                <button
+                  v-if="canArchiveOffer(offer)"
+                  type="button"
+                  title="存入人才库"
+                  class="p-1.5 rounded-lg hover:bg-purple-50 text-brand-purple hover:text-purple-700"
+                  @click="handleArchiveToTalentPool(offer)"
+                >
+                  <Users :size="14" />
+                </button>
                 <!-- 撤回 -->
                 <button
                   v-if="[OFFER_STATUS.PENDING, OFFER_STATUS.APPROVING, OFFER_STATUS.APPROVED, OFFER_STATUS.ISSUED].includes(offer.status)"

@@ -2,10 +2,14 @@ package com.talent.job.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.talent.job.dto.BatchApplicationIdsRequest;
 import com.talent.job.dto.BatchCandidateIdsRequest;
 import com.talent.job.dto.SyncScreenStatusRequest;
 import com.talent.job.entity.JobApplication;
 import com.talent.job.entity.JobPost;
+import com.talent.job.entity.Offer;
+import com.talent.job.constant.OfferConstants;
+import com.talent.job.mapper.OfferMapper;
 import com.talent.job.service.IJobApplicationService;
 import com.talent.job.service.IJobPostService;
 import java.util.HashMap;
@@ -30,6 +34,7 @@ public class JobInternalController {
 
     private final IJobApplicationService jobApplicationService;
     private final IJobPostService jobPostService;
+    private final OfferMapper offerMapper;
 
     @GetMapping("/application/latest-by-resume")
     public Map<String, Object> latestApplicationByResume(@RequestParam("resumeId") Long resumeId) {
@@ -179,6 +184,34 @@ public class JobInternalController {
             items.put(String.valueOf(candidateId), toBrief(app));
         }
         return Map.of("items", items);
+    }
+
+    /** 批量查询各投递单最新 Offer 状态（HR 面试列表联动） */
+    @PostMapping("/offer/latest-by-applications")
+    public Map<String, Object> latestOfferByApplications(@RequestBody BatchApplicationIdsRequest request) {
+        Map<String, Map<String, Object>> items = new LinkedHashMap<>();
+        if (request == null || request.getApplicationIds() == null) {
+            return Map.of("code", 200, "msg", "ok", "items", items);
+        }
+        for (Long applicationId : request.getApplicationIds()) {
+            if (applicationId == null) {
+                continue;
+            }
+            Offer offer = offerMapper.selectOne(
+                    new LambdaQueryWrapper<Offer>()
+                            .eq(Offer::getApplicationId, applicationId)
+                            .orderByDesc(Offer::getCreatedAt)
+                            .last("LIMIT 1"),
+                    false);
+            if (offer != null) {
+                Map<String, Object> brief = new LinkedHashMap<>();
+                brief.put("offerId", offer.getId());
+                brief.put("status", offer.getStatus());
+                brief.put("statusText", OfferConstants.offerStatusText(offer.getStatus()));
+                items.put(String.valueOf(applicationId), brief);
+            }
+        }
+        return Map.of("code", 200, "msg", "ok", "items", items);
     }
 
     private Map<String, Object> toPostSummary(JobPost post) {

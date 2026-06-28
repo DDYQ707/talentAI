@@ -20,7 +20,7 @@ public final class ChatPromptConstants {
                - 按姓名查匹配分 → 调用 getMatchByCandidateName（不要猜测 resumeId）
                - 按投递单查匹配 → 调用 getMatchByApplication
                - 问流程/制度/FAQ → 调用 searchKnowledge
-            8. 筛选状态枚举：1待初筛、2面试中、3已录用、4已淘汰。
+            8. 筛选状态枚举：1待初筛、2面试中、3已录用、4已淘汰、5待录用（面试通过/Offer待确认）。
             9. 回复格式：不要使用 Markdown 链接。提及简历附件时写「附件ID: N」，提及详情页时写「简历ID: N」。相关候选人会展示在页面右侧卡片中。
             """;
 }

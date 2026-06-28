@@ -9,6 +9,7 @@ import com.talent.interview.entity.Interview;
 import com.talent.interview.entity.InterviewEvaluation;
 import com.talent.interview.feign.AiAgentFeignClient;
 import com.talent.interview.feign.JobFeignClient;
+import com.talent.interview.feign.ResumeFeignClient;
 import com.talent.interview.mapper.InterviewEvaluationMapper;
 import com.talent.interview.mapper.InterviewMapper;
 import com.talent.interview.service.InterviewEvaluationService;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,9 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
     private final ObjectMapper objectMapper;
     private final JobFeignClient jobFeignClient;
     private final AiAgentFeignClient aiAgentFeignClient;
+    private final ResumeFeignClient resumeFeignClient;
+
+    private static final int SCREEN_STATUS_OFFER_PENDING = 5;
 
     @Override
     public InterviewEvaluation findByInterviewId(Long interviewId) {
@@ -123,6 +128,10 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
         interview.setUpdatedAt(LocalDateTime.now());
         interviewMapper.updateById(interview);
 
+        if (Objects.equals(request.getConclusion(), InterviewConstants.CONCLUSION_PASS)) {
+            syncOfferPendingScreenStatus(interview);
+        }
+
         triggerAiProfileAfterEvaluation(interview);
 
         return toVo(evaluation);
@@ -150,6 +159,44 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
             normalized.put(key, score);
         }
         return normalized;
+    }
+
+    private void syncOfferPendingScreenStatus(Interview interview) {
+        if (interview.getApplicationId() == null) {
+            return;
+        }
+        try {
+            Map<String, Object> appRes = jobFeignClient.applicationById(interview.getApplicationId());
+            if (FeignResponseHelper.code(appRes) != 200) {
+                log.warn(
+                        "面试通过后同步待录用失败：投递单查询失败 applicationId={} msg={}",
+                        interview.getApplicationId(),
+                        FeignResponseHelper.msg(appRes, ""));
+                return;
+            }
+            Map<String, Object> appData = FeignResponseHelper.dataMap(appRes);
+            Long candidateId = FeignResponseHelper.longVal(appData.get("candidateId"));
+            if (candidateId == null) {
+                return;
+            }
+            Map<String, Object> body = new HashMap<>();
+            body.put("candidateId", candidateId);
+            body.put("resumeId", FeignResponseHelper.longVal(appData.get("resumeId")));
+            body.put("screenStatus", SCREEN_STATUS_OFFER_PENDING);
+            body.put("remark", "面试官评价通过");
+            Map<String, Object> res = resumeFeignClient.setScreenStatusOnly(body);
+            if (FeignResponseHelper.code(res) != 200) {
+                log.warn(
+                        "面试通过后更新待录用状态失败 applicationId={} msg={}",
+                        interview.getApplicationId(),
+                        FeignResponseHelper.msg(res, ""));
+            }
+        } catch (Exception e) {
+            log.warn(
+                    "面试通过后更新待录用状态异常 applicationId={} error={}",
+                    interview.getApplicationId(),
+                    e.getMessage());
+        }
     }
 
     private void triggerAiProfileAfterEvaluation(Interview interview) {

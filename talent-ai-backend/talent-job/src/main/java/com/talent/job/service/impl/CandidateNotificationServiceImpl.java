@@ -49,11 +49,15 @@ public class CandidateNotificationServiceImpl implements CandidateNotificationSe
             }
             case 3 -> {
                 title = "恭喜，已获得录用";
-                content = "您投递的「" + jobTitle + "」已被标记为录用，请留意 Offer 相关通知。";
+                content = "您已接受「" + jobTitle + "」的 Offer，录用流程已完成。";
             }
             case 4 -> {
                 title = "投递未通过";
                 content = "您投递的「" + jobTitle + "」本次未通过筛选，欢迎继续关注其他岗位。";
+            }
+            case 5 -> {
+                // 待录用为 HR 内部状态，不向候选人推送（面试通过通知在 HR 发放 Offer 时发送）
+                return;
             }
             default -> {
                 title = "简历进入待初筛";
@@ -71,8 +75,8 @@ public class CandidateNotificationServiceImpl implements CandidateNotificationSe
         String jobTitle = application.getJobTitle() != null ? application.getJobTitle() : "岗位";
         send(
                 application.getCandidateId(),
-                "收到 Offer",
-                "恭喜！您投递的「" + jobTitle + "」已发放正式 Offer，请在投递记录中查看并确认是否接受。",
+                "面试通过，待确认录用",
+                "恭喜！您投递的「" + jobTitle + "」已通过面试，HR 已向您发放正式 Offer，请在投递记录中查看并确认是否接受。",
                 (byte) 1,
                 "offer",
                 offer.getId());

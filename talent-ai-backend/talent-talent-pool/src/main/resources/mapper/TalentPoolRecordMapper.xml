@@ -17,6 +17,8 @@
         <result column="current_title" property="currentTitle"/>
         <result column="resume_id" property="resumeId"/>
         <result column="source_application_id" property="sourceApplicationId"/>
+        <result column="source_job_title" property="sourceJobTitle"/>
+        <result column="interview_summary" property="interviewSummary"/>
         <result column="talent_category" property="talentCategory"/>
         <result column="job_seeking_status" property="jobSeekingStatus"/>
         <result column="match_score" property="matchScore"/>
@@ -38,6 +40,8 @@
             r.current_title,
             r.resume_id,
             r.source_application_id,
+            r.source_job_title,
+            r.interview_summary,
             r.talent_category,
             r.job_seeking_status,
             r.match_score,
@@ -66,6 +70,15 @@
             </if>
             <if test="maxScore != null">
                 AND r.match_score &lt;= #{maxScore}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    r.candidate_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.source_job_title LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.archive_reason LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.current_title LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.current_company LIKE CONCAT('%', #{keyword}, '%')
+                )
             </if>
         </where>
         ORDER BY r.archived_at DESC

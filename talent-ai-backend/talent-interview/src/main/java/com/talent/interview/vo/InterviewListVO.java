@@ -59,4 +59,11 @@ public class InterviewListVO {
 
     /** 关联简历 ID（HR 列表跳转详情用） */
     private Long resumeId;
+
+    /** 关联投递单最新 Offer 状态（HR 列表操作联动） */
+    private Integer offerStatus;
+
+    private String offerStatusText;
+
+    private Long offerId;
 }

@@ -9,6 +9,7 @@ import com.talent.pool.entity.TalentPoolRecord;
 import com.talent.pool.vo.TalentPoolRecordVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,4 +51,11 @@ public interface ITalentPoolRecordService extends IService<TalentPoolRecord> {
      * 人才大厅分页查询（含标签列表）
      */
     R<Map<String, Object>> listPage(TalentPoolQueryRequest req);
+
+    /**
+     * 候选人是否已在人才库
+     */
+    boolean existsByCandidateId(Long candidateId);
+
+    Map<Long, Boolean> existsByCandidateIds(List<Long> candidateIds);
 }

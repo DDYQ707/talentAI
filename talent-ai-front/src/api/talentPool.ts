@@ -41,10 +41,14 @@ export interface TalentPoolRecordVO {
   currentTitle: string
   resumeId?: number | null
   sourceApplicationId?: number | null
+  /** 来源岗位名称快照 */
+  sourceJobTitle?: string | null
+  /** 面试评价摘要 */
+  interviewSummary?: string | null
   /** 人才分类 */
   talentCategory?: number | null
   /** 求职状态 (1-主动求职 2-被动求职 3-在职-观望) */
-  jobSeekingStatus: number
+  jobSeekingStatus?: number | null
   /** 匹配分 (0-100) */
   matchScore: number
   currentCompany: string
@@ -69,6 +73,8 @@ export interface TalentPoolQueryParams {
   maxScore?: number
   /** 标签ID筛选 */
   tagId?: number
+  /** 姓名、岗位、归档原因等关键词 */
+  keyword?: string
 }
 
 /** 人才库分页响应 */
@@ -86,11 +92,13 @@ export interface TalentPoolArchivePayload {
   currentTitle?: string
   resumeId?: number
   sourceApplicationId?: number
+  sourceJobTitle?: string
   talentCategory?: number
   jobSeekingStatus?: number
   matchScore?: number
   currentCompany?: string
   archiveReason?: string
+  interviewSummary?: string
 }
 
 /** 人才库记录更新请求体 */
@@ -131,6 +139,7 @@ export function fetchTalentPoolPage(params: TalentPoolQueryParams = {}) {
   if (params.minScore != null) query.minScore = params.minScore
   if (params.maxScore != null) query.maxScore = params.maxScore
   if (params.tagId != null) query.tagId = params.tagId
+  if (params.keyword?.trim()) query.keyword = params.keyword.trim()
   return request.get<TalentPoolPageData>('/api/talent-pool/list', { params: query }) as Promise<TalentPoolPageData>
 }
 
@@ -140,6 +149,20 @@ export function fetchTalentPoolPage(params: TalentPoolQueryParams = {}) {
  */
 export function archiveTalent(data: TalentPoolArchivePayload) {
   return request.post<TalentPoolRecordVO>('/api/talent-pool/archive', data) as Promise<TalentPoolRecordVO>
+}
+
+/** 检查候选人是否已在人才库 */
+export function fetchTalentPoolExists(candidateId: number) {
+  return request.get<boolean>('/api/talent-pool/exists', {
+    params: { candidateId },
+  }) as Promise<boolean>
+}
+
+/** 批量检查候选人是否已在人才库 */
+export function fetchTalentPoolExistsBatch(candidateIds: number[]) {
+  return request.post<Record<string, boolean>>('/api/talent-pool/exists-batch', {
+    candidateIds,
+  }) as Promise<Record<string, boolean>>
 }
 
 /**

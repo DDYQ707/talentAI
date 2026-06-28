@@ -4,6 +4,7 @@ export const RESUME_SCREEN_STATUS = {
   INTERVIEWING: 2,
   HIRED: 3,
   REJECTED: 4,
+  OFFER_PENDING: 5,
 } as const
 
 export const RESUME_SCREEN_LABEL: Record<number, string> = {
@@ -11,6 +12,7 @@ export const RESUME_SCREEN_LABEL: Record<number, string> = {
   2: '面试中',
   3: '已录用',
   4: '已淘汰',
+  5: '待录用',
 }
 
 /** 终态：不可再通过 HR 手动变更筛选状态 */

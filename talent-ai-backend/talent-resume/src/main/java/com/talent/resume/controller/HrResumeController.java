@@ -71,9 +71,7 @@ public class HrResumeController {
             @PathVariable("resumeId") Long resumeId,
             @RequestBody ScreenStatusUpdateRequest body) {
         try {
-            Integer screenStatus = body != null ? body.getScreenStatus() : null;
-            String remark = body != null ? body.getRemark() : null;
-            return R.ok(resumeService.updateHrScreenStatus(role, operatorId, resumeId, screenStatus, remark));
+            return R.ok(resumeService.updateHrScreenStatus(role, operatorId, resumeId, body));
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
         }

@@ -1,6 +1,7 @@
 package com.talent.pool.controller;
 
 import com.talent.common.api.R;
+import com.talent.pool.dto.BatchCandidateIdsRequest;
 import com.talent.pool.dto.TagBindRequest;
 import com.talent.pool.dto.TalentPoolArchiveRequest;
 import com.talent.pool.dto.TalentPoolQueryRequest;
@@ -19,10 +20,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * <p>
@@ -118,5 +121,24 @@ public class TalentPoolController {
     @GetMapping("/list")
     public R<Map<String, Object>> listPage(TalentPoolQueryRequest request) {
         return talentPoolRecordService.listPage(request);
+    }
+
+    /**
+     * 检查候选人是否已在人才库
+     */
+    @GetMapping("/exists")
+    public R<Boolean> exists(@RequestParam("candidateId") Long candidateId) {
+        return R.ok(talentPoolRecordService.existsByCandidateId(candidateId));
+    }
+
+    /** 批量检查候选人是否已在人才库 */
+    @PostMapping("/exists-batch")
+    public R<Map<String, Boolean>> existsBatch(@RequestBody BatchCandidateIdsRequest request) {
+        Map<String, Boolean> items = new LinkedHashMap<>();
+        if (request != null && request.getCandidateIds() != null) {
+            Map<Long, Boolean> map = talentPoolRecordService.existsByCandidateIds(request.getCandidateIds());
+            map.forEach((id, exists) -> items.put(String.valueOf(id), exists));
+        }
+        return R.ok(items);
     }
 }

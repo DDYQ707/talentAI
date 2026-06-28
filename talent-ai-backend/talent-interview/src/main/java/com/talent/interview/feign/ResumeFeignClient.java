@@ -15,4 +15,7 @@ public interface ResumeFeignClient {
 
     @PostMapping("/api/resume/internal/sync-screen-status")
     Map<String, Object> syncScreenStatus(@RequestBody Map<String, Object> body);
+
+    @PostMapping("/api/resume/internal/set-screen-status-only")
+    Map<String, Object> setScreenStatusOnly(@RequestBody Map<String, Object> body);
 }

@@ -170,6 +170,8 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
             vo.setId(offer.getId());
             vo.setOfferNo(offer.getOfferNo());
             vo.setApplicationId(offer.getApplicationId());
+            vo.setJobId(offer.getJobId());
+            vo.setCandidateId(offer.getCandidateId());
             vo.setJobTitle(offer.getJobTitle());
             vo.setCandidateName(offer.getCandidateName());
             vo.setDeptName(offer.getDeptName());

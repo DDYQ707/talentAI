@@ -45,6 +45,7 @@ public class InterviewServiceImpl implements InterviewService {
     private static final byte USER_TYPE_INTERVIEWER = 3;
     private static final int SCREEN_STATUS_PENDING = 1;
     private static final int SCREEN_STATUS_INTERVIEWING = 2;
+    private static final int SCREEN_STATUS_OFFER_PENDING = 5;
 
     private final InterviewMapper interviewMapper;
     private final InterviewEvaluationService evaluationService;
@@ -189,8 +190,14 @@ public class InterviewServiceImpl implements InterviewService {
                 .collect(Collectors.toList());
         Map<Long, InterviewEvaluation> evaluationMap =
                 evaluationService.findMapByInterviewIds(completedInterviewIds);
+        Map<Long, Map<String, Object>> offerMap = loadOfferMapByApplications(
+                pageResult.getRecords().stream()
+                        .map(Interview::getApplicationId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList()));
         List<InterviewListVO> records = pageResult.getRecords().stream()
-                .map(interview -> toHrListVo(interview, resumeIdCache, evaluationMap))
+                .map(interview -> toHrListVo(interview, resumeIdCache, evaluationMap, offerMap))
                 .collect(Collectors.toList());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -274,8 +281,14 @@ public class InterviewServiceImpl implements InterviewService {
                 .collect(Collectors.toList());
         Map<Long, InterviewEvaluation> evaluationMap =
                 evaluationService.findMapByInterviewIds(completedIds);
+        Map<Long, Map<String, Object>> offerMap = loadOfferMapByApplications(
+                interviews.stream()
+                        .map(Interview::getApplicationId)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .collect(Collectors.toList()));
         return interviews.stream()
-                .map(interview -> toHrListVo(interview, new HashMap<>(), evaluationMap))
+                .map(interview -> toHrListVo(interview, new HashMap<>(), evaluationMap, offerMap))
                 .collect(Collectors.toList());
     }
 
@@ -604,15 +617,65 @@ public class InterviewServiceImpl implements InterviewService {
         return vo;
     }
 
-    /** HR 面试列表：附带评价结论与 resumeId */
+    /** HR 面试列表：附带评价结论、resumeId 与 Offer 状态 */
     private InterviewListVO toHrListVo(
-            Interview interview, Map<Long, Long> resumeIdCache, Map<Long, InterviewEvaluation> evaluationMap) {
+            Interview interview,
+            Map<Long, Long> resumeIdCache,
+            Map<Long, InterviewEvaluation> evaluationMap,
+            Map<Long, Map<String, Object>> offerMap) {
         InterviewListVO vo = toListVo(interview);
         applyEvaluationSummary(vo, interview, evaluationMap);
         if (interview.getApplicationId() != null || interview.getCandidateId() != null) {
             vo.setResumeId(resolveResumeId(interview, resumeIdCache));
         }
+        if (interview.getApplicationId() != null && offerMap != null) {
+            Map<String, Object> offerBrief = offerMap.get(interview.getApplicationId());
+            if (offerBrief != null) {
+                vo.setOfferId(FeignResponseHelper.longVal(offerBrief.get("offerId")));
+                vo.setOfferStatus(FeignResponseHelper.intVal(offerBrief.get("status")));
+                vo.setOfferStatusText(FeignResponseHelper.strVal(offerBrief.get("statusText")));
+            }
+        }
         return vo;
+    }
+
+    private Map<Long, Map<String, Object>> loadOfferMapByApplications(List<Long> applicationIds) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("applicationIds", applicationIds);
+            Map<String, Object> res = jobFeignClient.latestOfferByApplications(body);
+            if (FeignResponseHelper.code(res) != 200) {
+                log.warn("批量查询 Offer 状态失败 msg={}", FeignResponseHelper.msg(res, ""));
+                return Map.of();
+            }
+            Object itemsObj = res.get("items");
+            if (!(itemsObj instanceof Map<?, ?> items)) {
+                return Map.of();
+            }
+            Map<Long, Map<String, Object>> result = new HashMap<>();
+            for (Map.Entry<?, ?> entry : items.entrySet()) {
+                Long applicationId = FeignResponseHelper.longVal(entry.getKey());
+                if (applicationId == null || !(entry.getValue() instanceof Map<?, ?> briefRaw)) {
+                    continue;
+                }
+                Map<String, Object> brief = new HashMap<>();
+                briefRaw.forEach((k, v) -> brief.put(String.valueOf(k), v));
+                result.put(applicationId, brief);
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("批量查询 Offer 状态异常 error={}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    /** HR 面试列表：附带评价结论与 resumeId */
+    private InterviewListVO toHrListVo(
+            Interview interview, Map<Long, Long> resumeIdCache, Map<Long, InterviewEvaluation> evaluationMap) {
+        return toHrListVo(interview, resumeIdCache, evaluationMap, Map.of());
     }
 
     private void applyEvaluationSummary(

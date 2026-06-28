@@ -34,6 +34,9 @@ export interface InterviewListItem {
   evaluationConclusionLabel?: string | null
   evaluation?: InterviewEvaluation | null
   resumeId?: number | null
+  offerId?: number | null
+  offerStatus?: number | null
+  offerStatusText?: string | null
 }
 
 export interface InterviewEvaluation {

@@ -54,6 +54,8 @@ export interface OfferListVO {
   statusText: string
   hrName: string
   createdAt: string
+  jobId?: number | null
+  candidateId?: number | null
 }
 
 /** Offer 详情视图对象（含审批链） */

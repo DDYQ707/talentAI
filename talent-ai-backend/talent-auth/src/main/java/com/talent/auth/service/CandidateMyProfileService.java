@@ -76,6 +76,7 @@ public class CandidateMyProfileService {
         brief.put("workYears", profile != null ? profile.getWorkYears() : null);
         brief.put("highestEdu", profile != null ? profile.getHighestEdu() : null);
         brief.put("aiScore", profile != null ? profile.getAiScore() : null);
+        brief.put("jobSeekingStatus", profile != null ? profile.getJobSeekingStatus() : null);
         return brief;
     }
 

@@ -158,4 +158,5 @@ export const SCREEN_STATUS_LABEL: Record<number, string> = {
   2: '面试中',
   3: '已录用',
   4: '已淘汰',
+  5: '待录用',
 }
