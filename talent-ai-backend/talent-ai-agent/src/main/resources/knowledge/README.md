@@ -8,11 +8,25 @@
 
 ```
 talent-ai-agent/src/main/resources/knowledge/
-├── README.md                      # 本说明（不会入库）
-├── 01-process-recruitment-flow.md # 标准招聘流程
-├── 02-faq-screen-status.md        # 简历筛选状态说明
-├── 03-faq-match-score.md          # AI 匹配分解读
-└── 04-faq-assistant-guide.md      # AI 助手使用指南
+├── README.md                          # 本说明（不会入库）
+├── 01-process-recruitment-flow.md     # 标准招聘流程
+├── 02-faq-screen-status.md            # 简历筛选状态说明
+├── 03-faq-match-score.md              # AI 匹配分解读
+├── 04-faq-assistant-guide.md          # AI 助手使用指南
+├── 05-policy-offer-approval.md        # Offer 审批制度
+├── 06-policy-data-privacy.md          # 数据隐私与权限制度
+├── 07-process-interview-flow.md       # 面试流程详解
+├── 08-faq-ai-resume-parse.md          # AI 简历解析功能说明
+├── 09-faq-ai-interview-question.md    # AI 面试题生成功能说明
+├── 10-faq-interview-note.md           # 面试笔记与AI评估
+├── 11-faq-resume-quality-score.md     # 简历质量评分说明
+├── 12-faq-talent-profile.md           # AI 人才画像
+├── 13-process-hr-workbench.md         # HR 工作台操作指南
+├── 14-jd-template-java-developer.md   # JD模板：Java
+├── 15-jd-template-product-manager.md  # JD模板：产品经理
+└── 16-jd-template-frontend-developer.md # JD模板：前端
+├── 17-faq-candidate-guide.md          # 候选人端使用指南
+└── 18-policy-elimination-reason.md    # 候选人淘汰原因
 ```
 
 | 文件 | title | category |
@@ -21,6 +35,20 @@ talent-ai-agent/src/main/resources/knowledge/
 | `02-faq-screen-status.md` | 简历筛选状态说明 | `faq` |
 | `03-faq-match-score.md` | AI 人岗匹配分解读 | `faq` |
 | `04-faq-assistant-guide.md` | AI 招聘助手使用指南 | `faq` |
+| `05-policy-offer-approval.md` | Offer 审批制度 | `policy` |
+| `06-policy-data-privacy.md` | 数据隐私与权限制度 | `policy` |
+| `07-process-interview-flow.md` | 面试流程详解 | `process` |
+| `08-faq-ai-resume-parse.md` | AI 简历解析功能说明 | `faq` |
+| `09-faq-ai-interview-question.md` | AI 面试题生成 | `faq` |
+| `10-faq-interview-note.md` | 面试笔记与AI评估 | `faq` |
+| `11-faq-resume-quality-score.md` | 简历质量评分说明 | `faq` |
+| `12-faq-talent-profile.md` | AI 人才画像 | `faq` |
+| `13-process-hr-workbench.md` | HR 工作台操作指南 | `process` |
+| `14-jd-template-java-developer.md` | JD模板：Java开发 | `jd_template` |
+| `15-jd-template-product-manager.md` | JD模板：产品经理 | `jd_template` |
+| `16-jd-template-frontend-developer.md` | JD模板：前端开发 | `jd_template` |
+| `17-faq-candidate-guide.md` | 候选人端使用指南 | `faq` |
+| `18-policy-elimination-reason.md` | 候选人淘汰原因 | `policy` |
 
 数据库表（`talent_ai_db`）：
 
