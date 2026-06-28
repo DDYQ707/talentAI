@@ -12,14 +12,6 @@ const metrics = ref<DashboardMetrics | null>(null)
 const trendData = ref<TrendPoint[]>([])
 const deptData = ref<DepartmentProgress[]>([])
 
-const channelData = [
-  { name: 'BOSS直聘', value: 38, color: '#3d8b7a' },
-  { name: '猎头', value: 22, color: '#5a8a82' },
-  { name: '内推', value: 20, color: '#10B981' },
-  { name: '智联招聘', value: 12, color: '#F59E0B' },
-  { name: '其他', value: 8, color: '#94A3B8' },
-]
-
 const funnelData = computed(() => {
   const funnel = metrics.value?.funnel ?? []
   return funnel.map((f: FunnelStage, i: number) => ({
@@ -159,18 +151,7 @@ const deptBarOption = computed<EChartsOption>(() => ({
   ],
 }))
 
-const pieOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'item' },
-  series: [
-    {
-      type: 'pie',
-      radius: ['32%', '58%'],
-      center: ['50%', '50%'],
-      data: channelData.map((c) => ({ name: c.name, value: c.value, itemStyle: { color: c.color } })),
-      label: { show: false },
-    },
-  ],
-}))
+
 </script>
 
 <template>
@@ -244,23 +225,7 @@ const pieOption = computed<EChartsOption>(() => ({
           <p class="text-xs text-muted-foreground mb-3">缺口 = 部门总编制 | 在招 = 当前活跃岗位数</p>
           <VChart :option="deptBarOption" autoresize style="height: 180px" />
         </div>
-        <div class="flex-1 bg-card shadow-card p-5">
-          <h3 class="text-sm font-semibold text-foreground mb-1">招聘渠道分布</h3>
-          <p class="text-xs text-muted-foreground mb-3">渠道统计待后续版本接入</p>
-          <div class="flex items-center gap-4">
-            <div class="w-[120px] h-[120px] flex-shrink-0">
-              <VChart :option="pieOption" autoresize style="width: 120px; height: 120px" />
-            </div>
-            <div class="space-y-2">
-              <div v-for="c in channelData" :key="c.name" class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full flex-shrink-0" :style="{ background: c.color }" />
-                <span class="text-xs text-muted-foreground">{{ c.name }}</span>
-                <span class="text-xs font-bold text-foreground ml-auto">{{ c.value }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="flex-1 bg-accent rounded-2xl p-5 border border-brand-border/50">
+        <div class="flex-[2] bg-accent rounded-2xl p-5 border border-brand-border/50">
           <div class="flex items-center gap-2 mb-3">
             <Zap :size="14" class="text-brand-purple" />
             <span class="text-xs font-semibold text-brand-purple">AI洞察</span>
