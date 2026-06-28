@@ -29,10 +29,10 @@ public interface JobFeignClient {
     OfferStatsDTO getOfferMetrics();
 
     @GetMapping("/monthly-applications")
-    List<MonthlyCountDTO> getMonthlyApplications(@RequestParam(defaultValue = "6") int months);
+    List<MonthlyCountDTO> getMonthlyApplications(@RequestParam(value = "months", defaultValue = "6") int months);
 
     @GetMapping("/monthly-offers")
-    List<MonthlyCountDTO> getMonthlyOffers(@RequestParam(defaultValue = "6") int months);
+    List<MonthlyCountDTO> getMonthlyOffers(@RequestParam(value = "months", defaultValue = "6") int months);
 
     @GetMapping("/department-job-stats")
     List<DepartmentJobStatDTO> getDepartmentJobStats();

@@ -481,10 +481,6 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         }
 
         // ========== 状态流转联动 ==========
-        // 录用 → 自动创建 Offer 草稿（同库事务内）
-        if (newStatus == JobApplicationConstants.STATUS_HIRED) {
-            candidateStatusHookService.onHired(app, request.getOperatorId());
-        }
         // 淘汰 + HR 确认归档 → 联动人才库
         if (screenStatus == 4 && Boolean.TRUE.equals(request.getArchiveToTalentPool())) {
             candidateStatusHookService.archiveToTalentPool(app, request);

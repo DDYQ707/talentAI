@@ -18,5 +18,5 @@ public interface InterviewFeignClient {
     Long countPassedInterviews(@RequestParam("yearMonth") String yearMonth);
 
     @GetMapping("/monthly-completed")
-    Map<String, Long> countMonthlyCompleted(@RequestParam(defaultValue = "6") int months);
+    Map<String, Long> countMonthlyCompleted(@RequestParam(value = "months", defaultValue = "6") int months);
 }

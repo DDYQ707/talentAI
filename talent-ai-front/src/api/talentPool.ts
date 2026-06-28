@@ -23,6 +23,12 @@ export const TAG_TYPE = {
   CUSTOM: 3,    // 自定义
 } as const
 
+export const TAG_TYPE_LABELS: Record<number, string> = {
+  [TAG_TYPE.SKILL]: '技能',
+  [TAG_TYPE.DOMAIN]: '领域',
+  [TAG_TYPE.CUSTOM]: '自定义',
+}
+
 // ==================== TypeScript 接口 ====================
 
 /** 标签视图 */

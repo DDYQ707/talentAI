@@ -115,6 +115,45 @@ export function averageEvaluationScore(scores: Partial<Record<EvaluationDimensio
   return Math.round(values.reduce((sum, v) => sum + v, 0) / values.length)
 }
 
+/** 将 AI 面试笔记的五维建议分映射为正式评价的三维分 */
+export function mapAiNoteDimensionsToEvaluation(
+  aiDimensions?: Record<string, number> | null,
+): Partial<Record<EvaluationDimensionKey, number>> {
+  if (!aiDimensions) return {}
+  const result: Partial<Record<EvaluationDimensionKey, number>> = {}
+  const skill = aiDimensions['专业技能']
+  if (skill != null && Number.isFinite(skill)) {
+    result['专业技能'] = Math.min(100, Math.max(0, Math.round(skill)))
+  }
+  const comm = aiDimensions['沟通表达'] ?? aiDimensions['沟通能力']
+  if (comm != null && Number.isFinite(comm)) {
+    result['沟通能力'] = Math.min(100, Math.max(0, Math.round(comm)))
+  }
+  const matchCandidates = ['岗位匹配度', '逻辑思维', '团队合作', '学习能力']
+    .map((key) => aiDimensions[key])
+    .filter((v): v is number => v != null && Number.isFinite(v))
+  if (matchCandidates.length) {
+    const avg = matchCandidates.reduce((sum, v) => sum + v, 0) / matchCandidates.length
+    result['岗位匹配度'] = Math.min(100, Math.max(0, Math.round(avg)))
+  }
+  return result
+}
+
+/** 组装 AI 草稿填入正式评语的文本 */
+export function buildEvaluationCommentFromAiNote(note: {
+  aiSummary?: string | null
+  aiHighlights?: string[] | null
+}): string {
+  const parts: string[] = []
+  if (note.aiSummary?.trim()) {
+    parts.push(note.aiSummary.trim())
+  }
+  if (note.aiHighlights?.length) {
+    parts.push('', '关键信号：', ...note.aiHighlights.map((item) => `· ${item}`))
+  }
+  return parts.join('\n').trim()
+}
+
 export function interviewStatusClass(status?: number | null): string {
   switch (status) {
     case INTERVIEW_STATUS.PENDING:

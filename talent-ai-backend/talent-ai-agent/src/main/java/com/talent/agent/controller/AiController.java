@@ -2,8 +2,10 @@ package com.talent.agent.controller;
 
 import com.talent.agent.domain.dto.AiMatchTriggerRequest;
 import com.talent.agent.domain.dto.AiParseRetryRequest;
+import com.talent.agent.domain.vo.HrAiInsightsVO;
 import com.talent.agent.domain.vo.MatchResultVO;
 import com.talent.agent.domain.vo.ParseTaskVO;
+import com.talent.agent.service.AiHrInsightsService;
 import com.talent.agent.service.AiMatchPreviewService;
 import com.talent.agent.service.AiMatchService;
 import com.talent.agent.service.AiParseService;
@@ -30,6 +32,7 @@ public class AiController {
     private final AiParseService aiParseService;
     private final AiMatchService aiMatchService;
     private final AiMatchPreviewService aiMatchPreviewService;
+    private final AiHrInsightsService aiHrInsightsService;
 
     @GetMapping("/health")
     public R<Map<String, String>> health() {
@@ -37,6 +40,16 @@ public class AiController {
         info.put("service", "talent-ai-agent");
         info.put("status", "UP");
         return R.ok(info);
+    }
+
+    /** HR 工作台 — AI 今日洞察 */
+    @GetMapping("/hr/insights")
+    public R<HrAiInsightsVO> hrInsights(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        if (userId == null) {
+            return R.fail("未登录或用户信息缺失");
+        }
+        return R.ok(aiHrInsightsService.getHrInsights());
     }
 
     /** HR 查询简历最新解析任务状态 */

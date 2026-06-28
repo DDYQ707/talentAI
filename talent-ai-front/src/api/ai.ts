@@ -131,6 +131,23 @@ export function triggerPreviewMatch(jobId: number) {
   }) as Promise<AiMatchResult>
 }
 
+/** HR 工作台 — AI 今日洞察 GET /api/ai/hr/insights */
+export interface HrAiInsights {
+  parsedToday: number
+  parsedThisMonth: number
+  highMatchCount: number
+  matchSuccessThisMonth: number
+  pendingAiTasks: number
+  failedToday: number
+  healthScore: number
+  healthLabel: string
+  summary: string
+}
+
+export function fetchHrAiInsights() {
+  return request.get<HrAiInsights>('/api/ai/hr/insights') as Promise<HrAiInsights>
+}
+
 export interface AiInterviewQuestion {
   id: number
   interviewId: number
@@ -181,10 +198,19 @@ export interface AiInterviewNote {
   updatedAt?: string
 }
 
-export function fetchAiInterviewNote(interviewId: number) {
-  return request.get<AiInterviewNote | null>('/api/ai/interview-notes', {
-    params: { interviewId },
-  }) as Promise<AiInterviewNote | null>
+export async function fetchAiInterviewNote(interviewId: number) {
+  const raw = await request.get<AiInterviewNote | { data?: AiInterviewNote | null } | null>(
+    '/api/ai/interview-notes',
+    { params: { interviewId } },
+  )
+  if (raw && typeof raw === 'object' && 'interviewId' in raw) {
+    return raw as AiInterviewNote
+  }
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const nested = (raw as { data?: AiInterviewNote | null }).data
+    return nested ?? null
+  }
+  return null
 }
 
 export function saveAiInterviewNote(payload: { interviewId: number; noteContent?: string }) {
@@ -195,6 +221,7 @@ export function synthesizeAiInterviewNote(payload: { interviewId: number; noteCo
   return request.post<AiInterviewNote>(
     '/api/ai/interview-notes/synthesize',
     payload,
+    { timeout: 60000 },
   ) as Promise<AiInterviewNote>
 }
 

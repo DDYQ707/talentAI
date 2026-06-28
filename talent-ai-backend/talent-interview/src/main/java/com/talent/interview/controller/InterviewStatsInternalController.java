@@ -53,7 +53,7 @@ public class InterviewStatsInternalController {
      * 最近N个月每月面试完成量
      */
     @GetMapping("/monthly-completed")
-    public Map<String, Long> countMonthlyCompleted(@RequestParam(defaultValue = "6") int months) {
+    public Map<String, Long> countMonthlyCompleted(@RequestParam(value = "months", defaultValue = "6") int months) {
         LocalDateTime startDate = LocalDate.now().minusMonths(months - 1).withDayOfMonth(1).atStartOfDay();
         List<Interview> interviews = interviewMapper.selectList(
                 new LambdaQueryWrapper<Interview>()

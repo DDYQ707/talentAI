@@ -14,11 +14,18 @@ import {
   ExternalLink,
   Copy,
   MapPin,
+  Loader2,
+  Wand2,
+  Save,
 } from 'lucide-vue-next'
 import {
+  fetchAiInterviewNote,
   fetchAiMatchByApplication,
   parseDimensionScores,
   parseJsonStringArray,
+  saveAiInterviewNote,
+  synthesizeAiInterviewNote,
+  type AiInterviewNote,
   type AiMatchResult,
 } from '@/api/ai'
 import {
@@ -31,9 +38,11 @@ import {
   INTERVIEW_STATUS,
   EVALUATION_DIMENSION_KEYS,
   averageEvaluationScore,
+  buildEvaluationCommentFromAiNote,
   defaultEvaluationDimensions,
   formatInterviewDateTime,
   interviewStatusLabel,
+  mapAiNoteDimensionsToEvaluation,
   parseEvaluationDimensions,
 } from '@/constants/interview'
 import {
@@ -55,6 +64,12 @@ const aiMatch = ref<AiMatchResult | null>(null)
 const aiLoading = ref(false)
 
 const comment = ref('')
+const noteContent = ref('')
+const aiNote = ref<AiInterviewNote | null>(null)
+const noteLoading = ref(false)
+const noteSaving = ref(false)
+const synthesizing = ref(false)
+const noteTip = ref('')
 const dimensionScores = ref(defaultEvaluationDimensions())
 const submitting = ref(false)
 const submitSuccess = ref('')
@@ -101,6 +116,7 @@ const canEvaluate = computed(
   () => detail.value?.status === INTERVIEW_STATUS.PENDING && !detail.value?.evaluation,
 )
 const hasEvaluation = computed(() => !!detail.value?.evaluation)
+const hasAiDraft = computed(() => !!aiNote.value?.aiSummary)
 const showMeetingBar = computed(() => detail.value && canJoinMeeting(detail.value))
 
 async function loadDetail() {
@@ -113,7 +129,7 @@ async function loadDetail() {
   try {
     detail.value = await fetchMyInterviewDetail(interviewId.value)
     comment.value = detail.value.evaluation?.comment ?? ''
-    await loadAiMatch(detail.value.applicationId)
+    await Promise.all([loadAiMatch(detail.value.applicationId), loadInterviewNote()])
     if (detail.value.evaluation?.dimensionScores) {
       const parsed = parseEvaluationDimensions(detail.value.evaluation.dimensionScores)
       dimensionScores.value = {
@@ -129,6 +145,79 @@ async function loadDetail() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadInterviewNote() {
+  if (!interviewId.value) return
+  noteLoading.value = true
+  try {
+    aiNote.value = await fetchAiInterviewNote(interviewId.value)
+    noteContent.value = aiNote.value?.noteContent ?? ''
+  } catch {
+    aiNote.value = null
+  } finally {
+    noteLoading.value = false
+  }
+}
+
+function flashNoteTip(message: string) {
+  noteTip.value = message
+  setTimeout(() => {
+    noteTip.value = ''
+  }, 2500)
+}
+
+async function handleSaveNote() {
+  if (!interviewId.value || noteSaving.value) return
+  noteSaving.value = true
+  errorMsg.value = ''
+  try {
+    aiNote.value = await saveAiInterviewNote({
+      interviewId: interviewId.value,
+      noteContent: noteContent.value.trim() || undefined,
+    })
+    noteContent.value = aiNote.value?.noteContent ?? noteContent.value
+    flashNoteTip('笔记已保存')
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, '笔记保存失败')
+  } finally {
+    noteSaving.value = false
+  }
+}
+
+async function handleSynthesizeNote() {
+  if (!interviewId.value || synthesizing.value) return
+  const trimmed = noteContent.value.trim()
+  if (trimmed.length < 10) {
+    errorMsg.value = '请先填写至少 10 字的现场观察，再生成 AI 草稿'
+    return
+  }
+  synthesizing.value = true
+  errorMsg.value = ''
+  try {
+    aiNote.value = await synthesizeAiInterviewNote({
+      interviewId: interviewId.value,
+      noteContent: trimmed,
+    })
+    noteContent.value = aiNote.value?.noteContent ?? trimmed
+    flashNoteTip('AI 评估草稿已生成')
+  } catch (e) {
+    errorMsg.value = getErrorMessage(e, 'AI 草稿生成失败')
+  } finally {
+    synthesizing.value = false
+  }
+}
+
+function handleApplyAiDraft() {
+  if (!aiNote.value?.aiSummary) return
+  const mapped = mapAiNoteDimensionsToEvaluation(aiNote.value.aiDimensionScores)
+  dimensionScores.value = {
+    ...defaultEvaluationDimensions(),
+    ...dimensionScores.value,
+    ...mapped,
+  }
+  comment.value = buildEvaluationCommentFromAiNote(aiNote.value)
+  flashNoteTip('已填入评价表单，请核对后提交')
 }
 
 async function loadAiMatch(applicationId: number) {
@@ -215,6 +304,7 @@ onMounted(() => loadDetail())
 
       <p v-if="errorMsg" class="text-xs text-red-600 mb-4">{{ errorMsg }}</p>
       <p v-if="copyTip" class="text-xs text-brand-green mb-4">{{ copyTip }}</p>
+      <p v-if="noteTip" class="text-xs text-brand-green mb-4">{{ noteTip }}</p>
       <p v-if="loading" class="text-sm text-muted-foreground mb-4">加载中...</p>
       <p v-if="submitSuccess" class="text-xs text-brand-green mb-4">{{ submitSuccess }}</p>
 
@@ -372,9 +462,92 @@ onMounted(() => loadDetail())
               <p v-if="detail.evaluation?.comment" class="text-muted-foreground leading-relaxed whitespace-pre-wrap">
                 {{ detail.evaluation.comment }}
               </p>
+              <div
+                v-if="aiNote?.noteContent"
+                class="mt-4 pt-4 border-t border-border"
+              >
+                <div class="text-xs font-semibold text-muted-foreground mb-2">现场笔记（存档）</div>
+                <p class="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{{ aiNote.noteContent }}</p>
+                <p v-if="aiNote.aiSummary" class="text-xs text-muted-foreground mt-2">
+                  AI 草稿摘要：{{ aiNote.aiSummary }}
+                </p>
+              </div>
             </div>
 
             <template v-else-if="canEvaluate">
+              <div class="rounded-2xl border border-brand-purple/20 bg-brand-tint-2/40 p-4 mb-5">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                  <div class="flex items-center gap-2">
+                    <Sparkles :size="15" class="text-brand-purple" />
+                    <span class="text-sm font-semibold text-foreground">现场笔记 · AI 辅助</span>
+                  </div>
+                  <span v-if="noteLoading" class="text-[10px] text-muted-foreground">加载笔记...</span>
+                </div>
+                <textarea
+                  v-model="noteContent"
+                  class="w-full bg-card rounded-xl p-3 text-sm text-foreground outline-none resize-none border border-border focus:border-brand-purple/40"
+                  rows="4"
+                  placeholder="面试中随手记录：技术深度、沟通表现、项目验证、风险点等（至少 10 字后可生成 AI 草稿）"
+                />
+                <div class="flex flex-wrap gap-2 mt-3">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-border bg-card hover:bg-muted disabled:opacity-50"
+                    :disabled="noteSaving || synthesizing"
+                    @click="handleSaveNote"
+                  >
+                    <Loader2 v-if="noteSaving" :size="13" class="animate-spin" />
+                    <Save v-else :size="13" />
+                    {{ noteSaving ? '保存中...' : '保存笔记' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium gradient-purple text-white shadow-custom disabled:opacity-50"
+                    :disabled="synthesizing || noteSaving"
+                    @click="handleSynthesizeNote"
+                  >
+                    <Loader2 v-if="synthesizing" :size="13" class="animate-spin" />
+                    <Wand2 v-else :size="13" />
+                    {{ synthesizing ? 'AI 生成中...' : 'AI 生成评估草稿' }}
+                  </button>
+                </div>
+
+                <div
+                  v-if="hasAiDraft && aiNote"
+                  class="mt-4 rounded-xl border border-brand-purple/15 bg-card p-4 space-y-3"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-semibold text-brand-purple">AI 评估草稿（仅供参考）</span>
+                    <button
+                      type="button"
+                      class="text-xs font-medium text-brand-blue hover:underline"
+                      @click="handleApplyAiDraft"
+                    >
+                      填入下方评价表单
+                    </button>
+                  </div>
+                  <p class="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{{ aiNote.aiSummary }}</p>
+                  <div v-if="aiNote.aiHighlights?.length" class="flex flex-wrap gap-1.5">
+                    <span
+                      v-for="(item, i) in aiNote.aiHighlights"
+                      :key="i"
+                      class="text-[10px] px-2 py-0.5 rounded-full bg-brand-tint text-brand-purple border border-brand-purple/20"
+                    >
+                      {{ item }}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <span v-if="aiNote.aiSuggestedScore != null">
+                      建议综合分：<strong class="text-foreground">{{ aiNote.aiSuggestedScore }}</strong>
+                    </span>
+                    <span v-if="aiNote.aiSuggestedConclusionLabel">
+                      建议结论：<strong class="text-foreground">{{ aiNote.aiSuggestedConclusionLabel }}</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="text-xs font-semibold text-muted-foreground mb-3">正式评价（提交后生效）</div>
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div v-for="key in EVALUATION_DIMENSION_KEYS" :key="key">
                   <label class="text-xs text-muted-foreground mb-1.5 block">{{ key }}（0-100）</label>
@@ -394,10 +567,10 @@ onMounted(() => loadDetail())
                 v-model="comment"
                 class="w-full bg-muted rounded-xl p-4 text-sm text-foreground outline-none resize-none border border-transparent focus:border-brand-blue/40"
                 rows="5"
-                placeholder="记录面试观察：技术深度、沟通表达、项目经验验证、团队协作等..."
+                placeholder="正式评语：可手动填写，或由 AI 草稿填入后再修改..."
               />
               <p class="text-[10px] text-muted-foreground mt-2">
-                提示：可在「面试准备」页生成 AI 面试提纲，结束后在此提交评价
+                提示：可先写现场笔记并生成 AI 草稿，核对维度分与评语后再点通过/待定/不推荐；会前提纲见「面试准备」
               </p>
               <div class="flex gap-3 mt-4">
                 <button

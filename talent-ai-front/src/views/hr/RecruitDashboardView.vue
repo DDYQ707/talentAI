@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import type { EChartsOption } from 'echarts'
 import { TrendingUp, Users, Briefcase, Calendar, Sparkles, Zap, AlertTriangle, CheckCircle, Loader2 } from 'lucide-vue-next'
 import { fetchHrDashboard, fetchRecruitmentTrend, fetchDepartmentProgress, type DashboardMetrics, type FunnelStage, type TrendPoint, type DepartmentProgress } from '@/api/analytics'
+import { fetchHrAiInsights, type HrAiInsights } from '@/api/ai'
 
 const FUNNEL_COLORS = ['#3d8b7a', '#3B82F6', '#5a8a82', '#8B5CF6', '#10B981']
 
@@ -11,14 +12,7 @@ const error = ref('')
 const metrics = ref<DashboardMetrics | null>(null)
 const trendData = ref<TrendPoint[]>([])
 const deptData = ref<DepartmentProgress[]>([])
-
-const channelData = [
-  { name: 'BOSS直聘', value: 38, color: '#3d8b7a' },
-  { name: '猎头', value: 22, color: '#5a8a82' },
-  { name: '内推', value: 20, color: '#10B981' },
-  { name: '智联招聘', value: 12, color: '#F59E0B' },
-  { name: '其他', value: 8, color: '#94A3B8' },
-]
+const aiInsights = ref<HrAiInsights | null>(null)
 
 const funnelData = computed(() => {
   const funnel = metrics.value?.funnel ?? []
@@ -56,7 +50,7 @@ const kpis = computed(() => {
     {
       label: 'Offer发放',
       value: m?.monthlyOfferSent ?? '—',
-      trend: m?.placeholderFields?.includes('monthlyOfferSent') ? '待 Offer 模块' : '',
+      trend: offerRate !== '—' ? `接受率 ${offerRate}` : '',
       positive: true,
       icon: Briefcase,
       color: 'text-brand-green',
@@ -78,14 +72,16 @@ async function loadDashboard() {
   loading.value = true
   error.value = ''
   try {
-    const [dashboard, trend, dept] = await Promise.all([
+    const [dashboard, trend, dept, ai] = await Promise.all([
       fetchHrDashboard(),
       fetchRecruitmentTrend(),
       fetchDepartmentProgress(),
+      fetchHrAiInsights().catch(() => null),
     ])
     metrics.value = dashboard
     trendData.value = trend || []
     deptData.value = dept || []
+    aiInsights.value = ai
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载失败'
   } finally {
@@ -159,18 +155,54 @@ const deptBarOption = computed<EChartsOption>(() => ({
   ],
 }))
 
-const pieOption = computed<EChartsOption>(() => ({
-  tooltip: { trigger: 'item' },
-  series: [
-    {
-      type: 'pie',
-      radius: ['32%', '58%'],
-      center: ['50%', '50%'],
-      data: channelData.map((c) => ({ name: c.name, value: c.value, itemStyle: { color: c.color } })),
-      label: { show: false },
-    },
-  ],
-}))
+const nowLabel = computed(() => {
+  const now = new Date()
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`
+})
+
+const aiStatusLabel = computed(() => {
+  const ai = aiInsights.value
+  if (!ai) return ''
+  if (ai.pendingAiTasks > 0) {
+    return `AI 待处理 ${ai.pendingAiTasks} 项 · 健康度 ${ai.healthScore}`
+  }
+  return `AI 健康度 ${ai.healthScore} · ${ai.healthLabel}`
+})
+
+const dashboardInsights = computed(() => {
+  const m = metrics.value
+  const ai = aiInsights.value
+  const items: { type: 'positive' | 'warning'; text: string }[] = []
+
+  if (m) {
+    items.push({
+      type: 'positive',
+      text: `在招岗位 ${m.activeJobs ?? 0} 个，AI 初筛通过 ${m.initialScreenPass ?? 0} 份`,
+    })
+    items.push({
+      type: 'positive',
+      text: `本月已完成面试 ${m.completedInterviewsThisMonth ?? 0} 场，Offer 发放 ${m.monthlyOfferSent ?? 0} 份`,
+    })
+  }
+
+  if (ai) {
+    if (ai.pendingAiTasks > 0 || ai.failedToday > 0) {
+      items.push({
+        type: 'warning',
+        text: `AI 待处理 ${ai.pendingAiTasks} 项${ai.failedToday > 0 ? `，今日失败 ${ai.failedToday} 项` : ''}`,
+      })
+    }
+    if (ai.highMatchCount > 0 || ai.parsedThisMonth > 0) {
+      items.push({
+        type: 'positive',
+        text: `本月 AI 解析 ${ai.parsedThisMonth} 份，高匹配 ${ai.highMatchCount} 人，匹配完成 ${ai.matchSuccessThisMonth} 次`,
+      })
+    }
+  }
+
+  return items
+})
 </script>
 
 <template>
@@ -180,9 +212,12 @@ const pieOption = computed<EChartsOption>(() => ({
         <h1 class="text-xl font-bold text-foreground">招聘数据驾驶舱</h1>
         <p class="text-sm text-muted-foreground mt-0.5">{{ nowLabel }} · {{ loading ? '加载中…' : '实时数据' }}</p>
       </div>
-      <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent border border-brand-border/50">
+      <div
+        v-if="aiStatusLabel"
+        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent border border-brand-border/50"
+      >
         <Sparkles :size="14" class="text-brand-purple" />
-        <span class="text-xs text-brand-purple font-medium">AI智能分析已开启</span>
+        <span class="text-xs text-brand-purple font-medium">{{ aiStatusLabel }}</span>
       </div>
     </div>
 
@@ -244,33 +279,17 @@ const pieOption = computed<EChartsOption>(() => ({
           <p class="text-xs text-muted-foreground mb-3">缺口 = 部门总编制 | 在招 = 当前活跃岗位数</p>
           <VChart :option="deptBarOption" autoresize style="height: 180px" />
         </div>
-        <div class="flex-1 bg-card shadow-card p-5">
-          <h3 class="text-sm font-semibold text-foreground mb-1">招聘渠道分布</h3>
-          <p class="text-xs text-muted-foreground mb-3">渠道统计待后续版本接入</p>
-          <div class="flex items-center gap-4">
-            <div class="w-[120px] h-[120px] flex-shrink-0">
-              <VChart :option="pieOption" autoresize style="width: 120px; height: 120px" />
-            </div>
-            <div class="space-y-2">
-              <div v-for="c in channelData" :key="c.name" class="flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full flex-shrink-0" :style="{ background: c.color }" />
-                <span class="text-xs text-muted-foreground">{{ c.name }}</span>
-                <span class="text-xs font-bold text-foreground ml-auto">{{ c.value }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
         <div class="flex-1 bg-accent rounded-2xl p-5 border border-brand-border/50">
           <div class="flex items-center gap-2 mb-3">
             <Zap :size="14" class="text-brand-purple" />
             <span class="text-xs font-semibold text-brand-purple">AI洞察</span>
           </div>
           <div class="space-y-3">
-            <div v-for="(insight, i) in [
-              { type: 'positive', text: `在招岗位 ${metrics?.activeJobs ?? 0} 个，AI 初筛通过 ${metrics?.initialScreenPass ?? 0} 份` },
-              { type: 'warning', text: metrics?.placeholderFields?.includes('monthlyOfferSent') ? 'Offer 统计待 Offer 模块对接后自动更新' : 'Offer 数据已同步' },
-              { type: 'positive', text: `本月已完成面试 ${metrics?.completedInterviewsThisMonth ?? 0} 场` },
-            ]" :key="i" class="flex items-start gap-2">
+            <div
+              v-for="(insight, i) in dashboardInsights"
+              :key="i"
+              class="flex items-start gap-2"
+            >
               <CheckCircle v-if="insight.type === 'positive'" :size="12" class="text-brand-green mt-0.5 flex-shrink-0" />
               <AlertTriangle v-else :size="12" class="text-brand-orange mt-0.5 flex-shrink-0" />
               <p class="text-xs text-muted-foreground leading-relaxed">{{ insight.text }}</p>

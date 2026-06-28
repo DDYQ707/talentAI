@@ -26,7 +26,7 @@ spring:
         - id: job_route
           uri: lb://talent-job
           predicates:
-            - Path=/api/job/**, /api/delivery/**, /api/jobApplication/**
+            - Path=/api/job/**, /api/delivery/**
         # Offer 路由（Controller 映射 /offer，网关 StripPrefix 剥离 /api）
         - id: offer_route
           uri: lb://talent-job
