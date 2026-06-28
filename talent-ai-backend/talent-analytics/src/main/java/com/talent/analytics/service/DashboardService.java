@@ -1,23 +1,30 @@
 package com.talent.analytics.service;
 
 import com.talent.analytics.dto.DashboardMetrics;
+import com.talent.analytics.dto.DepartmentProgress;
 import com.talent.analytics.dto.FunnelStage;
+import com.talent.analytics.dto.TrendPoint;
 import com.talent.analytics.feign.InterviewFeignClient;
 import com.talent.analytics.feign.JobFeignClient;
 import com.talent.analytics.feign.ResumeFeignClient;
+import com.talent.analytics.feign.dto.DepartmentJobStatDTO;
+import com.talent.analytics.feign.dto.MonthlyCountDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import com.talent.analytics.feign.dto.OfferStatsDTO;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -103,5 +110,58 @@ public class DashboardService {
             log.error("Feign call failed: {}", e.getMessage());
             return defaultValue;
         }
+    }
+
+    /**
+     * 招聘趋势（近6个月）：投递量、面试完成量、Offer发放量
+     */
+    public List<TrendPoint> getRecruitmentTrend() {
+        int months = 6;
+
+        Map<String, Long> appMap = toMonthMap(safeCall(() -> jobFeign.getMonthlyApplications(months), Collections.emptyList()));
+        Map<String, Long> offerMap = toMonthMap(safeCall(() -> jobFeign.getMonthlyOffers(months), Collections.emptyList()));
+        Map<String, Long> interviewMap = safeCall(() -> interviewFeign.countMonthlyCompleted(months), Collections.emptyMap());
+
+        List<TrendPoint> result = new ArrayList<>();
+        YearMonth current = YearMonth.now().minusMonths(months - 1);
+        YearMonth end = YearMonth.now();
+        DateTimeFormatter yyyyMM = DateTimeFormatter.ofPattern("yyyy-MM");
+
+        while (!current.isAfter(end)) {
+            String key = current.format(yyyyMM);
+            String monthLabel = current.getMonthValue() + "月";
+            result.add(TrendPoint.builder()
+                    .month(monthLabel)
+                    .applications(appMap.getOrDefault(key, 0L))
+                    .completedInterviews(interviewMap.getOrDefault(key, 0L))
+                    .offers(offerMap.getOrDefault(key, 0L))
+                    .build());
+            current = current.plusMonths(1);
+        }
+        return result;
+    }
+
+    /**
+     * 各部门招聘进度：缺口 + 在招
+     */
+    public List<DepartmentProgress> getDepartmentProgress() {
+        List<DepartmentJobStatDTO> stats = safeCall(() -> jobFeign.getDepartmentJobStats(), Collections.emptyList());
+        return stats.stream()
+                .map(s -> DepartmentProgress.builder()
+                        .dept(s.getDeptName())
+                        .gap(s.getHeadcount() != null ? s.getHeadcount() : 0)
+                        .active(s.getActiveCount() != null ? s.getActiveCount() : 0)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private Map<String, Long> toMonthMap(List<MonthlyCountDTO> list) {
+        if (list == null) return new LinkedHashMap<>();
+        return list.stream()
+                .collect(Collectors.toMap(
+                        MonthlyCountDTO::getYearMonth,
+                        d -> d.getCount() != null ? d.getCount() : 0L,
+                        Long::sum,
+                        LinkedHashMap::new));
     }
 }
