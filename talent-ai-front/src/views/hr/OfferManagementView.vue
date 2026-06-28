@@ -19,8 +19,6 @@ import {
   MailCheck,
   MailX,
   Undo2,
-  ThumbsUp,
-  ThumbsDown,
   Edit,
   X,
   Users,
@@ -37,10 +35,6 @@ import {
   type OfferCreatePayload,
   type OfferUpdatePayload,
   revokeOffer,
-  fetchOfferDetail,
-  approveOfferApproval,
-  rejectOfferApproval,
-  OFFER_APPROVAL_STATUS,
 } from '@/api/offer'
 import { archiveTalent, fetchTalentPoolExistsBatch } from '@/api/talentPool'
 import { buildTalentArchivePayload } from '@/utils/talentArchive'
@@ -108,9 +102,7 @@ function getStatusStyle(status: number) {
 /* ---- 状态筛选选项 ---- */
 const statusOptions = [
   { label: '全部状态', value: undefined },
-  { label: '待审批', value: OFFER_STATUS.PENDING },
-  { label: '审批中', value: OFFER_STATUS.APPROVING },
-  { label: '已通过', value: OFFER_STATUS.APPROVED },
+  { label: '待发放', value: OFFER_STATUS.APPROVED },
   { label: '已拒绝', value: OFFER_STATUS.REJECTED },
   { label: '已发放', value: OFFER_STATUS.ISSUED },
   { label: '候选人已接受', value: OFFER_STATUS.ACCEPTED },
@@ -131,8 +123,8 @@ const stats = computed(() => [
     color: 'text-brand-green',
   },
   {
-    label: '审批中',
-    value: offers.value.filter(o => o.status === OFFER_STATUS.APPROVING || o.status === OFFER_STATUS.PENDING).length,
+    label: '待发放',
+    value: offers.value.filter(o => o.status === OFFER_STATUS.APPROVED).length,
     change: '',
     color: 'text-brand-orange',
   },
@@ -301,7 +293,7 @@ async function submitForm() {
         ...salaryPayload,
       }
       await createOffer(payload)
-      ElMessage.success('Offer 已创建')
+      ElMessage.success('Offer 已创建，请确认信息后发放')
     } else if (editingOfferId.value) {
       await updateOffer(editingOfferId.value, salaryPayload)
       ElMessage.success('Offer 已更新')
@@ -398,58 +390,6 @@ async function handleRevoke(offer: OfferListVO) {
   }
 }
 
-/* ---- 操作：审批通过 ---- */
-async function handleApprove(offer: OfferListVO) {
-  try {
-    await ElMessageBox.confirm(
-      `确定审批通过候选人「${offer.candidateName}」的 Offer？`,
-      '审批通过确认',
-      { confirmButtonText: '通过', cancelButtonText: '取消', type: 'success' },
-    )
-  } catch {
-    return
-  }
-  try {
-    const detail = await fetchOfferDetail(offer.id)
-    const pending = detail.approvals?.find((item) => item.status === OFFER_APPROVAL_STATUS.PENDING)
-    if (!pending) {
-      ElMessage.warning('没有待审批节点')
-      return
-    }
-    await approveOfferApproval(pending.id)
-    ElMessage.success('审批已通过')
-    await loadOffers()
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.message || err?.message || '审批操作失败，请稍后重试')
-  }
-}
-
-/* ---- 操作：审批驳回 ---- */
-async function handleRejectApproval(offer: OfferListVO) {
-  try {
-    await ElMessageBox.confirm(
-      `确定驳回候选人「${offer.candidateName}」的 Offer 审批？`,
-      '审批驳回确认',
-      { confirmButtonText: '确定驳回', cancelButtonText: '取消', type: 'error' },
-    )
-  } catch {
-    return
-  }
-  try {
-    const detail = await fetchOfferDetail(offer.id)
-    const pending = detail.approvals?.find((item) => item.status === OFFER_APPROVAL_STATUS.PENDING)
-    if (!pending) {
-      ElMessage.warning('没有待审批节点')
-      return
-    }
-    await rejectOfferApproval(pending.id)
-    ElMessage.success('审批已驳回')
-    await loadOffers()
-  } catch (err: any) {
-    ElMessage.error(err?.response?.data?.message || err?.message || '驳回操作失败，请稍后重试')
-  }
-}
-
 /* ---- 初始化 ---- */
 onMounted(async () => {
   const name = typeof route.query.candidateName === 'string' ? route.query.candidateName.trim() : ''
@@ -471,7 +411,7 @@ function isHighlighted(offer: OfferListVO) {
       <div>
         <h1 class="text-xl font-bold text-foreground">Offer管理</h1>
         <p class="text-sm text-muted-foreground mt-0.5">
-          管理所有候选人的Offer发放与审批
+          创建 Offer 并发放给候选人确认
           <span v-if="fromApplicationId" class="text-brand-green"> · 来自候选人详情（投递 #{{ fromApplicationId }}）</span>
         </p>
       </div>
@@ -588,17 +528,17 @@ function isHighlighted(offer: OfferListVO) {
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center gap-1 flex-wrap">
-                <!-- 完善薪资：已通过 -->
+                <!-- 编辑：待发放 -->
                 <button
                   v-if="offer.status === OFFER_STATUS.APPROVED"
                   type="button"
-                  title="完善薪资"
+                  title="编辑 Offer"
                   class="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
                   @click="openEditDialog(offer)"
                 >
                   <Edit :size="14" />
                 </button>
-                <!-- 发放：已通过 -->
+                <!-- 发放：待发放 -->
                 <button
                   v-if="offer.status === OFFER_STATUS.APPROVED"
                   type="button"
@@ -608,26 +548,6 @@ function isHighlighted(offer: OfferListVO) {
                 >
                   <Send :size="14" />
                 </button>
-                <!-- 审批通过：待审批 / 审批中 -->
-                <button
-                  v-if="offer.status === OFFER_STATUS.PENDING || offer.status === OFFER_STATUS.APPROVING"
-                  type="button"
-                  title="审批通过"
-                  class="p-1.5 rounded-lg hover:bg-green-50 text-brand-green hover:text-green-700"
-                  @click="handleApprove(offer)"
-                >
-                  <ThumbsUp :size="14" />
-                </button>
-                <!-- 审批驳回：待审批 / 审批中 -->
-                <button
-                  v-if="offer.status === OFFER_STATUS.PENDING || offer.status === OFFER_STATUS.APPROVING"
-                  type="button"
-                  title="审批驳回"
-                  class="p-1.5 rounded-lg hover:bg-red-50 text-brand-red hover:text-red-700"
-                  @click="handleRejectApproval(offer)"
-                >
-                  <ThumbsDown :size="14" />
-                </button>
                 <!-- 已发放：等待候选人确认 -->
                 <span
                   v-if="offer.status === OFFER_STATUS.ISSUED"
@@ -636,7 +556,7 @@ function isHighlighted(offer: OfferListVO) {
                 >
                   等待候选人确认
                 </span>
-                <!-- 存入人才库：候选人拒绝 / 审批驳回 / 已撤回 -->
+                <!-- 存入人才库：候选人拒绝 / 已撤回 -->
                 <button
                   v-if="canArchiveOffer(offer)"
                   type="button"
@@ -648,7 +568,7 @@ function isHighlighted(offer: OfferListVO) {
                 </button>
                 <!-- 撤回 -->
                 <button
-                  v-if="[OFFER_STATUS.PENDING, OFFER_STATUS.APPROVING, OFFER_STATUS.APPROVED, OFFER_STATUS.ISSUED].includes(offer.status)"
+                  v-if="[OFFER_STATUS.APPROVED, OFFER_STATUS.ISSUED].includes(offer.status)"
                   type="button"
                   title="撤回 Offer"
                   class="p-1.5 rounded-lg hover:bg-orange-50 text-brand-orange hover:text-orange-700"
@@ -696,7 +616,7 @@ function isHighlighted(offer: OfferListVO) {
       <div class="bg-card rounded-2xl shadow-panel w-full max-w-md p-5 border border-border">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-bold text-foreground">
-            {{ formMode === 'create' ? '创建 Offer' : '完善 Offer 信息' }}
+            {{ formMode === 'create' ? '创建 Offer' : '编辑 Offer' }}
           </h3>
           <button type="button" class="p-1 rounded-lg hover:bg-muted text-muted-foreground" @click="closeForm">
             <X :size="16" />

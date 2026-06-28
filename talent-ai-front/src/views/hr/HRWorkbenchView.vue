@@ -121,7 +121,7 @@ interface WorkbenchTodo {
 const todoCounts = ref({
   pendingScreen: 0,
   toSchedule: 0,
-  offerApproval: 0,
+  offerToIssue: 0,
   todayInterview: 0,
   toHire: 0,
 })
@@ -144,9 +144,9 @@ const todos = computed<WorkbenchTodo[]>(() => [
     path: '/hr/interviews',
   },
   {
-    key: 'offerApproval',
-    label: 'Offer 待审批',
-    count: todoCounts.value.offerApproval,
+    key: 'offerToIssue',
+    label: 'Offer 待发放',
+    count: todoCounts.value.offerToIssue,
     dot: 'bg-teal-300',
     numColor: 'text-teal-600',
     path: '/hr/offers',
@@ -174,14 +174,12 @@ const todoTotal = computed(() => todos.value.reduce((sum, item) => sum + item.co
 async function loadTodoCounts() {
   const [
     pendingScreen,
-    offerPending,
-    offerApproving,
+    offerToIssue,
     interviewStats,
     toHire,
   ] = await Promise.all([
     fetchHrResumePage({ current: 1, size: 1, screenStatus: RESUME_SCREEN_STATUS.PENDING }).catch(() => ({ total: 0 })),
-    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.PENDING }).catch(() => ({ total: 0 })),
-    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.APPROVING }).catch(() => ({ total: 0 })),
+    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.APPROVED }).catch(() => ({ total: 0 })),
     fetchHrInterviewStats().catch(() => ({ todayPending: 0, toSchedule: 0 })),
     fetchHrResumePage({ current: 1, size: 1, screenStatus: RESUME_SCREEN_STATUS.OFFER_PENDING }).catch(() => ({ total: 0 })),
   ])
@@ -189,7 +187,7 @@ async function loadTodoCounts() {
   todoCounts.value = {
     pendingScreen: pendingScreen.total ?? 0,
     toSchedule: interviewStats.toSchedule ?? 0,
-    offerApproval: (offerPending.total ?? 0) + (offerApproving.total ?? 0),
+    offerToIssue: offerToIssue.total ?? 0,
     todayInterview: interviewStats.todayPending ?? 0,
     toHire: toHire.total ?? 0,
   }
@@ -324,11 +322,11 @@ const aiSuggestions = computed<WorkbenchAiSuggestion[]>(() => {
       onAction: () => router.push('/hr/interviews'),
     })
   }
-  if (c.offerApproval > 0) {
+  if (c.offerToIssue > 0) {
     items.push({
-      key: 'offerApproval',
-      title: 'Offer 待审批',
-      desc: `有 ${c.offerApproval} 份 Offer 等待审批`,
+      key: 'offerToIssue',
+      title: 'Offer 待发放',
+      desc: `有 ${c.offerToIssue} 份 Offer 待发放给候选人`,
       icon: Mail,
       iconColor: 'text-purple-500',
       iconBg: 'bg-purple-50',

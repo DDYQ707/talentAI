@@ -57,7 +57,7 @@ public final class OfferConstants {
         return switch (status) {
             case OFFER_STATUS_PENDING -> "待审批";
             case OFFER_STATUS_APPROVING -> "审批中";
-            case OFFER_STATUS_APPROVED -> "已通过";
+            case OFFER_STATUS_APPROVED -> "待发放";
             case OFFER_STATUS_REJECTED -> "已拒绝";
             case OFFER_STATUS_ISSUED -> "已发放";
             case OFFER_STATUS_ACCEPTED -> "候选人已接受";

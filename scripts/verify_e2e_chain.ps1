@@ -70,10 +70,10 @@ Test-Endpoint 'pending-resumes' "$base/api/resume/hr/page?current=1&size=1&scree
     if ($r.code -ne 200) { throw $r.msg }
 }
 
-Test-Endpoint 'pending-offers' "$base/api/offer/list?current=1&size=5&status=1" $headers {
+Test-Endpoint 'offers-to-issue' "$base/api/offer/list?current=1&size=5&status=3" $headers {
     param($r)
     if ($r.code -ne 200) { throw $r.msg }
-    if ($r.data.total -lt 1) { throw 'no pending offer' }
+    if ($r.data.total -lt 1) { throw 'no offer to issue' }
 }
 
 Test-Endpoint 'interview-stats' "$base/api/interview/hr/stats" $headers {

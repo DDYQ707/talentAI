@@ -86,14 +86,29 @@ function hasActiveOffer(item: InterviewListItem) {
   const status = item.offerStatus
   if (status == null) return false
   return (
-    status !== OFFER_STATUS.REJECTED
-    && status !== OFFER_STATUS.DECLINED
-    && status !== OFFER_STATUS.REVOKED
+    status === OFFER_STATUS.PENDING
+    || status === OFFER_STATUS.APPROVING
+    || status === OFFER_STATUS.APPROVED
+    || status === OFFER_STATUS.ISSUED
   )
 }
 
+function isTerminalOffer(item: InterviewListItem) {
+  const status = item.offerStatus
+  if (status == null) return false
+  return (
+    status === OFFER_STATUS.REJECTED
+    || status === OFFER_STATUS.DECLINED
+    || status === OFFER_STATUS.ACCEPTED
+  )
+}
+
+/** 面试通过且尚未进入 Offer 流程（或 HR 撤回后可重新创建） */
 function canSendOffer(item: InterviewListItem) {
-  return isInterviewPass(item) && !hasActiveOffer(item)
+  if (!isInterviewPass(item)) return false
+  const status = item.offerStatus
+  if (status == null) return true
+  return status === OFFER_STATUS.REVOKED
 }
 
 /** 待完成：待面试、待安排 */
@@ -162,7 +177,7 @@ function emptyTabMessage() {
   if (activeTab.value === 'pending') return '暂无待完成面试'
   if (activeTab.value === 'awaitingOffer') return '暂无待录用候选人（面试官推荐通过后将出现在此处）'
   if (activeTab.value === 'awaitingDecision') return '暂无待定候选人（面试官标记待定后将出现在此处）'
-  return '暂无已结束面试（不推荐或已发 Offer）'
+  return '暂无已结束面试（不推荐、Offer 已结束或流程进行中）'
 }
 
 function displayStatusLabel(item: InterviewListItem) {
@@ -177,6 +192,15 @@ function displayStatusLabel(item: InterviewListItem) {
   }
   if (hasActiveOffer(item)) {
     return item.offerStatusText || 'Offer 进行中'
+  }
+  if (item.offerStatus === OFFER_STATUS.DECLINED) {
+    return item.offerStatusText || '候选人已拒绝'
+  }
+  if (item.offerStatus === OFFER_STATUS.ACCEPTED) {
+    return item.offerStatusText || '候选人已接受'
+  }
+  if (item.offerStatus === OFFER_STATUS.REVOKED) {
+    return item.offerStatusText || 'Offer 已撤回'
   }
   return item.evaluationConclusionLabel || item.statusLabel || interviewStatusLabel(item.status)
 }
@@ -193,6 +217,9 @@ function displayStatusClass(item: InterviewListItem) {
   }
   if (hasActiveOffer(item)) {
     return 'bg-green-50 text-brand-green border-green-200'
+  }
+  if (isTerminalOffer(item) || item.offerStatus === OFFER_STATUS.REVOKED) {
+    return 'bg-muted text-muted-foreground border-border'
   }
   return interviewStatusClass(item.status)
 }

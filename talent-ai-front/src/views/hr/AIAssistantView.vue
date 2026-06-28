@@ -51,7 +51,7 @@ type QuickCommand = {
 const todoCounts = ref({
   pendingScreen: 0,
   toSchedule: 0,
-  offerApproval: 0,
+  offerToIssue: 0,
   todayInterview: 0,
 })
 const aiInsights = ref<HrAiInsights | null>(null)
@@ -75,11 +75,11 @@ const quickCommands = computed<QuickCommand[]>(() => {
       cmd: `列出待安排面试的候选人，共 ${c.toSchedule} 位`,
     })
   }
-  if (c.offerApproval > 0) {
+  if (c.offerToIssue > 0) {
     items.push({
       icon: Briefcase,
-      label: `Offer待审批(${c.offerApproval})`,
-      cmd: `汇总待审批的 Offer，共 ${c.offerApproval} 份`,
+      label: `Offer待发放(${c.offerToIssue})`,
+      cmd: `汇总待发放的 Offer，共 ${c.offerToIssue} 份`,
     })
   }
   if (c.todayInterview > 0) {
@@ -115,14 +115,12 @@ const quickCommands = computed<QuickCommand[]>(() => {
 async function loadQuickCommandContext() {
   const [
     pendingScreen,
-    offerPending,
-    offerApproving,
+    offerToIssue,
     interviewStats,
     ai,
   ] = await Promise.all([
     fetchHrResumePage({ current: 1, size: 1, screenStatus: RESUME_SCREEN_STATUS.PENDING }).catch(() => ({ total: 0 })),
-    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.PENDING }).catch(() => ({ total: 0 })),
-    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.APPROVING }).catch(() => ({ total: 0 })),
+    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.APPROVED }).catch(() => ({ total: 0 })),
     fetchHrInterviewStats().catch(() => ({ todayPending: 0, toSchedule: 0 })),
     fetchHrAiInsights().catch(() => null),
   ])
@@ -130,7 +128,7 @@ async function loadQuickCommandContext() {
   todoCounts.value = {
     pendingScreen: pendingScreen.total ?? 0,
     toSchedule: interviewStats.toSchedule ?? 0,
-    offerApproval: (offerPending.total ?? 0) + (offerApproving.total ?? 0),
+    offerToIssue: offerToIssue.total ?? 0,
     todayInterview: interviewStats.todayPending ?? 0,
   }
   aiInsights.value = ai

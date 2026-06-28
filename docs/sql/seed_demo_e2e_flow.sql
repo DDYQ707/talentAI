@@ -76,7 +76,7 @@ INSERT INTO offer (
 SELECT
   'OFR-DEMO-PENDING-001', ja.id, ja.job_id, ja.job_title, ja.candidate_id, ja.candidate_name,
   jp.dept_id, jp.dept_name, 22000.00, 320000.00, 'P5',
-  DATE_ADD(CURDATE(), INTERVAL 14 DAY), 3, 1, @hr_id, 'hr-demo', 'demo pending offer', 0
+  DATE_ADD(CURDATE(), INTERVAL 14 DAY), 3, 3, @hr_id, 'hr-demo', 'demo offer to issue', 0
 FROM job_application ja
 INNER JOIN job_post jp ON jp.id = ja.job_id
 WHERE ja.id = @app_pending AND @app_pending IS NOT NULL;
@@ -112,6 +112,6 @@ FROM DUAL
 WHERE @app_pending IS NOT NULL AND @job_id IS NOT NULL AND @resume_pending IS NOT NULL;
 
 SELECT 'pending_screen' AS k, COUNT(*) AS v FROM talent_resume_db.resume WHERE screen_status = 1 AND is_deleted = 0;
-SELECT 'offers_pending' AS k, COUNT(*) AS v FROM talent_job_db.offer WHERE status IN (1, 2) AND is_deleted = 0;
+SELECT 'offers_to_issue' AS k, COUNT(*) AS v FROM talent_job_db.offer WHERE status = 3 AND is_deleted = 0;
 SELECT 'to_schedule' AS k, COUNT(*) AS v FROM talent_interview_db.interview WHERE status = 3 AND is_deleted = 0;
 SELECT 'today_interview' AS k, COUNT(*) AS v FROM talent_interview_db.interview WHERE status = 1 AND DATE(scheduled_start) = CURDATE() AND is_deleted = 0;

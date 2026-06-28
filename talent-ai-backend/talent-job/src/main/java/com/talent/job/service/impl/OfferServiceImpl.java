@@ -25,7 +25,6 @@ import com.talent.job.vo.OfferListVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -96,36 +95,13 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
         offer.setHrId(hrId);
         offer.setRemark(request.getRemark());
 
-        // 4. 判断是否需要审批
-        List<Long> approverIds = request.getApproverIds();
-        boolean needApproval = !CollectionUtils.isEmpty(approverIds);
-
-        if (needApproval) {
-            // 有审批人 → 初始状态为"审批中"
-            offer.setStatus(OfferConstants.OFFER_STATUS_APPROVING);
-        } else {
-            // 无审批人 → 直接进入"已通过"状态
-            offer.setStatus(OfferConstants.OFFER_STATUS_APPROVED);
-        }
+        // 4. 简化流程：创建后直接进入「已通过」，由 HR 完善信息并发放（不启用审批链）
+        offer.setStatus(OfferConstants.OFFER_STATUS_APPROVED);
 
         // 5. 保存 Offer
         this.save(offer);
 
-        // 6. 初始化审批链
-        if (needApproval) {
-            List<OfferApproval> approvals = new ArrayList<>();
-            for (int i = 0; i < approverIds.size(); i++) {
-                OfferApproval approval = new OfferApproval();
-                approval.setOfferId(offer.getId());
-                approval.setSeq(i + 1);
-                approval.setApproverId(approverIds.get(i));
-                approval.setStatus(OfferConstants.APPROVAL_STATUS_PENDING);
-                approvals.add(approval);
-            }
-            offerApprovalService.saveBatch(approvals);
-        }
-
-        // 7. 返回详情
+        // 6. 返回详情
         return getOfferDetail(offer.getId());
     }
 
