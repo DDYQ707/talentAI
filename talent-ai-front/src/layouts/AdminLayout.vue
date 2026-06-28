@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { Shield, Bot, Bell, User, LogOut, Users, Building2, BookOpen, ShieldAlert, LayoutDashboard, Megaphone, Library } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+
+const displayName = computed(() => auth.userInfo?.nickname || '系统管理员')
+const roleLabel = computed(() => (auth.userInfo?.userType === 4 ? 'Super Admin' : '管理员'))
 
 const navItems = [
   { icon: LayoutDashboard, label: '数据大盘', path: '/admin/dashboard' },
@@ -53,8 +57,8 @@ function logout() {
           <Shield :size="15" class="text-primary-foreground" stroke-width="1.75" />
         </div>
         <div class="min-w-0">
-          <div class="truncate text-xs font-semibold text-sidebar-foreground">系统管理员</div>
-          <div class="truncate text-xs text-muted-foreground">Super Admin</div>
+          <div class="truncate text-xs font-semibold text-sidebar-foreground">{{ displayName }}</div>
+          <div class="truncate text-xs text-muted-foreground">{{ roleLabel }}</div>
         </div>
       </div>
       <nav class="flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-3">

@@ -54,5 +54,5 @@ export function listRiskJobs(params: ListJobRiskParams = {}) {
 }
 
 export function takedownJob(id: number, reason: string) {
-  return request.put<null>(`/api/admin/jobs/${id}/takedown`, { reason }) as Promise<null>
+  return request.put<null>(`/api/admin/jobs/risk/${id}/takedown`, { reason }) as Promise<null>
 }

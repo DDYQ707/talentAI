@@ -7,20 +7,27 @@ import com.talent.admin.common.PageResult;
 import com.talent.admin.dto.PageQuery;
 import com.talent.admin.entity.Announcement;
 import com.talent.admin.exception.BusinessException;
+import com.talent.admin.feign.AuthAdminFeignClient;
 import com.talent.admin.mapper.AnnouncementMapper;
 import com.talent.admin.service.IAnnouncementService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 系统公告 Announcement 服务实现
- *
- * @author TalentAI
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Announcement>
         implements IAnnouncementService {
+
+    private final AuthAdminFeignClient authAdminFeignClient;
 
     @Override
     public PageResult<Announcement> pageQuery(PageQuery query) {
@@ -40,6 +47,9 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
         if (Boolean.TRUE.equals(announcement.getBroadcasted())) {
             throw new BusinessException("该公告已广播，请勿重复操作");
         }
+
+        pushNotifications(announcement);
+
         Announcement update = new Announcement();
         update.setId(id);
         update.setBroadcasted(true);
@@ -66,5 +76,25 @@ public class AnnouncementServiceImpl extends ServiceImpl<AnnouncementMapper, Ann
             throw new BusinessException(404, "公告不存在");
         }
         return announcement;
+    }
+
+    private void pushNotifications(Announcement announcement) {
+        try {
+            Map<String, Object> body = new HashMap<>();
+            body.put("title", announcement.getTitle());
+            body.put("content", announcement.getContent());
+            body.put("target", announcement.getTarget() != null ? announcement.getTarget() : "all");
+            body.put("announcementId", announcement.getId());
+            Map<String, Object> resp = authAdminFeignClient.broadcastAnnouncement(body);
+            Object code = resp != null ? resp.get("code") : null;
+            if (code instanceof Number n && n.intValue() != 200) {
+                throw new BusinessException("通知推送失败: " + resp.get("msg"));
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[Announcement] 广播推送失败", e);
+            throw new BusinessException("通知推送失败，请确认 talent-auth 服务可用");
+        }
     }
 }

@@ -18,7 +18,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -69,15 +68,15 @@ public class DashboardServiceImpl implements IDashboardService {
         vo.setAiRiskBlocked(aiRiskBlocked);
         vo.setTodayDeliveryPeak(todayDeliveryPeak);
 
-        // 环比无历史快照，写死合理值；但真实统计值为 0 时强制返回 0，避免矛盾
-        vo.setTotalUsersTrend(trendFor(totalUsers, 12.6));
-        vo.setTotalEnterprisesTrend(trendFor(totalEnterprises, 5.3));
-        vo.setTodayDeliveryPeakTrend(trendFor(todayDeliveryPeak, -3.1));
-        vo.setAiRiskBlockedTrend(trendFor(aiRiskBlocked, 18.7));
+        // 环比暂无历史快照数据源，返回 0 表示「暂无对比」
+        vo.setTotalUsersTrend(0.0);
+        vo.setTotalEnterprisesTrend(0.0);
+        vo.setTodayDeliveryPeakTrend(0.0);
+        vo.setAiRiskBlockedTrend(0.0);
         return vo;
     }
 
-    /** 真实值为 0 时环比归 0，否则使用预设趋势值 */
+    /** 真实值为 0 时环比归 0（保留供后续接入历史快照） */
     private double trendFor(long actualValue, double presetTrend) {
         return actualValue == 0L ? 0.0 : presetTrend;
     }
@@ -117,21 +116,9 @@ public class DashboardServiceImpl implements IDashboardService {
                     toLong(row.get("value"))));
         }
         if (list.isEmpty()) {
-            return mockIndustry();
+            return Collections.emptyList();
         }
         return list;
-    }
-
-    private List<IndustryVO> mockIndustry() {
-        return new ArrayList<>(Arrays.asList(
-                new IndustryVO("互联网/IT", 320),
-                new IndustryVO("金融", 180),
-                new IndustryVO("制造业", 150),
-                new IndustryVO("教育", 90),
-                new IndustryVO("医疗健康", 75),
-                new IndustryVO("电子商务", 60),
-                new IndustryVO("房地产", 45),
-                new IndustryVO("其他", 110)));
     }
 
     /** 将 [{d,c}] 行转为 {yyyy-MM-dd -> count} */

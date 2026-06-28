@@ -3,6 +3,7 @@ package com.talent.analytics.feign;
 import com.talent.analytics.feign.dto.OfferStatsDTO;
 import com.talent.analytics.feign.dto.MonthlyCountDTO;
 import com.talent.analytics.feign.dto.DepartmentJobStatDTO;
+import com.talent.analytics.feign.fallback.JobFeignFallback;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -10,7 +11,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "talent-job", contextId = "analyticsJobFeignClient", path = "/api/job/internal/stats")
+@FeignClient(name = "talent-job", contextId = "analyticsJobFeignClient", path = "/api/job/internal/stats",
+        fallback = JobFeignFallback.class)
 public interface JobFeignClient {
 
     @GetMapping("/active-job-count")

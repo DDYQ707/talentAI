@@ -33,6 +33,9 @@ public class JobRisk implements Serializable {
     /** 发布者ID */
     private Long publisherId;
 
+    /** 关联 talent-job 岗位 ID（可选，用于精确同步下架） */
+    private Long jobPostId;
+
     /** 最低薪资 */
     private Integer salaryMin;
 

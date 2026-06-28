@@ -60,4 +60,17 @@ public class NotificationController {
         }
         return body;
     }
+
+    /** 微服务内部：公告广播推送 */
+    @PostMapping("/internal/broadcast")
+    public Map<String, Object> broadcastInternal(@RequestBody com.talent.auth.dto.NotificationBroadcastRequest request) {
+        R<Map<String, Object>> result = notificationService.broadcastAnnouncement(request);
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("code", result.getCode());
+        body.put("msg", result.getMsg());
+        if (result.getData() != null) {
+            body.put("data", result.getData());
+        }
+        return body;
+    }
 }

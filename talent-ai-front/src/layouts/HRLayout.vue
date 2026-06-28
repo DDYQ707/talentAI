@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import {
   LayoutDashboard,
@@ -22,6 +22,15 @@ import { useAuthStore } from '@/stores/auth'
 import request from '@/utils/request'
 
 const auth = useAuthStore()
+
+const displayName = computed(() => auth.userInfo?.nickname || 'HR用户')
+const roleLabel = computed(() => {
+  const t = auth.userInfo?.userType
+  if (t === 2) return 'HR'
+  if (t === 3) return '面试官'
+  if (t === 4) return '管理员'
+  return '企业用户'
+})
 
 const navItems = [
   { icon: LayoutDashboard, label: '工作台', path: '/hr' },
@@ -108,8 +117,8 @@ async function handleLogout() {
           <User :size="15" class="text-primary-foreground" stroke-width="1.75" />
         </div>
         <div v-if="!collapsed" class="min-w-0">
-          <div class="truncate text-xs font-semibold text-sidebar-foreground">张招聘</div>
-          <div class="truncate text-xs text-muted-foreground">HR总监</div>
+          <div class="truncate text-xs font-semibold text-sidebar-foreground">{{ displayName }}</div>
+          <div class="truncate text-xs text-muted-foreground">{{ roleLabel }}</div>
         </div>
       </div>
 
@@ -165,7 +174,7 @@ async function handleLogout() {
             class="hidden items-center gap-1.5 rounded-full border border-border bg-brand-tint/80 px-3 py-1 text-xs font-medium text-[#3d8b7a] sm:inline-flex"
           >
             <Building2 :size="13" stroke-width="1.75" />
-            <span class="max-w-[140px] truncate">未来科技集团</span>
+            <span class="max-w-[140px] truncate">TalentAI 企业端</span>
           </div>
           <button
             type="button"
