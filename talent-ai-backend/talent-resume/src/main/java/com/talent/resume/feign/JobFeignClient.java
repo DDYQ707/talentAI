@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "talent-job")
+@FeignClient(name = "talent-job", fallbackFactory = JobFeignClientFallbackFactory.class)
 public interface JobFeignClient {
 
     @GetMapping("/api/job/internal/application/latest-by-resume")

@@ -10,10 +10,34 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/talent_resume_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
     password: dyq!
-  servlet:
+    servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 12MB
+  cloud:
+    sentinel:
+      # 让 Sentinel 在应用启动时即初始化（默认懒加载，首次受保护资源被调用才初始化）
+      eager: true
+      transport:
+        # Sentinel Dashboard 地址；不接 Dashboard 时此项不生效，保留以便后续接入。
+        # 接入步骤见 SentinelRuleConfig 注释。本轮用代码配置规则，可不填。
+        dashboard: 127.0.0.1:8080
+        # 本机与 Dashboard 通信端口，多实例需保证端口不冲突（默认 8719 起自动探测）
+        port: 8719
+
+# 开启 OpenFeign 对 Sentinel 的支持：Feign 调用会被包装为 Sentinel 资源，
+# 触发熔断/异常时走 fallbackFactory。
+feign:
+  sentinel:
+    enabled: true
+
+# 暴露 actuator 端点，用于确认 Sentinel 实际注册的资源名及当前熔断规则：
+#   GET /actuator/sentinel
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,sentinel
 
 mybatis-plus:
   configuration:
