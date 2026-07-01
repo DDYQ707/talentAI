@@ -17,6 +17,7 @@ import {
 import {
   fetchAiInterviewQuestions,
   fetchAiMatchByApplication,
+  formatMatchErrorMessage,
   generateAiInterviewQuestions,
   parseDimensionScores,
   parseJsonStringArray,
@@ -128,7 +129,7 @@ async function handleGenerateQuestions() {
     askedQuestionIds.value = new Set()
     successMsg.value = `已生成 ${aiQuestions.value.length} 道面试题`
   } catch (e) {
-    errorMsg.value = getErrorMessage(e, 'AI 面试题生成失败')
+    errorMsg.value = formatMatchErrorMessage(getErrorMessage(e, 'AI 面试题生成失败'))
   } finally {
     generating.value = false
   }
@@ -313,7 +314,7 @@ onMounted(async () => {
           </div>
 
           <div class="bg-card p-5 shadow-card border border-border">
-            <div class="flex items-center justify-between gap-3 mb-4">
+            <div class="flex items-center justify-between gap-3 mb-1">
               <div class="flex items-center gap-2">
                 <Sparkles :size="15" class="text-brand-purple" />
                 <span class="text-base font-bold text-foreground">AI 面试提纲</span>
@@ -329,6 +330,11 @@ onMounted(async () => {
                 <span>{{ generating ? '生成中...' : 'AI 生成面试题' }}</span>
               </button>
             </div>
+            <p v-if="interviewDetail" class="text-xs text-muted-foreground mb-4">
+              本场：第 {{ interviewDetail.roundNo ?? 1 }} 轮 · {{ interviewDetail.roundTypeLabel || '面试' }}
+              · AI 题目按 HR 安排的「{{ interviewDetail.roundTypeLabel || '面试' }}」类型生成
+            </p>
+            <div v-else class="mb-4" />
 
             <div v-if="!selectedInterviewId && !loading" class="text-sm text-muted-foreground py-8 text-center">
               选择面试后可生成针对性面试题

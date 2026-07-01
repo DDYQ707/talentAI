@@ -7,6 +7,7 @@ export interface KnowledgeDoc {
   sourcePath?: string | null
   status?: number
   chunkCount?: number
+  content?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -16,6 +17,14 @@ export interface KnowledgeImportPayload {
   category: string
   content: string
   sourcePath?: string
+}
+
+export interface KnowledgeUpdatePayload {
+  title: string
+  category: string
+  content: string
+  sourcePath?: string
+  reindex?: boolean
 }
 
 export const KNOWLEDGE_CATEGORY_OPTIONS = [
@@ -35,6 +44,10 @@ export function listKnowledgeDocs() {
   return request.get<KnowledgeDoc[]>('/api/ai/knowledge/docs') as Promise<KnowledgeDoc[]>
 }
 
+export function getKnowledgeDoc(docId: number) {
+  return request.get<KnowledgeDoc>(`/api/ai/knowledge/${docId}`) as Promise<KnowledgeDoc>
+}
+
 export function importKnowledgeDoc(data: KnowledgeImportPayload) {
   return request.post<KnowledgeDoc>('/api/ai/knowledge/import', data, {
     timeout: 120000,
@@ -43,6 +56,12 @@ export function importKnowledgeDoc(data: KnowledgeImportPayload) {
 
 export function reindexKnowledgeDoc(docId: number) {
   return request.post<KnowledgeDoc>(`/api/ai/knowledge/${docId}/reindex`, null, {
+    timeout: 120000,
+  }) as Promise<KnowledgeDoc>
+}
+
+export function updateKnowledgeDoc(docId: number, data: KnowledgeUpdatePayload) {
+  return request.put<KnowledgeDoc>(`/api/ai/knowledge/${docId}`, data, {
     timeout: 120000,
   }) as Promise<KnowledgeDoc>
 }

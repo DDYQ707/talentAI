@@ -37,6 +37,10 @@ export interface InterviewListItem {
   offerId?: number | null
   offerStatus?: number | null
   offerStatusText?: string | null
+  /** 投递状态：1-进行中 2-已录用 3-已淘汰 */
+  applicationStatus?: number | null
+  /** HR 招聘终局，如「HR已淘汰」 */
+  recruitmentOutcomeLabel?: string | null
 }
 
 export interface InterviewEvaluation {
@@ -106,7 +110,7 @@ export interface EvaluationPayload {
 export function reassignInterview(interviewId: number, interviewerId: number) {
   return request.put<null>(`/api/interview/hr/${interviewId}/reassign`, {
     interviewerId,
-  }) as Promise<null>
+  }, { timeout: 30000 }) as Promise<null>
 }
 
 export interface HrInterviewQuery {
@@ -130,7 +134,9 @@ export function fetchInterviewers() {
 }
 
 export function scheduleInterview(data: InterviewSchedulePayload) {
-  return request.post<InterviewScheduleResult>('/api/interview/hr/schedule', data) as Promise<InterviewScheduleResult>
+  return request.post<InterviewScheduleResult>('/api/interview/hr/schedule', data, {
+    timeout: 30000,
+  }) as Promise<InterviewScheduleResult>
 }
 
 export function fetchHrInterviewPage(params: HrInterviewQuery = {}) {
@@ -146,7 +152,9 @@ export function fetchHrInterviewDetail(interviewId: number) {
 }
 
 export function cancelInterview(interviewId: number) {
-  return request.put<null>(`/api/interview/hr/${interviewId}/cancel`) as Promise<null>
+  return request.put<null>(`/api/interview/hr/${interviewId}/cancel`, null, {
+    timeout: 30000,
+  }) as Promise<null>
 }
 
 export function fetchInterviewsByApplication(applicationId: number) {
@@ -176,7 +184,9 @@ export function fetchCandidateInterviewDetail(interviewId: number) {
 }
 
 export function submitInterviewEvaluation(interviewId: number, data: EvaluationPayload) {
-  return request.post<InterviewEvaluation>(`/api/interview/my/${interviewId}/evaluation`, data) as Promise<InterviewEvaluation>
+  return request.post<InterviewEvaluation>(`/api/interview/my/${interviewId}/evaluation`, data, {
+    timeout: 30000,
+  }) as Promise<InterviewEvaluation>
 }
 
 /** 安排面试时可选的投递记录（来自 HR 简历列表 + 详情补全 applicationId） */

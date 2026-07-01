@@ -9,6 +9,7 @@ import com.talent.interview.feign.AuthFeignClient;
 import com.talent.interview.feign.JobFeignClient;
 import com.talent.interview.feign.ResumeFeignClient;
 import com.talent.interview.mapper.InterviewMapper;
+import com.talent.interview.service.InterviewAsyncSideEffectService;
 import com.talent.interview.service.InterviewEvaluationService;
 import com.talent.interview.service.InterviewService;
 import com.talent.interview.util.FeignResponseHelper;
@@ -49,6 +50,7 @@ public class InterviewServiceImpl implements InterviewService {
 
     private final InterviewMapper interviewMapper;
     private final InterviewEvaluationService evaluationService;
+    private final InterviewAsyncSideEffectService asyncSideEffectService;
     private final JobFeignClient jobFeignClient;
     private final AuthFeignClient authFeignClient;
     private final ResumeFeignClient resumeFeignClient;
@@ -75,9 +77,18 @@ public class InterviewServiceImpl implements InterviewService {
     @Override
     public List<InterviewEvaluationVO> listEvaluationsByApplication(Long applicationId) {
         return listByApplicationId(applicationId).stream()
-                .map(interview -> InterviewEvaluationServiceImpl.toVo(
-                        evaluationService.findByInterviewId(interview.getId())))
-                .filter(vo -> vo != null)
+                .map(interview -> {
+                    InterviewEvaluationVO vo = InterviewEvaluationServiceImpl.toVo(
+                            evaluationService.findByInterviewId(interview.getId()));
+                    if (vo == null) {
+                        return null;
+                    }
+                    vo.setInterviewId(interview.getId());
+                    vo.setRoundNo(interview.getRoundNo());
+                    vo.setRoundTypeLabel(InterviewConstants.roundTypeLabel(interview.getRoundType()));
+                    return vo;
+                })
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 
@@ -125,14 +136,21 @@ public class InterviewServiceImpl implements InterviewService {
         }
 
         int roundNo = request.getRoundNo() != null && request.getRoundNo() > 0 ? request.getRoundNo() : 1;
+        validateRoundSchedule(roundNo, request.getRoundType());
+
         long duplicate = interviewMapper.selectCount(
                 new LambdaQueryWrapper<Interview>()
                         .eq(Interview::getApplicationId, request.getApplicationId())
                         .eq(Interview::getRoundNo, roundNo)
-                        .ne(Interview::getStatus, InterviewConstants.STATUS_CANCELLED));
+                        .in(
+                                Interview::getStatus,
+                                InterviewConstants.STATUS_PENDING,
+                                InterviewConstants.STATUS_TO_SCHEDULE));
         if (duplicate > 0) {
-            throw new IllegalArgumentException("该投递的第 " + roundNo + " 轮面试已存在，请勿重复安排");
+            throw new IllegalArgumentException("该投递的第 " + roundNo + " 轮面试已有待进行安排，请勿重复安排");
         }
+
+        completePreviousPendingRounds(request.getApplicationId(), roundNo);
 
         Interview interview = new Interview();
         interview.setApplicationId(request.getApplicationId());
@@ -171,10 +189,12 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> pageForHr(
             String role, Integer page, Integer size, String keyword, Integer status,
             LocalDate dateFrom, LocalDate dateTo) {
         InterviewAuthSupport.requireHr(role);
+        repairSupersededPendingInterviews();
         long current = page != null && page > 0 ? page : 1;
         long pageSize = size != null && size > 0 ? Math.min(size, 100) : 10;
 
@@ -196,8 +216,9 @@ public class InterviewServiceImpl implements InterviewService {
                         .filter(Objects::nonNull)
                         .distinct()
                         .collect(Collectors.toList()));
+        Map<Long, Map<String, Object>> applicationCache = new HashMap<>();
         List<InterviewListVO> records = pageResult.getRecords().stream()
-                .map(interview -> toHrListVo(interview, resumeIdCache, evaluationMap, offerMap))
+                .map(interview -> toHrListVo(interview, resumeIdCache, evaluationMap, offerMap, applicationCache))
                 .collect(Collectors.toList());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -234,7 +255,7 @@ public class InterviewServiceImpl implements InterviewService {
         interviewMapper.updateById(interview);
 
         if (!hasOtherPendingInterview(interview.getCandidateId(), interview.getId())) {
-            revertToPendingScreen(interview);
+            asyncSideEffectService.revertToPendingScreenAfterCancel(interview);
         }
     }
 
@@ -265,6 +286,7 @@ public class InterviewServiceImpl implements InterviewService {
         interview.setInterviewerName(defaultName(FeignResponseHelper.strVal(interviewer.get("nickname")), "面试官"));
         interview.setUpdatedAt(LocalDateTime.now());
         interviewMapper.updateById(interview);
+        notifyInterviewerReassigned(interview);
     }
 
     @Override
@@ -287,8 +309,9 @@ public class InterviewServiceImpl implements InterviewService {
                         .filter(Objects::nonNull)
                         .distinct()
                         .collect(Collectors.toList()));
+        Map<Long, Map<String, Object>> applicationCache = new HashMap<>();
         return interviews.stream()
-                .map(interview -> toHrListVo(interview, new HashMap<>(), evaluationMap, offerMap))
+                .map(interview -> toHrListVo(interview, new HashMap<>(), evaluationMap, offerMap, applicationCache))
                 .collect(Collectors.toList());
     }
 
@@ -305,8 +328,16 @@ public class InterviewServiceImpl implements InterviewService {
         wrapper.orderByAsc(Interview::getScheduledStart);
 
         Page<Interview> pageResult = interviewMapper.selectPage(new Page<>(current, pageSize), wrapper);
+        List<Long> completedIds = pageResult.getRecords().stream()
+                .filter(i -> Objects.equals(i.getStatus(), InterviewConstants.STATUS_COMPLETED))
+                .map(Interview::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Long, InterviewEvaluation> evaluationMap =
+                evaluationService.findMapByInterviewIds(completedIds);
+        Map<Long, Map<String, Object>> applicationCache = new HashMap<>();
         List<InterviewListVO> records = pageResult.getRecords().stream()
-                .map(this::toListVo)
+                .map(interview -> toInterviewerListVo(interview, evaluationMap, applicationCache))
                 .collect(Collectors.toList());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -371,6 +402,34 @@ public class InterviewServiceImpl implements InterviewService {
         return toCandidateDetailVo(interview);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncOnApplicationRejected(Long applicationId) {
+        if (applicationId == null) {
+            return;
+        }
+        List<Interview> pending = interviewMapper.selectList(
+                new LambdaQueryWrapper<Interview>()
+                        .eq(Interview::getApplicationId, applicationId)
+                        .in(
+                                Interview::getStatus,
+                                InterviewConstants.STATUS_PENDING,
+                                InterviewConstants.STATUS_TO_SCHEDULE));
+        if (pending.isEmpty()) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (Interview interview : pending) {
+            interview.setStatus(InterviewConstants.STATUS_CANCELLED);
+            interview.setUpdatedAt(now);
+            interviewMapper.updateById(interview);
+            log.info(
+                    "HR 淘汰联动取消待面试 applicationId={} interviewId={}",
+                    applicationId,
+                    interview.getId());
+        }
+    }
+
     private void validateScheduleRequest(InterviewScheduleRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("请求体不能为空");
@@ -395,6 +454,21 @@ public class InterviewServiceImpl implements InterviewService {
         }
         if (request.getInterviewMode() == 2 && !StringUtils.hasText(request.getLocation())) {
             throw new IllegalArgumentException("现场面试请填写 location");
+        }
+    }
+
+    /** 轮次序号须在 1～3；面试类型由 HR 自由选择，不要求按固定顺序安排 */
+    private void validateRoundSchedule(int roundNo, Integer roundType) {
+        if (roundNo < 1 || roundNo > InterviewConstants.MAX_INTERVIEW_ROUNDS) {
+            throw new IllegalArgumentException(
+                    "轮次序号须在 1～"
+                            + InterviewConstants.MAX_INTERVIEW_ROUNDS
+                            + " 之间，每份投递最多安排 "
+                            + InterviewConstants.MAX_INTERVIEW_ROUNDS
+                            + " 轮");
+        }
+        if (roundType != null && !InterviewConstants.isValidRoundType(roundType)) {
+            throw new IllegalArgumentException("roundType 无效，应为 1～7");
         }
     }
 
@@ -469,37 +543,75 @@ public class InterviewServiceImpl implements InterviewService {
         return interviewMapper.selectCount(wrapper) > 0;
     }
 
-    private void revertToPendingScreen(Interview interview) {
-        Long candidateId = interview.getCandidateId();
-        if (candidateId == null) {
+    /**
+     * 安排更高轮次时，将同投递下更早轮次仍为「待面试」的记录标记为「面试完成」。
+     * 复试等新面试单独一条记录，前一轮不应继续显示待面试。
+     */
+    private void completePreviousPendingRounds(Long applicationId, int newRoundNo) {
+        if (applicationId == null || newRoundNo <= 1) {
             return;
         }
-        Long resumeId = resolveResumeId(interview);
-        try {
-            Map<String, Object> resumeBody = new HashMap<>();
-            resumeBody.put("resumeId", resumeId);
-            resumeBody.put("candidateId", candidateId);
-            resumeBody.put("screenStatus", SCREEN_STATUS_PENDING);
-            resumeBody.put("operatorId", interview.getCreatedBy());
-            resumeBody.put("operatorName", interview.getCreatedByName());
-            resumeBody.put("remark", "面试取消回退待筛选");
-            Map<String, Object> resumeRes = resumeFeignClient.syncScreenStatus(resumeBody);
-            if (FeignResponseHelper.code(resumeRes) != 200) {
-                log.warn("取消面试后回退筛选状态失败 candidateId={} msg={}", candidateId, FeignResponseHelper.msg(resumeRes, ""));
-            }
+        List<Interview> previousPending = interviewMapper.selectList(
+                new LambdaQueryWrapper<Interview>()
+                        .eq(Interview::getApplicationId, applicationId)
+                        .lt(Interview::getRoundNo, newRoundNo)
+                        .eq(Interview::getStatus, InterviewConstants.STATUS_PENDING));
+        if (previousPending.isEmpty()) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (Interview previous : previousPending) {
+            previous.setStatus(InterviewConstants.STATUS_COMPLETED);
+            previous.setUpdatedAt(now);
+            interviewMapper.updateById(previous);
+            log.info(
+                    "安排第 {} 轮时将第 {} 轮标记为面试完成 applicationId={} interviewId={}",
+                    newRoundNo,
+                    previous.getRoundNo(),
+                    applicationId,
+                    previous.getId());
+        }
+    }
 
-            Map<String, Object> jobBody = new HashMap<>();
-            jobBody.put("candidateId", candidateId);
-            jobBody.put("screenStatus", SCREEN_STATUS_PENDING);
-            jobBody.put("operatorId", interview.getCreatedBy());
-            jobBody.put("operatorName", interview.getCreatedByName());
-            jobBody.put("remark", "面试取消回退待筛选");
-            Map<String, Object> jobRes = jobFeignClient.syncByScreenStatus(jobBody);
-            if (FeignResponseHelper.code(jobRes) != 200) {
-                log.warn("取消面试后同步投递阶段失败 candidateId={} msg={}", candidateId, FeignResponseHelper.msg(jobRes, ""));
+    /** 修复历史数据：同投递已存在更高轮次时，低轮次不应仍为待面试 */
+    private void repairSupersededPendingInterviews() {
+        List<Interview> pendingList = interviewMapper.selectList(
+                new LambdaQueryWrapper<Interview>()
+                        .eq(Interview::getStatus, InterviewConstants.STATUS_PENDING)
+                        .isNotNull(Interview::getApplicationId)
+                        .isNotNull(Interview::getRoundNo));
+        if (pendingList.isEmpty()) {
+            return;
+        }
+        Map<Long, Integer> maxRoundByApp = new HashMap<>();
+        for (Long applicationId :
+                pendingList.stream().map(Interview::getApplicationId).distinct().toList()) {
+            Interview maxInterview = interviewMapper.selectOne(
+                    new LambdaQueryWrapper<Interview>()
+                            .eq(Interview::getApplicationId, applicationId)
+                            .ne(Interview::getStatus, InterviewConstants.STATUS_CANCELLED)
+                            .orderByDesc(Interview::getRoundNo)
+                            .last("LIMIT 1"),
+                    false);
+            if (maxInterview != null && maxInterview.getRoundNo() != null) {
+                maxRoundByApp.put(applicationId, maxInterview.getRoundNo());
             }
-        } catch (Exception e) {
-            log.warn("取消面试后回退筛选状态异常 candidateId={}", candidateId, e);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (Interview pending : pendingList) {
+            Integer maxRound = maxRoundByApp.get(pending.getApplicationId());
+            if (maxRound != null
+                    && pending.getRoundNo() != null
+                    && maxRound > pending.getRoundNo()) {
+                pending.setStatus(InterviewConstants.STATUS_COMPLETED);
+                pending.setUpdatedAt(now);
+                interviewMapper.updateById(pending);
+                log.info(
+                        "修复已被更高轮次取代的待面试记录 applicationId={} roundNo={} interviewId={}",
+                        pending.getApplicationId(),
+                        pending.getRoundNo(),
+                        pending.getId());
+            }
         }
     }
 
@@ -617,14 +729,75 @@ public class InterviewServiceImpl implements InterviewService {
         return vo;
     }
 
+    private InterviewListVO toInterviewerListVo(
+            Interview interview,
+            Map<Long, InterviewEvaluation> evaluationMap,
+            Map<Long, Map<String, Object>> applicationCache) {
+        InterviewListVO vo = toListVo(interview);
+        applyEvaluationSummary(vo, interview, evaluationMap);
+        applyRecruitmentOutcome(vo, interview, applicationCache);
+        return vo;
+    }
+
+    private void applyRecruitmentOutcome(
+            InterviewListVO vo, Interview interview, Map<Long, Map<String, Object>> applicationCache) {
+        if (interview.getApplicationId() == null) {
+            return;
+        }
+        Map<String, Object> appData = loadApplicationData(interview.getApplicationId(), applicationCache);
+        if (appData == null) {
+            return;
+        }
+        Integer applicationStatus = FeignResponseHelper.intVal(appData.get("status"));
+        vo.setApplicationStatus(applicationStatus);
+        vo.setRecruitmentOutcomeLabel(recruitmentOutcomeLabel(applicationStatus));
+    }
+
+    private Map<String, Object> loadApplicationData(
+            Long applicationId, Map<Long, Map<String, Object>> applicationCache) {
+        if (applicationId == null) {
+            return null;
+        }
+        if (applicationCache != null && applicationCache.containsKey(applicationId)) {
+            return applicationCache.get(applicationId);
+        }
+        try {
+            Map<String, Object> res = jobFeignClient.applicationById(applicationId);
+            if (FeignResponseHelper.code(res) != 200) {
+                return null;
+            }
+            Map<String, Object> data = FeignResponseHelper.dataMap(res);
+            if (applicationCache != null) {
+                applicationCache.put(applicationId, data);
+            }
+            return data;
+        } catch (Exception e) {
+            log.warn("查询投递状态失败 applicationId={}", applicationId, e);
+            return null;
+        }
+    }
+
+    private static String recruitmentOutcomeLabel(Integer applicationStatus) {
+        if (applicationStatus == null) {
+            return null;
+        }
+        return switch (applicationStatus) {
+            case 2 -> "已录用";
+            case 3 -> "HR已淘汰";
+            default -> null;
+        };
+    }
+
     /** HR 面试列表：附带评价结论、resumeId 与 Offer 状态 */
     private InterviewListVO toHrListVo(
             Interview interview,
             Map<Long, Long> resumeIdCache,
             Map<Long, InterviewEvaluation> evaluationMap,
-            Map<Long, Map<String, Object>> offerMap) {
+            Map<Long, Map<String, Object>> offerMap,
+            Map<Long, Map<String, Object>> applicationCache) {
         InterviewListVO vo = toListVo(interview);
         applyEvaluationSummary(vo, interview, evaluationMap);
+        applyRecruitmentOutcome(vo, interview, applicationCache);
         if (interview.getApplicationId() != null || interview.getCandidateId() != null) {
             vo.setResumeId(resolveResumeId(interview, resumeIdCache));
         }
@@ -637,6 +810,14 @@ public class InterviewServiceImpl implements InterviewService {
             }
         }
         return vo;
+    }
+
+    private InterviewListVO toHrListVo(
+            Interview interview,
+            Map<Long, Long> resumeIdCache,
+            Map<Long, InterviewEvaluation> evaluationMap,
+            Map<Long, Map<String, Object>> offerMap) {
+        return toHrListVo(interview, resumeIdCache, evaluationMap, offerMap, new HashMap<>());
     }
 
     private Map<Long, Map<String, Object>> loadOfferMapByApplications(List<Long> applicationIds) {
@@ -775,6 +956,7 @@ public class InterviewServiceImpl implements InterviewService {
             vo.setEvaluationConclusion(evaluation.getConclusion());
             vo.setEvaluationConclusionLabel(evaluation.getConclusionLabel());
         }
+        applyRecruitmentOutcome(vo, interview, new HashMap<>());
         return vo;
     }
 
@@ -812,13 +994,67 @@ public class InterviewServiceImpl implements InterviewService {
     }
 
     private void notifyInterviewScheduled(Interview interview) {
-        if (interview == null || interview.getCandidateId() == null) {
+        if (interview == null) {
+            return;
+        }
+        notifyCandidateInterviewScheduled(interview);
+        notifyInterviewerInterviewScheduled(interview);
+    }
+
+    private void notifyCandidateInterviewScheduled(Interview interview) {
+        if (interview.getCandidateId() == null) {
             return;
         }
         String jobTitle = defaultName(interview.getJobTitle(), "岗位");
         int roundNo = interview.getRoundNo() != null && interview.getRoundNo() > 0 ? interview.getRoundNo() : 1;
         StringBuilder content = new StringBuilder();
         content.append("您投递的「").append(jobTitle).append("」已安排第 ").append(roundNo).append(" 轮面试");
+        appendInterviewScheduleDetails(content, interview);
+        content.append("，请准时参加。");
+        sendInterviewNotification(interview.getCandidateId(), "面试安排通知", content.toString(), interview.getId());
+    }
+
+    private void notifyInterviewerInterviewScheduled(Interview interview) {
+        if (interview.getInterviewerId() == null) {
+            return;
+        }
+        String candidateName = defaultName(interview.getCandidateName(), "候选人");
+        String jobTitle = defaultName(interview.getJobTitle(), "岗位");
+        int roundNo = interview.getRoundNo() != null && interview.getRoundNo() > 0 ? interview.getRoundNo() : 1;
+        StringBuilder content = new StringBuilder();
+        content.append("您有一场新的面试安排：候选人 ")
+                .append(candidateName)
+                .append("，岗位「")
+                .append(jobTitle)
+                .append("」，第 ")
+                .append(roundNo)
+                .append(" 轮");
+        appendInterviewScheduleDetails(content, interview);
+        content.append("，请提前在「面试准备」中查看候选人信息。");
+        sendInterviewNotification(interview.getInterviewerId(), "面试安排通知", content.toString(), interview.getId());
+    }
+
+    private void notifyInterviewerReassigned(Interview interview) {
+        if (interview == null || interview.getInterviewerId() == null) {
+            return;
+        }
+        String candidateName = defaultName(interview.getCandidateName(), "候选人");
+        String jobTitle = defaultName(interview.getJobTitle(), "岗位");
+        int roundNo = interview.getRoundNo() != null && interview.getRoundNo() > 0 ? interview.getRoundNo() : 1;
+        StringBuilder content = new StringBuilder();
+        content.append("HR 已将一场面试改派给您：候选人 ")
+                .append(candidateName)
+                .append("，岗位「")
+                .append(jobTitle)
+                .append("」，第 ")
+                .append(roundNo)
+                .append(" 轮");
+        appendInterviewScheduleDetails(content, interview);
+        content.append("，请登录面试官端查看详情。");
+        sendInterviewNotification(interview.getInterviewerId(), "面试改派通知", content.toString(), interview.getId());
+    }
+
+    private void appendInterviewScheduleDetails(StringBuilder content, Interview interview) {
         if (interview.getScheduledStart() != null) {
             content.append("，时间：")
                     .append(interview.getScheduledStart().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
@@ -828,26 +1064,31 @@ public class InterviewServiceImpl implements InterviewService {
         } else if (StringUtils.hasText(interview.getMeetingUrl())) {
             content.append("，线上会议已安排");
         }
-        content.append("，请准时参加。");
+    }
+
+    private void sendInterviewNotification(Long userId, String title, String content, Long interviewId) {
+        if (userId == null) {
+            return;
+        }
         try {
             Map<String, Object> body = new HashMap<>();
-            body.put("userId", interview.getCandidateId());
-            body.put("title", "面试安排通知");
-            body.put("content", content.toString());
+            body.put("userId", userId);
+            body.put("title", title);
+            body.put("content", content);
             body.put("notifyType", (byte) 1);
             body.put("bizType", "interview");
-            body.put("bizId", interview.getId());
+            body.put("bizId", interviewId);
             Map<String, Object> res = authFeignClient.createNotification(body);
             if (res == null) {
-                log.warn("创建面试通知无响应 interviewId={}", interview.getId());
+                log.warn("创建面试通知无响应 userId={} interviewId={}", userId, interviewId);
                 return;
             }
             Object code = res.get("code");
             if (!(code instanceof Number num) || num.intValue() != 200) {
-                log.warn("创建面试通知失败 interviewId={} msg={}", interview.getId(), res.get("msg"));
+                log.warn("创建面试通知失败 userId={} interviewId={} msg={}", userId, interviewId, res.get("msg"));
             }
         } catch (Exception e) {
-            log.warn("创建面试通知异常 interviewId={} reason={}", interview.getId(), e.getMessage());
+            log.warn("创建面试通知异常 userId={} interviewId={} reason={}", userId, interviewId, e.getMessage());
         }
     }
 }

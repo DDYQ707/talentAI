@@ -54,7 +54,7 @@ public class Interview implements Serializable {
 
     private String location;
 
-    /** 1-待进行 2-已完成 3-待安排 4-已取消 */
+    /** 1-待进行 2-面试完成 3-待安排 4-已取消 */
     private Integer status;
 
     private BigDecimal totalScore;

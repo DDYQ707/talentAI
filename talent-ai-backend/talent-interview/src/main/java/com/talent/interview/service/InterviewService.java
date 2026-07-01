@@ -51,4 +51,7 @@ public interface InterviewService {
             String role, Long candidateId, Integer page, Integer size, String keyword, Integer status);
 
     InterviewDetailVO detailForCandidate(String role, Long candidateId, Long interviewId);
+
+    /** HR 淘汰候选人后联动：取消该投递下未完成的面试安排 */
+    void syncOnApplicationRejected(Long applicationId);
 }

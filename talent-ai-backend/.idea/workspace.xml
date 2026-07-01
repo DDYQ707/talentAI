@@ -5,19 +5,56 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1a6f220a-19dc-4c50-aa1b-fa84333c16af" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../docs/sql/consolidate_duplicate_resumes.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../docs/sql/fix_merge_duplicate_resumes.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../docs/sql/talent_resume_db_init.sql" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../docs/sql/talent_resume_online_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docker/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../docker/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docs/功能清单.md" beforeDir="false" afterPath="$PROJECT_DIR$/../docs/功能清单.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../docs/答辩评分对照与完善清单.md" beforeDir="false" afterPath="$PROJECT_DIR$/../docs/答辩评分对照与完善清单.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/encodings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/dto/ParseTaskRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/dto/ParseTaskRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiMatchRecord.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiMatchRecord.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiParseTask.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiParseTask.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiResumeParseResult.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/entity/AiResumeParseResult.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/MatchResultVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/MatchResultVO.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/ParseTaskVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/ParseTaskVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-admin/src/main/java/com/talent/admin/service/impl/AiModelServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-admin/src/main/java/com/talent/admin/service/impl/AiModelServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-admin/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/talent-admin/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/controller/AiController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/controller/AiController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/controller/KnowledgeAdminController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/controller/KnowledgeAdminController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/KnowledgeDocVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/domain/vo/KnowledgeDocVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/knowledge/KnowledgeIngestService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/knowledge/KnowledgeIngestService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/InterviewQuestionLlmService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/InterviewQuestionLlmService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiInterviewQuestionServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiInterviewQuestionServiceImpl.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiMatchServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiMatchServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiParseServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/AiParseServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/InterviewQuestionLlmServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/InterviewQuestionLlmServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/ResumeJobMatchServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-ai-agent/src/main/java/com/talent/agent/service/impl/ResumeJobMatchServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/test/CodeGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-auth/src/main/java/com/talent/auth/test/CodeGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/TalentInterviewApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/TalentInterviewApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/constant/InterviewConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/constant/InterviewConstants.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/controller/InterviewInternalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/controller/InterviewInternalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/controller/InterviewStatsInternalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/controller/InterviewStatsInternalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/entity/Interview.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/entity/Interview.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/InterviewEvaluationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/InterviewEvaluationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/InterviewService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/InterviewService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/impl/InterviewEvaluationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/impl/InterviewEvaluationServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/impl/InterviewServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/service/impl/InterviewServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/vo/InterviewEvaluationVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/vo/InterviewEvaluationVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/vo/InterviewListVO.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-interview/src/main/java/com/talent/interview/vo/InterviewListVO.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/config/GlobalExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/config/GlobalExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobStatsInternalController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/JobStatsInternalController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/OfferController.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/controller/OfferController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/dto/OfferQueryRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/dto/OfferQueryRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IOfferService.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/IOfferService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/main/java/com/talent/job/service/impl/JobApplicationServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/talent-job/src/test/java/CodeGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/talent-job/src/test/java/CodeGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/ai.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/ai.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/api/interview.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/api/interview.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/components/hr/InterviewScheduleDialog.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/components/hr/InterviewScheduleDialog.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/interview.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/interview.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/constants/portal.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/constants/portal.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/layouts/AdminLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/layouts/AdminLayout.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/layouts/InterviewerLayout.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/layouts/InterviewerLayout.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/router/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/router/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplyView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ApplyView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ProfileView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/candidate/ProfileView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/hr/InterviewManagementView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/hr/InterviewManagementView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/interviewer/InterviewDetailView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/interviewer/InterviewDetailView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/interviewer/InterviewListView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/interviewer/InterviewListView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../talent-ai-front/src/views/interviewer/InterviewPrepView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../talent-ai-front/src/views/interviewer/InterviewPrepView.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,7 +90,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "WebServerToolWindowFactoryState": "false",
-    "git-widget-placeholder": "sprint1-ai-match",
+    "git-widget-placeholder": "feature/recruit-dashboard",
     "jdk.selected.JAVA_MODULE": "17",
     "last_opened_file_path": "C:/Users/32805/Desktop/智能招聘与人才画像分析系统/talent-ai-system/talent-ai-backend/talent-common/src/main/java/com/talent/common",
     "node.js.detected.package.eslint": "true",
@@ -74,7 +111,7 @@
       <recent name="C:\Users\32805\Desktop\智能招聘与人才画像分析系统\talent-ai-system\talent-ai-backend\talent-common\src\main\java\com\talent\common" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Spring Boot.AiAgentApplication">
     <configuration name="CodeGenerator (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="CodeGenerator" />
       <module name="talent-job" />
@@ -96,8 +133,18 @@
       </method>
     </configuration>
     <configuration name="AiAgentApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <envs>
+        <env name="DASHSCOPE_API_KEY" value="sk-ffe225f57dee4ddfb90c784bd8a771ae" />
+      </envs>
       <module name="talent-ai-agent" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.agent.AiAgentApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="AnalyticsApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-analytics" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.analytics.AnalyticsApplication" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -116,9 +163,30 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="TalentAdminApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-admin" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.admin.TalentAdminApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="TalentInterviewApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-interview" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.interview.TalentInterviewApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="TalentJobApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="talent-job" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.job.TalentJobApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="TalentPoolApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="talent-talent-pool" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.talent.pool.TalentPoolApplication" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -130,6 +198,19 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <list>
+      <item itemvalue="Spring Boot.AnalyticsApplication" />
+      <item itemvalue="Spring Boot.TalentAdminApplication" />
+      <item itemvalue="Spring Boot.TalentInterviewApplication" />
+      <item itemvalue="Spring Boot.TalentPoolApplication" />
+      <item itemvalue="Spring Boot.AiAgentApplication" />
+      <item itemvalue="Spring Boot.AuthApplication" />
+      <item itemvalue="Spring Boot.GatewayApplication" />
+      <item itemvalue="Spring Boot.TalentJobApplication" />
+      <item itemvalue="Spring Boot.TalentResumeApplication" />
+      <item itemvalue="应用程序.CodeGenerator" />
+      <item itemvalue="应用程序.CodeGenerator (1)" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="应用程序.CodeGenerator (1)" />

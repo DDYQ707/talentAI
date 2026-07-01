@@ -178,9 +178,11 @@ export function generateAiInterviewQuestions(payload: {
   interviewId?: number
   applicationId?: number
 }) {
+  // 后端单次 LLM 最长 60s，不足 5 题时会重试，需留足等待时间
   return request.post<AiInterviewQuestionGenerateResult>(
     '/api/ai/interview-questions/generate',
     payload,
+    { timeout: 150000 },
   ) as Promise<AiInterviewQuestionGenerateResult>
 }
 

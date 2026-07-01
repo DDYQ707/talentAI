@@ -1,4 +1,4 @@
-/** 1-待面试 2-已完成 3-待安排 4-已取消 */
+/** 1-待面试 2-面试完成 3-待安排 4-已取消 */
 export const INTERVIEW_STATUS = {
   PENDING: 1,
   COMPLETED: 2,
@@ -43,13 +43,29 @@ export const INTERVIEW_CONCLUSION = {
 } as const
 
 export const ROUND_TYPE_OPTIONS = [
-  { value: INTERVIEW_ROUND_TYPE.TECH_FIRST, label: '业务初试' },
-  { value: INTERVIEW_ROUND_TYPE.TECH_SECOND, label: '业务复试' },
-  { value: INTERVIEW_ROUND_TYPE.HR, label: 'HR初面' },
-  { value: INTERVIEW_ROUND_TYPE.FINAL, label: '终面' },
-  { value: INTERVIEW_ROUND_TYPE.CROSS, label: '交叉面' },
-  { value: INTERVIEW_ROUND_TYPE.PORTFOLIO, label: '作品评审' },
+  { value: INTERVIEW_ROUND_TYPE.TECH_FIRST, label: '技术面初面' },
+  { value: INTERVIEW_ROUND_TYPE.TECH_SECOND, label: '技术面复试' },
+  { value: INTERVIEW_ROUND_TYPE.HR, label: 'HR面' },
+  { value: INTERVIEW_ROUND_TYPE.FINAL, label: '终面/综合面' },
 ]
+
+/** 每份投递最多 3 轮；可只安排 1 轮、2 轮或 3 轮，由 HR 灵活决定 */
+export const MAX_INTERVIEW_ROUNDS = 3
+
+export function roundTypeLabelFromType(roundType?: number | null): string {
+  const opt = ROUND_TYPE_OPTIONS.find((item) => item.value === roundType)
+  if (opt) return opt.label
+  switch (roundType) {
+    case INTERVIEW_ROUND_TYPE.AI_SCREEN:
+      return 'AI初筛'
+    case INTERVIEW_ROUND_TYPE.CROSS:
+      return '交叉面'
+    case INTERVIEW_ROUND_TYPE.PORTFOLIO:
+      return '作品评审'
+    default:
+      return '面试'
+  }
+}
 
 export const INTERVIEW_MODE_OPTIONS = [
   { value: INTERVIEW_MODE.VIDEO, label: '视频面试' },
@@ -62,7 +78,7 @@ export function interviewStatusLabel(status?: number | null): string {
     case INTERVIEW_STATUS.PENDING:
       return '待面试'
     case INTERVIEW_STATUS.COMPLETED:
-      return '已完成'
+      return '面试完成'
     case INTERVIEW_STATUS.TO_SCHEDULE:
       return '待安排'
     case INTERVIEW_STATUS.CANCELLED:

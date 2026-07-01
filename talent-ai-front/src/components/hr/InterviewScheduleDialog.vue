@@ -3,15 +3,18 @@ import { computed, ref, watch } from 'vue'
 import { Calendar, X } from 'lucide-vue-next'
 import {
   fetchInterviewers,
+  fetchInterviewsByApplication,
   fetchScheduleableApplications,
   scheduleInterview,
   type ScheduleableApplicationOption,
 } from '@/api/interview'
-import type { InterviewerOption } from '@/api/interview'
+import type { InterviewerOption, InterviewListItem } from '@/api/interview'
 import {
   INTERVIEW_MODE,
   INTERVIEW_ROUND_TYPE,
+  INTERVIEW_STATUS,
   INTERVIEW_MODE_OPTIONS,
+  MAX_INTERVIEW_ROUNDS,
   ROUND_TYPE_OPTIONS,
   toLocalDateTimeString,
 } from '@/constants/interview'
@@ -52,6 +55,8 @@ const formScheduledStart = ref('')
 const formMeetingUrl = ref('')
 const formLocation = ref('')
 
+const applicationInterviews = ref<InterviewListItem[]>([])
+
 const needsApplicationPick = computed(() => !props.applicationId || props.applicationId <= 0)
 
 const activeApplicationId = computed(() => {
@@ -77,6 +82,49 @@ const subtitle = computed(() => {
   return parts.length ? parts.join(' · ') : `投递单 #${props.applicationId}`
 })
 
+/** 已取消的轮次可复用；待面试/待安排/面试完成 视为占用该轮次序号 */
+function suggestNextRoundNo(interviews: InterviewListItem[]): number | null {
+  const occupied = new Set<number>()
+  for (const item of interviews) {
+    if (item.status === INTERVIEW_STATUS.CANCELLED) continue
+    const round = Number(item.roundNo)
+    if (Number.isFinite(round) && round > 0) occupied.add(round)
+  }
+  let next = 1
+  while (occupied.has(next) && next <= MAX_INTERVIEW_ROUNDS) next++
+  if (next > MAX_INTERVIEW_ROUNDS) return null
+  return next
+}
+
+const suggestedRoundNo = computed(() => suggestNextRoundNo(applicationInterviews.value))
+
+const roundTypeOptions = ROUND_TYPE_OPTIONS
+
+const scheduleBlocked = computed(() => suggestedRoundNo.value == null)
+
+const roundScheduleHint = computed(() => {
+  const round = formRoundNo.value || 1
+  return `第 ${round} 轮 · 每份投递最多 ${MAX_INTERVIEW_ROUNDS} 轮（可只安排 1 轮）；面试类型由 HR 自由选择，AI 将按所选类型生成题目`
+})
+
+async function loadSuggestedRoundNo(applicationId: number) {
+  try {
+    const records = await fetchInterviewsByApplication(applicationId)
+    applicationInterviews.value = records ?? []
+    const next = suggestNextRoundNo(applicationInterviews.value)
+    if (next == null) {
+      formRoundNo.value = MAX_INTERVIEW_ROUNDS
+      formError.value = '该投递已完成最多 3 轮面试安排，无法继续新增'
+    } else {
+      formRoundNo.value = next
+    }
+  } catch {
+    applicationInterviews.value = []
+    formRoundNo.value = 1
+    formRoundType.value = INTERVIEW_ROUND_TYPE.TECH_FIRST
+  }
+}
+
 watch(
   () => props.open,
   async (visible) => {
@@ -91,8 +139,16 @@ watch(
     formMeetingUrl.value = ''
     formLocation.value = ''
     await Promise.all([loadInterviewers(), loadScheduleableApplications()])
+    if (activeApplicationId.value) {
+      await loadSuggestedRoundNo(activeApplicationId.value)
+    }
   },
 )
+
+watch(activeApplicationId, async (applicationId) => {
+  if (!props.open || !applicationId) return
+  await loadSuggestedRoundNo(applicationId)
+})
 
 async function loadInterviewers() {
   loadingInterviewers.value = true
@@ -123,7 +179,7 @@ async function loadScheduleableApplications() {
 }
 
 async function handleSubmit() {
-  if (!canSubmit.value || saving.value) return
+  if (!canSubmit.value || saving.value || scheduleBlocked.value) return
   formError.value = ''
 
   if (!formInterviewerId.value) {
@@ -241,15 +297,19 @@ async function handleSubmit() {
             </select>
           </div>
 
+          <div class="rounded-xl border border-brand-border/60 bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+            {{ roundScheduleHint }}
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-xs font-medium text-muted-foreground mb-1.5 block">面试轮次</label>
+              <label class="text-xs font-medium text-muted-foreground mb-1.5 block">面试类型</label>
               <select
                 v-model="formRoundType"
                 class="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none"
-                :disabled="!canSubmit"
+                :disabled="!canSubmit || scheduleBlocked"
               >
-                <option v-for="opt in ROUND_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+                <option v-for="opt in roundTypeOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
                 </option>
               </select>
@@ -260,9 +320,13 @@ async function handleSubmit() {
                 v-model.number="formRoundNo"
                 type="number"
                 min="1"
+                :max="MAX_INTERVIEW_ROUNDS"
                 class="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none"
-                :disabled="!canSubmit"
+                :disabled="!canSubmit || scheduleBlocked"
               />
+              <p class="text-[11px] text-muted-foreground mt-1">
+                序号 1～{{ MAX_INTERVIEW_ROUNDS }}，可跳过；已取消的序号可重新使用
+              </p>
             </div>
           </div>
 
@@ -323,7 +387,7 @@ async function handleSubmit() {
           <button
             type="button"
             class="flex-1 py-2.5 rounded-xl gradient-blue text-white text-sm font-medium disabled:opacity-50"
-            :disabled="!canSubmit || saving"
+            :disabled="!canSubmit || saving || scheduleBlocked"
             @click="handleSubmit"
           >
             {{ saving ? '提交中...' : '确认安排' }}
