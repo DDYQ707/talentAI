@@ -11,7 +11,7 @@ public class CodeGenerator {
     public static void main(String[] args) {
 
         // 1. 数据库连接配置 (已经帮你写好了刚才确认的 3306 端口和 talent_auth_db 库名)
-        String url = "jdbc:mysql://127.0.0.1:3307/talent_auth_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai";
+        String url = "jdbc:mysql://127.0.0.1:3306/talent_auth_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai";
         String username = "root";
         String password = "dyq!"; // <--- 【必改】填你的 MySQL 密码
 

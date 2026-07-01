@@ -26,4 +26,11 @@ public class InterviewEvaluationVO {
     private String comment;
 
     private LocalDateTime createdAt;
+
+    /** 关联面试（供 AI 递进出题等内部场景） */
+    private Long interviewId;
+
+    private Integer roundNo;
+
+    private String roundTypeLabel;
 }

@@ -158,6 +158,18 @@ onMounted(() => loadData())
                   >
                     {{ iv.statusLabel || interviewStatusLabel(iv.status) }}
                   </span>
+                  <span
+                    v-if="iv.recruitmentOutcomeLabel"
+                    class="text-xs px-2 py-0.5 rounded-full border bg-red-50 text-red-600 border-red-200"
+                  >
+                    {{ iv.recruitmentOutcomeLabel }}
+                  </span>
+                  <span
+                    v-else-if="iv.evaluationConclusionLabel && iv.status === INTERVIEW_STATUS.COMPLETED"
+                    class="text-xs px-2 py-0.5 rounded-full border bg-orange-50 text-orange-700 border-orange-200"
+                  >
+                    评价·{{ iv.evaluationConclusionLabel }}
+                  </span>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                   <div

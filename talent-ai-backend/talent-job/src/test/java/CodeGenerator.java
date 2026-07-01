@@ -7,7 +7,7 @@ import java.util.Collections;
 public class CodeGenerator {
     public static void main(String[] args) {
         // 1. 注意这里已经是 talent_job_db 了
-        String url = "jdbc:mysql://127.0.0.1:3307/talent_job_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai";
+        String url = "jdbc:mysql://127.0.0.1:3306/talent_job_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai";
         String username = "root";
         String password = "dyq!"; // <--- 【必改】
 

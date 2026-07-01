@@ -7,14 +7,23 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+      </profile>
+      <profile name="Annotation profile for talent-ai-backend" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
+        </processorPath>
         <module name="talent-gateway" />
         <module name="talent-ai-agent" />
         <module name="talent-analytics" />
-        <module name="talent-resume" />
         <module name="talent-common" />
+        <module name="talent-resume" />
+        <module name="talent-admin" />
         <module name="talent-interview" />
-        <module name="talent-job" />
         <module name="talent-auth" />
+        <module name="talent-job" />
         <module name="talent-talent-pool" />
       </profile>
     </annotationProcessing>
@@ -24,6 +33,7 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="talent-admin" options="-parameters" />
       <module name="talent-ai-agent" options="-parameters" />
       <module name="talent-ai-backend" options="-parameters" />
       <module name="talent-analytics" options="-parameters" />

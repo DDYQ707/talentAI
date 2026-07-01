@@ -10,6 +10,7 @@ import 'element-plus/es/components/option/style/css'
 import { computed, onMounted, ref } from 'vue'
 import {
   AlertCircle,
+  Eye,
   Library,
   Loader2,
   Plus,
@@ -28,11 +29,13 @@ import {
   ElSelect,
 } from 'element-plus'
 import {
+  getKnowledgeDoc,
   importKnowledgeDoc,
   knowledgeCategoryLabel,
   KNOWLEDGE_CATEGORY_OPTIONS,
   listKnowledgeDocs,
   reindexKnowledgeDoc,
+  updateKnowledgeDoc,
   type KnowledgeDoc,
 } from '@/api/adminKnowledge'
 import { getErrorMessage } from '@/utils/validators'
@@ -44,12 +47,24 @@ const categoryFilter = ref('')
 
 const importOpen = ref(false)
 const importSaving = ref(false)
+const detailOpen = ref(false)
+const detailLoading = ref(false)
+const detailSaving = ref(false)
 const reindexingId = ref<number | null>(null)
 const importForm = ref({
   title: '',
   category: 'faq',
   content: '',
   sourcePath: '',
+})
+const detailForm = ref({
+  id: 0,
+  title: '',
+  category: 'faq',
+  content: '',
+  sourcePath: '',
+  chunkCount: 0,
+  updatedAt: '',
 })
 
 const filteredDocs = computed(() => {
@@ -92,6 +107,63 @@ function openImportDialog() {
     sourcePath: '',
   }
   importOpen.value = true
+}
+
+async function openDetail(doc: KnowledgeDoc) {
+  detailOpen.value = true
+  detailLoading.value = true
+  detailForm.value = {
+    id: doc.id,
+    title: doc.title,
+    category: doc.category,
+    content: '',
+    sourcePath: doc.sourcePath ?? '',
+    chunkCount: doc.chunkCount ?? 0,
+    updatedAt: doc.updatedAt ?? '',
+  }
+  try {
+    const full = await getKnowledgeDoc(doc.id)
+    detailForm.value = {
+      id: full.id,
+      title: full.title,
+      category: full.category,
+      content: full.content ?? '',
+      sourcePath: full.sourcePath ?? '',
+      chunkCount: full.chunkCount ?? 0,
+      updatedAt: full.updatedAt ?? '',
+    }
+  } catch (e) {
+    detailOpen.value = false
+    ElMessage.error(getErrorMessage(e, '文档详情加载失败'))
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+async function handleSaveDetail() {
+  const title = detailForm.value.title.trim()
+  const content = detailForm.value.content.trim()
+  if (!title || !content) {
+    ElMessage.warning('请填写标题与正文内容')
+    return
+  }
+  detailSaving.value = true
+  try {
+    await updateKnowledgeDoc(detailForm.value.id, {
+      title,
+      category: detailForm.value.category,
+      content,
+      sourcePath: detailForm.value.sourcePath.trim() || undefined,
+      reindex: true,
+    })
+    ElMessage.success('已保存并重新向量化')
+    detailOpen.value = false
+    await loadDocs()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '保存失败'))
+  } finally {
+    detailSaving.value = false
+  }
 }
 
 async function handleImport() {
@@ -154,7 +226,7 @@ onMounted(() => loadDocs())
             <h1 class="text-2xl font-black text-foreground">AI 知识库</h1>
           </div>
           <p class="text-sm text-muted-foreground max-w-2xl">
-            供 HR「AI 招聘助手」RAG 检索使用。导入后会自动切分并向量化；修改数据库正文后可对单篇执行 reindex。
+            供 HR「AI 招聘助手」RAG 检索使用。点击标题可查看/编辑正文；保存后会自动重新切分并向量化。
           </p>
         </div>
         <button
@@ -232,7 +304,15 @@ onMounted(() => loadDocs())
                 :key="doc.id"
                 class="border-b border-border last:border-0 hover:bg-muted/30"
               >
-                <td class="px-4 py-3 font-medium text-foreground">{{ doc.title }}</td>
+                <td class="px-4 py-3 font-medium text-foreground">
+                  <button
+                    type="button"
+                    class="text-left hover:text-brand-purple hover:underline underline-offset-2"
+                    @click="openDetail(doc)"
+                  >
+                    {{ doc.title }}
+                  </button>
+                </td>
                 <td class="px-4 py-3">
                   <span class="text-xs px-2 py-0.5 rounded-full bg-brand-tint text-brand-purple border border-brand-purple/20">
                     {{ knowledgeCategoryLabel(doc.category) }}
@@ -244,16 +324,26 @@ onMounted(() => loadDocs())
                 </td>
                 <td class="px-4 py-3 text-muted-foreground">{{ formatTime(doc.updatedAt) }}</td>
                 <td class="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-muted disabled:opacity-50"
-                    :disabled="reindexingId === doc.id"
-                    @click="handleReindex(doc)"
-                  >
-                    <Loader2 v-if="reindexingId === doc.id" :size="12" class="animate-spin" />
-                    <RefreshCw v-else :size="12" />
-                    {{ reindexingId === doc.id ? '索引中...' : 'Reindex' }}
-                  </button>
+                  <div class="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-muted"
+                      @click="openDetail(doc)"
+                    >
+                      <Eye :size="12" />
+                      查看/编辑
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border hover:bg-muted disabled:opacity-50"
+                      :disabled="reindexingId === doc.id"
+                      @click="handleReindex(doc)"
+                    >
+                      <Loader2 v-if="reindexingId === doc.id" :size="12" class="animate-spin" />
+                      <RefreshCw v-else :size="12" />
+                      {{ reindexingId === doc.id ? '索引中...' : 'Reindex' }}
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -305,6 +395,63 @@ onMounted(() => loadDocs())
           @click="handleImport"
         >
           {{ importSaving ? '导入并向量化中...' : '确认导入' }}
+        </button>
+      </template>
+    </ElDialog>
+
+    <ElDialog
+      v-model="detailOpen"
+      :title="detailLoading ? '加载文档...' : `编辑：${detailForm.title || '知识文档'}`"
+      width="720px"
+      destroy-on-close
+    >
+      <div v-if="detailLoading" class="py-12 text-center text-sm text-muted-foreground">加载正文中...</div>
+      <ElForm v-else label-position="top">
+        <div class="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          <span>片段数：{{ detailForm.chunkCount ?? '—' }}</span>
+          <span>更新时间：{{ formatTime(detailForm.updatedAt) }}</span>
+        </div>
+        <ElFormItem label="标题" required>
+          <ElInput v-model="detailForm.title" maxlength="128" show-word-limit />
+        </ElFormItem>
+        <ElFormItem label="分类" required>
+          <ElSelect v-model="detailForm.category" class="w-full">
+            <ElOption
+              v-for="opt in KNOWLEDGE_CATEGORY_OPTIONS"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </ElSelect>
+        </ElFormItem>
+        <ElFormItem label="来源路径（可选）">
+          <ElInput v-model="detailForm.sourcePath" placeholder="例如：classpath:knowledge/02-faq-screen-status.md" />
+        </ElFormItem>
+        <ElFormItem label="正文（Markdown 或纯文本）" required>
+          <ElInput
+            v-model="detailForm.content"
+            type="textarea"
+            :rows="16"
+            placeholder="知识库正文..."
+          />
+        </ElFormItem>
+      </ElForm>
+      <template #footer>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl border border-border text-sm mr-2"
+          :disabled="detailSaving"
+          @click="detailOpen = false"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-xl gradient-purple text-white text-sm font-medium disabled:opacity-50"
+          :disabled="detailLoading || detailSaving"
+          @click="handleSaveDetail"
+        >
+          {{ detailSaving ? '保存并向量化中...' : '保存并重新向量化' }}
         </button>
       </template>
     </ElDialog>

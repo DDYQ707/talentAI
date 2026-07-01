@@ -66,4 +66,10 @@ public class InterviewListVO {
     private String offerStatusText;
 
     private Long offerId;
+
+    /** 投递状态：1-进行中 2-已录用 3-已淘汰（面试官端展示 HR 终局） */
+    private Integer applicationStatus;
+
+    /** HR 招聘终局文案，如「HR已淘汰」 */
+    private String recruitmentOutcomeLabel;
 }

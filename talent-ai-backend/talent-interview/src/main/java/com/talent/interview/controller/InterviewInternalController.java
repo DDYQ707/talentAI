@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -61,5 +62,15 @@ public class InterviewInternalController {
         result.put("code", 200);
         result.put("data", records);
         return result;
+    }
+
+    /** HR 淘汰候选人后联动：取消该投递下待面试/待安排记录 */
+    @PostMapping("/application/{applicationId}/reject-sync")
+    public Map<String, Object> syncApplicationRejected(@PathVariable("applicationId") Long applicationId) {
+        if (applicationId == null) {
+            return Map.of("code", 400, "msg", "applicationId 不能为空");
+        }
+        interviewService.syncOnApplicationRejected(applicationId);
+        return Map.of("code", 200, "msg", "ok");
     }
 }

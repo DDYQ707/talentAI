@@ -56,7 +56,18 @@ const tabOptions = [
   { key: 'closed' as const, label: '已结束' },
 ]
 
+/** 投递状态：3-已淘汰（HR 终局决策） */
+const APPLICATION_STATUS_REJECTED = 3
+
+function isHrRejected(item: InterviewListItem) {
+  return (
+    item.applicationStatus === APPLICATION_STATUS_REJECTED
+    || item.recruitmentOutcomeLabel === 'HR已淘汰'
+  )
+}
+
 function isInterviewHold(item: InterviewListItem) {
+  if (isHrRejected(item)) return false
   if (item.status !== INTERVIEW_STATUS.COMPLETED) return false
   const conclusion = Number(item.evaluationConclusion)
   if (conclusion === INTERVIEW_CONCLUSION.HOLD) return true
@@ -64,6 +75,7 @@ function isInterviewHold(item: InterviewListItem) {
 }
 
 function isInterviewReject(item: InterviewListItem) {
+  if (isHrRejected(item)) return true
   if (item.status !== INTERVIEW_STATUS.COMPLETED) return false
   const conclusion = Number(item.evaluationConclusion)
   if (conclusion === INTERVIEW_CONCLUSION.REJECT) return true
@@ -111,6 +123,58 @@ function canSendOffer(item: InterviewListItem) {
   return status === OFFER_STATUS.REVOKED
 }
 
+/** 同投递下判定哪条是当前有效面试（待面试 > 待安排 > 已完成，同状态取更高轮次） */
+function compareInterviewPriority(a: InterviewListItem, b: InterviewListItem): number {
+  const statusScore = (status: number) => {
+    if (status === INTERVIEW_STATUS.PENDING) return 3
+    if (status === INTERVIEW_STATUS.TO_SCHEDULE) return 2
+    if (status === INTERVIEW_STATUS.COMPLETED) return 1
+    return 0
+  }
+  const scoreDiff = statusScore(a.status) - statusScore(b.status)
+  if (scoreDiff !== 0) return scoreDiff
+  const roundDiff = (a.roundNo ?? 0) - (b.roundNo ?? 0)
+  if (roundDiff !== 0) return roundDiff
+  return (a.interviewId ?? 0) - (b.interviewId ?? 0)
+}
+
+const primaryInterviewByApplication = computed(() => {
+  const map = new Map<number, InterviewListItem>()
+  for (const iv of interviews.value) {
+    if (iv.status === INTERVIEW_STATUS.CANCELLED) continue
+    const existing = map.get(iv.applicationId)
+    if (!existing || compareInterviewPriority(iv, existing) > 0) {
+      map.set(iv.applicationId, iv)
+    }
+  }
+  return map
+})
+
+function isPrimaryInterview(item: InterviewListItem) {
+  const primary = primaryInterviewByApplication.value.get(item.applicationId)
+  return primary?.interviewId === item.interviewId
+}
+
+/** 已有更高轮次或同投递存在待面试时，较早的已完成记录视为历史轮次 */
+function isHistoricalInterview(item: InterviewListItem) {
+  if (item.status === INTERVIEW_STATUS.PENDING || item.status === INTERVIEW_STATUS.TO_SCHEDULE) {
+    return false
+  }
+  if (item.status === INTERVIEW_STATUS.CANCELLED) return true
+  return !isPrimaryInterview(item)
+}
+
+function canActOnInterview(item: InterviewListItem) {
+  return !isHistoricalInterview(item)
+}
+
+function rowClass(item: InterviewListItem) {
+  if (isHistoricalInterview(item)) {
+    return 'border-b border-border bg-muted/25 text-muted-foreground'
+  }
+  return 'border-b border-border hover:bg-muted/30 transition-colors'
+}
+
 /** 待完成：待面试、待安排 */
 const pendingInterviews = computed(() =>
   interviews.value.filter(
@@ -123,22 +187,33 @@ const completedInterviews = computed(() =>
   interviews.value.filter((iv) => iv.status === INTERVIEW_STATUS.COMPLETED),
 )
 
-/** 面试官推荐通过、尚未发放 Offer */
+/** 面试官推荐通过、尚未发放 Offer（仅当前有效轮次） */
 const awaitingOfferInterviews = computed(() =>
-  completedInterviews.value.filter((iv) => canSendOffer(iv)),
+  completedInterviews.value.filter((iv) => isPrimaryInterview(iv) && canSendOffer(iv)),
 )
 
-/** 面试官标记待定，等待 HR 决策 */
+/** 面试官标记待定，等待 HR 决策（仅当前有效轮次） */
 const awaitingDecisionInterviews = computed(() =>
-  completedInterviews.value.filter((iv) => isInterviewHold(iv)),
+  completedInterviews.value.filter((iv) => isPrimaryInterview(iv) && isInterviewHold(iv)),
 )
 
-/** 已结束：不推荐，或 Offer 已在流程中 */
-const closedInterviews = computed(() =>
-  completedInterviews.value.filter(
-    (iv) => !canSendOffer(iv) && !isInterviewHold(iv),
-  ),
-)
+/** 已结束：HR 已淘汰、面试官不通过、Offer 终态等 + 历史轮次 */
+const closedInterviews = computed(() => {
+  const primaryClosed = completedInterviews.value.filter(
+    (iv) =>
+      isPrimaryInterview(iv)
+      && (isHrRejected(iv) || (!canSendOffer(iv) && !isInterviewHold(iv))),
+  )
+  const historical = completedInterviews.value.filter((iv) => isHistoricalInterview(iv))
+  const seen = new Set(primaryClosed.map((iv) => iv.interviewId))
+  const merged = [...primaryClosed]
+  for (const iv of historical) {
+    if (!seen.has(iv.interviewId)) merged.push(iv)
+  }
+  return merged.sort(
+    (a, b) => compareInterviewPriority(b, a) || (b.interviewId ?? 0) - (a.interviewId ?? 0),
+  )
+})
 
 const displayedInterviews = computed(() => {
   if (activeTab.value === 'pending') return pendingInterviews.value
@@ -180,46 +255,39 @@ function emptyTabMessage() {
   return '暂无已结束面试（不推荐、Offer 已结束或流程进行中）'
 }
 
+function canScheduleFollowUp(item: InterviewListItem) {
+  if (!canActOnInterview(item)) return false
+  if (item.status !== INTERVIEW_STATUS.COMPLETED) return false
+  if (hasActiveOffer(item) || isTerminalOffer(item)) return false
+  if (isInterviewReject(item)) return false
+  return isInterviewHold(item) || isInterviewPass(item)
+}
+
 function displayStatusLabel(item: InterviewListItem) {
-  if (activeTab.value === 'awaitingOffer') {
-    return item.evaluationConclusionLabel || '推荐通过'
+  if (isHrRejected(item)) {
+    return '已淘汰'
   }
-  if (activeTab.value === 'awaitingDecision' || isInterviewHold(item)) {
-    return item.evaluationConclusionLabel || '待定'
+  if (item.status === INTERVIEW_STATUS.COMPLETED) {
+    return '面试完成'
   }
-  if (isInterviewReject(item)) {
-    return item.evaluationConclusionLabel || '不推荐'
+  if (item.status === INTERVIEW_STATUS.CANCELLED) {
+    return item.statusLabel || interviewStatusLabel(item.status)
   }
-  if (hasActiveOffer(item)) {
-    return item.offerStatusText || 'Offer 进行中'
-  }
-  if (item.offerStatus === OFFER_STATUS.DECLINED) {
-    return item.offerStatusText || '候选人已拒绝'
-  }
-  if (item.offerStatus === OFFER_STATUS.ACCEPTED) {
-    return item.offerStatusText || '候选人已接受'
-  }
-  if (item.offerStatus === OFFER_STATUS.REVOKED) {
-    return item.offerStatusText || 'Offer 已撤回'
-  }
-  return item.evaluationConclusionLabel || item.statusLabel || interviewStatusLabel(item.status)
+  return item.statusLabel || interviewStatusLabel(item.status)
 }
 
 function displayStatusClass(item: InterviewListItem) {
-  if (activeTab.value === 'awaitingOffer' || canSendOffer(item)) {
-    return 'bg-purple-50 text-brand-purple border-purple-200'
+  if (isHistoricalInterview(item)) {
+    return 'bg-muted text-muted-foreground border-border'
   }
-  if (activeTab.value === 'awaitingDecision' || isInterviewHold(item)) {
-    return 'bg-orange-50 text-brand-orange border-orange-200'
-  }
-  if (isInterviewReject(item)) {
+  if (isHrRejected(item)) {
     return 'bg-red-50 text-red-600 border-red-200'
   }
-  if (hasActiveOffer(item)) {
+  if (item.status === INTERVIEW_STATUS.COMPLETED) {
     return 'bg-green-50 text-brand-green border-green-200'
   }
-  if (isTerminalOffer(item) || item.offerStatus === OFFER_STATUS.REVOKED) {
-    return 'bg-muted text-muted-foreground border-border'
+  if (item.status === INTERVIEW_STATUS.CANCELLED) {
+    return interviewStatusClass(item.status)
   }
   return interviewStatusClass(item.status)
 }
@@ -290,7 +358,18 @@ function closeReassign() {
 }
 
 function canRejectAfterInterview(item: InterviewListItem) {
-  return !hasActiveOffer(item)
+  if (isHrRejected(item)) return false
+  if (!canActOnInterview(item) || !isPrimaryInterview(item)) return false
+  if (hasActiveOffer(item) || isTerminalOffer(item)) return false
+  if (isInterviewReject(item)) return false
+  // 仅当前有效轮次、且仍处待定/待录用决策阶段时可淘汰
+  return isInterviewHold(item) || canSendOffer(item)
+}
+
+function canArchiveAfterInterview(item: InterviewListItem) {
+  if (!canActOnInterview(item) || !isPrimaryInterview(item)) return false
+  if (hasActiveOffer(item) || isTerminalOffer(item)) return false
+  return isInterviewHold(item) || canSendOffer(item) || isInterviewReject(item)
 }
 
 function goCandidateDetail(item: InterviewListItem) {
@@ -521,14 +600,34 @@ onMounted(() => loadData())
             <tr
               v-for="iv in displayedInterviews"
               :key="iv.interviewId"
-              class="border-b border-border hover:bg-muted/30 transition-colors"
+              :class="rowClass(iv)"
             >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-full gradient-blue flex items-center justify-center">
-                    <User :size="12" class="text-white" />
+                  <div
+                    :class="[
+                      'w-7 h-7 rounded-full flex items-center justify-center',
+                      isHistoricalInterview(iv) ? 'bg-muted' : 'gradient-blue',
+                    ]"
+                  >
+                    <User :size="12" :class="isHistoricalInterview(iv) ? 'text-muted-foreground' : 'text-white'" />
                   </div>
-                  <span class="text-sm font-medium text-foreground">{{ iv.candidateName }}</span>
+                  <div class="min-w-0">
+                    <span
+                      :class="[
+                        'text-sm font-medium',
+                        isHistoricalInterview(iv) ? 'text-muted-foreground' : 'text-foreground',
+                      ]"
+                    >
+                      {{ iv.candidateName }}
+                    </span>
+                    <span
+                      v-if="isHistoricalInterview(iv)"
+                      class="ml-2 text-[10px] px-1.5 py-0.5 rounded-full border border-border bg-muted text-muted-foreground"
+                    >
+                      历史轮次
+                    </span>
+                  </div>
                 </div>
               </td>
               <td class="px-4 py-3 text-sm text-muted-foreground">{{ iv.jobTitle }}</td>
@@ -569,7 +668,13 @@ onMounted(() => loadData())
                     <span class="text-xs text-muted-foreground">分</span>
                   </div>
                   <span
-                    v-if="iv.evaluationConclusionLabel"
+                    v-if="isHrRejected(iv)"
+                    class="text-[10px] px-1.5 py-0.5 rounded-full border inline-block bg-red-50 text-red-600 border-red-200"
+                  >
+                    HR已淘汰
+                  </span>
+                  <span
+                    v-else-if="iv.evaluationConclusionLabel"
                     :class="[
                       'text-[10px] px-1.5 py-0.5 rounded-full border inline-block',
                       isInterviewPass(iv)
@@ -585,7 +690,21 @@ onMounted(() => loadData())
                 <span v-else class="text-xs text-muted-foreground">—</span>
               </td>
               <td class="px-4 py-3">
-                <div v-if="iv.status === INTERVIEW_STATUS.PENDING" class="flex items-center gap-2">
+                <div
+                  v-if="isHistoricalInterview(iv)"
+                  class="flex flex-wrap items-center gap-x-2 gap-y-1"
+                >
+                  <span class="text-xs text-muted-foreground">历史记录</span>
+                  <button
+                    v-if="hasInterviewEvaluation(iv)"
+                    type="button"
+                    class="text-xs text-muted-foreground hover:underline"
+                    @click="openEvaluation(iv)"
+                  >
+                    查看评价
+                  </button>
+                </div>
+                <div v-else-if="iv.status === INTERVIEW_STATUS.PENDING" class="flex items-center gap-2">
                   <button
                     type="button"
                     class="text-xs text-brand-blue hover:underline"
@@ -602,9 +721,9 @@ onMounted(() => loadData())
                     {{ cancellingId === iv.interviewId ? '取消中...' : '取消' }}
                   </button>
                 </div>
-                <div v-else-if="iv.status === INTERVIEW_STATUS.COMPLETED" class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div v-else-if="iv.status === INTERVIEW_STATUS.COMPLETED && canActOnInterview(iv)" class="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <button
-                    v-if="isInterviewHold(iv)"
+                    v-if="canScheduleFollowUp(iv)"
                     type="button"
                     class="text-xs text-brand-orange hover:underline font-medium"
                     @click="openFollowUpInterview(iv)"
@@ -645,6 +764,7 @@ onMounted(() => loadData())
                     {{ iv.offerStatusText || '查看Offer' }}
                   </button>
                   <button
+                    v-if="canArchiveAfterInterview(iv)"
                     type="button"
                     class="text-xs text-muted-foreground hover:underline disabled:opacity-50"
                     :disabled="isActionLoading(iv.interviewId)"
@@ -653,6 +773,7 @@ onMounted(() => loadData())
                     存入人才库
                   </button>
                   <button
+                    v-if="canActOnInterview(iv)"
                     type="button"
                     class="text-xs text-brand-blue hover:underline"
                     @click="goCandidateDetail(iv)"

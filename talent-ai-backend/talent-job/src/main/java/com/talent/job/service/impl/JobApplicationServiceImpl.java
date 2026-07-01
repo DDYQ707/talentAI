@@ -11,6 +11,7 @@ import com.talent.job.entity.JobApplication;
 import com.talent.job.entity.JobPost;
 import com.talent.job.feign.AiFeignClient;
 import com.talent.job.feign.AuthFeignClient;
+import com.talent.job.feign.InterviewFeignClient;
 import com.talent.job.feign.ResumeFeignClient;
 import lombok.extern.slf4j.Slf4j;
 import com.talent.job.mapper.JobApplicationMapper;
@@ -62,6 +63,9 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
 
     @Autowired
     private CandidateNotificationService candidateNotificationService;
+
+    @Autowired
+    private InterviewFeignClient interviewFeignClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -489,6 +493,10 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         candidateStatusHookService.triggerAiProfile(app);
         candidateNotificationService.notifyScreenStatusChanged(app, screenStatus);
 
+        if (screenStatus == 4) {
+            syncInterviewOnRejected(app.getId());
+        }
+
         result.put("code", 200);
         result.put("msg", "同步成功");
         result.put("data", Map.of(
@@ -497,6 +505,24 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
                 "currentStage", toStage,
                 "status", newStatus));
         return result;
+    }
+
+    private void syncInterviewOnRejected(Long applicationId) {
+        if (applicationId == null) {
+            return;
+        }
+        try {
+            Map<String, Object> res = interviewFeignClient.syncApplicationRejected(applicationId);
+            Object code = res != null ? res.get("code") : null;
+            if (code instanceof Number number && number.intValue() != 200) {
+                log.warn(
+                        "HR 淘汰联动面试服务失败 applicationId={} msg={}",
+                        applicationId,
+                        res != null ? res.get("msg") : "unknown");
+            }
+        } catch (Exception e) {
+            log.warn("HR 淘汰联动面试服务异常 applicationId={} error={}", applicationId, e.getMessage());
+        }
     }
 
     private JobApplicationListVO toListVo(JobApplication application) {

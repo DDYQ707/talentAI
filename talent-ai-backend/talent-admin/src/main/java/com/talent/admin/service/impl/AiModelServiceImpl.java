@@ -1,5 +1,6 @@
 package com.talent.admin.service.impl;
 
+import com.baomidou.dynamic.datasource.annotation.DS;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -31,6 +32,7 @@ import java.util.Map;
  * @author TalentAI
  */
 @Service
+@DS("ai")
 public class AiModelServiceImpl extends ServiceImpl<AiModelMapper, AiModel>
         implements IAiModelService {
 

@@ -23,7 +23,8 @@ public class ResumeJobMatchServiceImpl implements ResumeJobMatchService {
             要求：
             1. 仅输出合法 JSON，不要 Markdown 代码块，不要附加说明文字
             2. matchScore 为 0-100 的整数；advantages 约 3 条，disadvantages 约 2 条
-            3. 字段缺失时使用 null 或空数组，不要编造不存在的信息
+            3. suggestedQuestions 至少 5 条，用于面试官会前准备
+            4. 字段缺失时使用 null 或空数组，不要编造不存在的信息
             """;
 
     private static final String JSON_SCHEMA =
@@ -34,7 +35,7 @@ public class ResumeJobMatchServiceImpl implements ResumeJobMatchService {
               "matchReason": "综合匹配理由，100字以内",
               "advantages": ["优势1", "优势2", "优势3"],
               "disadvantages": ["不足1", "不足2"],
-              "suggestedQuestions": ["建议面试问题1", "建议面试问题2"],
+              "suggestedQuestions": ["建议面试问题1", "建议面试问题2", "建议面试问题3", "建议面试问题4", "建议面试问题5"],
               "dimensionScores": {
                 "skill": 90,
                 "experience": 80,

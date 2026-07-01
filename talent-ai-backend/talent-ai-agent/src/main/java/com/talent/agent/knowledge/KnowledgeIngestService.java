@@ -2,6 +2,7 @@ package com.talent.agent.knowledge;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.talent.agent.domain.dto.KnowledgeImportRequest;
+import com.talent.agent.domain.dto.KnowledgeUpdateRequest;
 import com.talent.agent.domain.entity.AiKnowledgeChunk;
 import com.talent.agent.domain.entity.AiKnowledgeDoc;
 import com.talent.agent.domain.vo.KnowledgeDocVO;
@@ -45,6 +46,47 @@ public class KnowledgeIngestService {
         deleteChunks(docId);
         indexDocument(doc);
         return toVo(doc, countChunks(docId));
+    }
+
+    public KnowledgeDocVO getDocDetail(Long docId) {
+        AiKnowledgeDoc doc = requireDoc(docId);
+        KnowledgeDocVO vo = toVo(doc, countChunks(doc.getId()));
+        vo.setContent(doc.getContent());
+        return vo;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public KnowledgeDocVO updateDocument(Long docId, KnowledgeUpdateRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("请求体不能为空");
+        }
+        AiKnowledgeDoc doc = requireDoc(docId);
+        if (StringUtils.hasText(request.getTitle())) {
+            doc.setTitle(request.getTitle().trim());
+        }
+        if (StringUtils.hasText(request.getCategory())) {
+            doc.setCategory(normalizeCategory(request.getCategory()));
+        }
+        if (request.getContent() != null) {
+            String content = request.getContent().trim();
+            if (!StringUtils.hasText(content)) {
+                throw new IllegalArgumentException("content 不能为空");
+            }
+            doc.setContent(content);
+        }
+        if (request.getSourcePath() != null) {
+            doc.setSourcePath(StringUtils.hasText(request.getSourcePath()) ? request.getSourcePath().trim() : null);
+        }
+        docMapper.updateById(doc);
+
+        boolean shouldReindex = request.getReindex() == null || Boolean.TRUE.equals(request.getReindex());
+        if (shouldReindex) {
+            deleteChunks(docId);
+            indexDocument(doc);
+        }
+        KnowledgeDocVO vo = toVo(doc, countChunks(docId));
+        vo.setContent(doc.getContent());
+        return vo;
     }
 
     public List<KnowledgeDocVO> listDocs() {

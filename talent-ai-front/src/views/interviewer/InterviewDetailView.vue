@@ -116,6 +116,7 @@ const canEvaluate = computed(
   () => detail.value?.status === INTERVIEW_STATUS.PENDING && !detail.value?.evaluation,
 )
 const hasEvaluation = computed(() => !!detail.value?.evaluation)
+const isHrRejected = computed(() => detail.value?.applicationStatus === 3)
 const hasAiDraft = computed(() => !!aiNote.value?.aiSummary)
 const showMeetingBar = computed(() => detail.value && canJoinMeeting(detail.value))
 
@@ -438,6 +439,16 @@ onMounted(() => loadDetail())
               <span class="text-base font-bold text-foreground">面试评价</span>
             </div>
 
+            <div
+              v-if="isHrRejected"
+              class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              HR 已将候选人标记为<strong class="font-semibold">已淘汰</strong>。
+              <template v-if="hasEvaluation && detail?.evaluation?.conclusionLabel">
+                您此前提交的评价为「{{ detail.evaluation.conclusionLabel }}」，仅供参考，招聘流程已结束。
+              </template>
+            </div>
+
             <div v-if="hasEvaluation" class="space-y-3 text-sm">
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div
@@ -458,6 +469,7 @@ onMounted(() => loadDetail())
               <p>
                 <span class="text-muted-foreground">结论：</span>
                 {{ detail.evaluation?.conclusionLabel }}
+                <span v-if="isHrRejected" class="text-red-600">（HR终局：已淘汰）</span>
               </p>
               <p v-if="detail.evaluation?.comment" class="text-muted-foreground leading-relaxed whitespace-pre-wrap">
                 {{ detail.evaluation.comment }}

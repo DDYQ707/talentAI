@@ -18,6 +18,9 @@ public class KnowledgeDocVO {
 
     private Integer chunkCount;
 
+    /** 详情接口返回正文，列表接口不返回 */
+    private String content;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

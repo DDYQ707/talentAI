@@ -41,6 +41,30 @@ public final class InterviewConstants {
     /** 评价结论：不通过 */
     public static final int CONCLUSION_REJECT = 3;
 
+    /** 每份投递最多 3 轮；实际可只安排 1 轮、2 轮或 3 轮，由 HR 灵活决定 */
+    public static final int MAX_INTERVIEW_ROUNDS = 3;
+
+    /** 轮次类型：1-AI初筛 2-技术面初面 3-技术面复试 4-HR面 5-终面/综合面 6-交叉面 7-作品评审 */
+    public static final int ROUND_TYPE_AI_SCREEN = 1;
+    public static final int ROUND_TYPE_TECH_FIRST = 2;
+    public static final int ROUND_TYPE_TECH_SECOND = 3;
+    public static final int ROUND_TYPE_HR = 4;
+    public static final int ROUND_TYPE_FINAL = 5;
+    public static final int ROUND_TYPE_CROSS = 6;
+    public static final int ROUND_TYPE_PORTFOLIO = 7;
+
+    public static boolean isTechnicalRoundType(Integer roundType) {
+        return roundType != null
+                && (roundType == ROUND_TYPE_TECH_FIRST || roundType == ROUND_TYPE_TECH_SECOND);
+    }
+
+    public static boolean isComprehensiveRoundType(Integer roundType) {
+        return roundType != null
+                && (roundType == ROUND_TYPE_HR
+                        || roundType == ROUND_TYPE_FINAL
+                        || roundType == ROUND_TYPE_CROSS);
+    }
+
     public static boolean isValidStatus(Integer status) {
         return status != null
                 && (status == STATUS_PENDING
@@ -71,13 +95,13 @@ public final class InterviewConstants {
             return "未知";
         }
         return switch (roundType) {
-            case 1 -> "AI初筛";
-            case 2 -> "业务初试";
-            case 3 -> "业务复试";
-            case 4 -> "HR初面";
-            case 5 -> "终面";
-            case 6 -> "交叉面";
-            case 7 -> "作品评审";
+            case ROUND_TYPE_AI_SCREEN -> "AI初筛";
+            case ROUND_TYPE_TECH_FIRST -> "技术面初面";
+            case ROUND_TYPE_TECH_SECOND -> "技术面复试";
+            case ROUND_TYPE_HR -> "HR面";
+            case ROUND_TYPE_FINAL -> "终面/综合面";
+            case ROUND_TYPE_CROSS -> "交叉面";
+            case ROUND_TYPE_PORTFOLIO -> "作品评审";
             default -> "未知";
         };
     }
@@ -100,7 +124,7 @@ public final class InterviewConstants {
         }
         return switch (status) {
             case STATUS_PENDING -> "待面试";
-            case STATUS_COMPLETED -> "已完成";
+            case STATUS_COMPLETED -> "面试完成";
             case STATUS_TO_SCHEDULE -> "待安排";
             case STATUS_CANCELLED -> "已取消";
             default -> "未知";

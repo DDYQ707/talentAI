@@ -55,7 +55,7 @@ talent-ai-agent/src/main/resources/knowledge/
 - `ai_knowledge_doc` — 文档全文
 - `ai_knowledge_chunk` — 切分片段 + 向量（`embedding_json`）
 
-建表脚本：`docs/sql/20260622_ai_knowledge_rag_patch.sql`
+建表与种子数据：`docs/sql/talent_ai_db.sql`（或一键 `docs/sql/init_all.sql`）
 
 ---
 

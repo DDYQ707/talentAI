@@ -7,13 +7,10 @@ import com.talent.interview.constant.InterviewConstants;
 import com.talent.interview.dto.InterviewEvaluationRequest;
 import com.talent.interview.entity.Interview;
 import com.talent.interview.entity.InterviewEvaluation;
-import com.talent.interview.feign.AiAgentFeignClient;
-import com.talent.interview.feign.JobFeignClient;
-import com.talent.interview.feign.ResumeFeignClient;
 import com.talent.interview.mapper.InterviewEvaluationMapper;
 import com.talent.interview.mapper.InterviewMapper;
+import com.talent.interview.service.InterviewAsyncSideEffectService;
 import com.talent.interview.service.InterviewEvaluationService;
-import com.talent.interview.util.FeignResponseHelper;
 import com.talent.interview.vo.InterviewEvaluationVO;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,7 +20,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,11 +34,7 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
     private final InterviewEvaluationMapper evaluationMapper;
     private final InterviewMapper interviewMapper;
     private final ObjectMapper objectMapper;
-    private final JobFeignClient jobFeignClient;
-    private final AiAgentFeignClient aiAgentFeignClient;
-    private final ResumeFeignClient resumeFeignClient;
-
-    private static final int SCREEN_STATUS_OFFER_PENDING = 5;
+    private final InterviewAsyncSideEffectService asyncSideEffectService;
 
     @Override
     public InterviewEvaluation findByInterviewId(Long interviewId) {
@@ -128,11 +120,7 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
         interview.setUpdatedAt(LocalDateTime.now());
         interviewMapper.updateById(interview);
 
-        if (Objects.equals(request.getConclusion(), InterviewConstants.CONCLUSION_PASS)) {
-            syncOfferPendingScreenStatus(interview);
-        }
-
-        triggerAiProfileAfterEvaluation(interview);
+        asyncSideEffectService.afterEvaluationSubmitted(interview, request.getConclusion());
 
         return toVo(evaluation);
     }
@@ -159,80 +147,6 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
             normalized.put(key, score);
         }
         return normalized;
-    }
-
-    private void syncOfferPendingScreenStatus(Interview interview) {
-        if (interview.getApplicationId() == null) {
-            return;
-        }
-        try {
-            Map<String, Object> appRes = jobFeignClient.applicationById(interview.getApplicationId());
-            if (FeignResponseHelper.code(appRes) != 200) {
-                log.warn(
-                        "面试通过后同步待录用失败：投递单查询失败 applicationId={} msg={}",
-                        interview.getApplicationId(),
-                        FeignResponseHelper.msg(appRes, ""));
-                return;
-            }
-            Map<String, Object> appData = FeignResponseHelper.dataMap(appRes);
-            Long candidateId = FeignResponseHelper.longVal(appData.get("candidateId"));
-            if (candidateId == null) {
-                return;
-            }
-            Map<String, Object> body = new HashMap<>();
-            body.put("candidateId", candidateId);
-            body.put("resumeId", FeignResponseHelper.longVal(appData.get("resumeId")));
-            body.put("screenStatus", SCREEN_STATUS_OFFER_PENDING);
-            body.put("remark", "面试官评价通过");
-            Map<String, Object> res = resumeFeignClient.setScreenStatusOnly(body);
-            if (FeignResponseHelper.code(res) != 200) {
-                log.warn(
-                        "面试通过后更新待录用状态失败 applicationId={} msg={}",
-                        interview.getApplicationId(),
-                        FeignResponseHelper.msg(res, ""));
-            }
-        } catch (Exception e) {
-            log.warn(
-                    "面试通过后更新待录用状态异常 applicationId={} error={}",
-                    interview.getApplicationId(),
-                    e.getMessage());
-        }
-    }
-
-    private void triggerAiProfileAfterEvaluation(Interview interview) {
-        if (interview.getApplicationId() == null) {
-            return;
-        }
-        try {
-            Map<String, Object> appRes = jobFeignClient.applicationById(interview.getApplicationId());
-            if (FeignResponseHelper.code(appRes) != 200) {
-                log.warn(
-                        "面试评价后触发 AI 画像失败：投递单查询失败 applicationId={} msg={}",
-                        interview.getApplicationId(),
-                        FeignResponseHelper.msg(appRes, ""));
-                return;
-            }
-            Map<String, Object> appData = FeignResponseHelper.dataMap(appRes);
-            Map<String, Object> body = new HashMap<>();
-            body.put("candidateId", FeignResponseHelper.longVal(appData.get("candidateId")));
-            body.put("candidateName", FeignResponseHelper.strVal(appData.get("candidateName")));
-            body.put("resumeId", FeignResponseHelper.longVal(appData.get("resumeId")));
-            body.put("applicationId", interview.getApplicationId());
-            body.put("jobId", FeignResponseHelper.longVal(appData.get("jobId")));
-            body.put("jobTitle", FeignResponseHelper.strVal(appData.get("jobTitle")));
-            body.put("status", FeignResponseHelper.intVal(appData.get("status")));
-
-            Map<String, Object> result = aiAgentFeignClient.generateProfile(body);
-            log.info(
-                    "面试评价后 AI 画像触发完成 applicationId={} result={}",
-                    interview.getApplicationId(),
-                    result);
-        } catch (Exception e) {
-            log.warn(
-                    "面试评价后 AI 画像触发失败（已忽略） applicationId={} error={}",
-                    interview.getApplicationId(),
-                    e.getMessage());
-        }
     }
 
     private String resolveEvaluatorName(String evaluatorName, String interviewerName) {
