@@ -23,6 +23,11 @@ public class TalentPoolRecordVO {
 
     private Long sourceApplicationId;
 
+  /** 来源岗位名称快照 */
+    private String sourceJobTitle;
+
+    private String interviewSummary;
+
     private Byte talentCategory;
 
     private Byte jobSeekingStatus;

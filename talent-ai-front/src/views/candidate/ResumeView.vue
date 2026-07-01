@@ -149,7 +149,7 @@ async function loadAttachmentInfo() {
 
 function noAttachmentHint() {
   return detail.value
-    ? '暂无附件简历，在线内容已在下方展示；如需预览文件请先上传 pdf/doc/docx'
+    ? '暂无附件简历，在线内容已在下方展示；如需预览请先上传 PDF 格式简历（最大 10MB）'
     : '请先上传附件简历'
 }
 
@@ -493,7 +493,7 @@ onActivated(() => {
       <div class="pt-2 border-t border-border">
         <h2 class="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
           附件简历
-          <span class="text-[11px] font-normal text-muted-foreground">（pdf/doc/docx，用于岗位投递）</span>
+          <span class="text-[11px] font-normal text-muted-foreground">（请上传 PDF 格式简历，最大 10MB）</span>
         </h2>
         <AttachmentResumePanel embedded @changed="loadAttachmentInfo" />
       </div>

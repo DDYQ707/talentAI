@@ -2,6 +2,7 @@ package com.talent.auth.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.talent.auth.dto.CandidateProfileSaveRequest;
+import com.talent.auth.dto.ParseProfilePatchRequest;
 import com.talent.auth.entity.CandidateProfile;
 import com.talent.auth.entity.SysUser;
 import com.talent.auth.vo.CandidateProfileCompletenessVO;
@@ -75,7 +76,70 @@ public class CandidateMyProfileService {
         brief.put("workYears", profile != null ? profile.getWorkYears() : null);
         brief.put("highestEdu", profile != null ? profile.getHighestEdu() : null);
         brief.put("aiScore", profile != null ? profile.getAiScore() : null);
+        brief.put("jobSeekingStatus", profile != null ? profile.getJobSeekingStatus() : null);
         return brief;
+    }
+
+    /** AI 解析回填：仅补空字段，不覆盖候选人已填写内容 */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> patchFromParse(ParseProfilePatchRequest request) {
+        Map<String, Object> result = new HashMap<>();
+        if (request == null || request.getCandidateId() == null) {
+            result.put("code", 400);
+            result.put("msg", "candidateId 不能为空");
+            return result;
+        }
+        SysUser user = sysUserService.getById(request.getCandidateId());
+        if (user == null || user.getUserType() == null || user.getUserType() != USER_TYPE_CANDIDATE) {
+            result.put("code", 404);
+            result.put("msg", "候选人不存在");
+            return result;
+        }
+
+        boolean userUpdated = false;
+        if (!StringUtils.hasText(user.getPhone()) && StringUtils.hasText(request.getPhone())) {
+            user.setPhone(request.getPhone().trim());
+            userUpdated = true;
+        }
+        if (!StringUtils.hasText(user.getEmail()) && StringUtils.hasText(request.getEmail())) {
+            user.setEmail(request.getEmail().trim());
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            user.setUpdatedAt(LocalDateTime.now());
+            sysUserService.updateById(user);
+        }
+
+        CandidateProfile profile = getOrCreateProfile(request.getCandidateId());
+        boolean profileUpdated = false;
+        if (!StringUtils.hasText(profile.getRealName()) && StringUtils.hasText(request.getRealName())) {
+            profile.setRealName(request.getRealName().trim());
+            profileUpdated = true;
+        }
+        if (!StringUtils.hasText(profile.getCity()) && StringUtils.hasText(request.getCity())) {
+            profile.setCity(request.getCity().trim());
+            profileUpdated = true;
+        }
+        if (!StringUtils.hasText(profile.getCurrentTitle()) && StringUtils.hasText(request.getCurrentTitle())) {
+            profile.setCurrentTitle(request.getCurrentTitle().trim());
+            profileUpdated = true;
+        }
+        if (profile.getHighestEdu() == null && request.getHighestEdu() != null) {
+            profile.setHighestEdu(request.getHighestEdu());
+            profileUpdated = true;
+        }
+        if (profile.getWorkYears() == null && request.getWorkYears() != null) {
+            profile.setWorkYears(request.getWorkYears());
+            profileUpdated = true;
+        }
+        if (profileUpdated) {
+            profile.setUpdatedAt(LocalDateTime.now());
+            candidateProfileService.updateById(profile);
+        }
+
+        result.put("code", 200);
+        result.put("msg", "ok");
+        return result;
     }
 
     @Transactional(rollbackFor = Exception.class)

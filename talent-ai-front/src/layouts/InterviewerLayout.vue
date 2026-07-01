@@ -1,32 +1,72 @@
 <script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
-import { List, ClipboardList, Bell, User, Bot, LogOut } from 'lucide-vue-next'
+import { LayoutDashboard, List, Sparkles, Bell, User, Bot, LogOut } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import request from '@/utils/request'
+import { fetchMyInterviewStats } from '@/api/interview'
+import { fetchUnreadNotificationCount } from '@/api/notification'
+
+const auth = useAuthStore()
 
 const navItems = [
-  { icon: List, label: '面试列表', path: '/interviewer' },
-  { icon: ClipboardList, label: 'AI面试笔记', path: '/interviewer/notes' },
+  { icon: LayoutDashboard, label: '工作台', path: '/interviewer/workbench' },
+  { icon: List, label: '我的面试', path: '/interviewer/interviews' },
+  { icon: Sparkles, label: '面试准备', path: '/interviewer/prep' },
+  { icon: Bell, label: '消息通知', path: '/interviewer/notifications' },
 ]
 
 const router = useRouter()
 const route = useRoute()
+
+const todayPending = ref(0)
+const unreadCount = ref(0)
+
+const displayName = computed(() => auth.userInfo?.nickname || auth.userInfo?.account || '面试官')
 
 function go(path: string) {
   router.push(path)
 }
 
 function isActive(path: string) {
-  if (path === '/interviewer') {
-    return route.path === '/interviewer' || route.path === '/interviewer/detail'
+  if (path === '/interviewer/interviews') {
+    return route.path === '/interviewer/interviews' || route.path === '/interviewer/detail'
   }
-  if (path === '/interviewer/notes') {
-    return route.path === '/interviewer/notes'
+  if (path === '/interviewer/prep') {
+    return route.path === '/interviewer/prep'
+  }
+  if (path === '/interviewer/workbench') {
+    return route.path === '/interviewer/workbench' || route.path === '/interviewer'
   }
   return route.path === path
 }
 
-function logout() {
-  router.push('/login')
+async function loadHeaderStats() {
+  try {
+    const [stats, unread] = await Promise.all([
+      fetchMyInterviewStats(),
+      fetchUnreadNotificationCount().catch(() => 0),
+    ])
+    todayPending.value = stats.todayPending ?? 0
+    unreadCount.value = unread
+  } catch {
+    todayPending.value = 0
+  }
 }
+
+async function logout() {
+  try {
+    await request.post('/api/auth/logout')
+  } catch {
+    // 后端异常不阻塞退出
+  } finally {
+    auth.logout()
+    router.push('/login')
+  }
+}
+
+onMounted(loadHeaderStats)
+watch(() => route.path, loadHeaderStats)
 </script>
 
 <template>
@@ -46,8 +86,8 @@ function logout() {
           <User :size="15" class="text-primary-foreground" stroke-width="1.75" />
         </div>
         <div class="min-w-0">
-          <div class="truncate text-xs font-semibold text-sidebar-foreground">李面试官</div>
-          <div class="truncate text-xs text-muted-foreground">技术总监</div>
+          <div class="truncate text-xs font-semibold text-sidebar-foreground">{{ displayName }}</div>
+          <div class="truncate text-xs text-muted-foreground">面试官</div>
         </div>
       </div>
       <nav class="flex min-h-0 flex-1 flex-col overflow-hidden px-2 py-3">
@@ -87,14 +127,18 @@ function logout() {
           <div
             class="hidden items-center gap-1 rounded-full border border-border bg-brand-tint px-3 py-1 text-xs font-medium text-[#5a8a82] sm:inline-flex"
           >
-            <span>今日面试：3场</span>
+            <span>今日面试：{{ todayPending }} 场</span>
           </div>
           <button
             type="button"
             class="relative flex h-10 w-10 items-center justify-center rounded-control text-muted-foreground transition-colors hover:bg-muted"
+            @click="go('/interviewer/notifications')"
           >
             <Bell :size="18" stroke-width="1.75" />
-            <span class="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-red ring-2 ring-card" />
+            <span
+              v-if="unreadCount > 0"
+              class="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-red ring-2 ring-card"
+            />
           </button>
         </div>
       </header>

@@ -36,6 +36,8 @@ public interface InterviewService {
 
     void cancelForHr(String role, Long interviewId);
 
+    void reassignForHr(String role, Long hrId, String hrName, Long interviewId, Long interviewerId);
+
     List<InterviewListVO> listByApplicationForHr(String role, Long applicationId);
 
     Map<String, Object> pageForInterviewer(

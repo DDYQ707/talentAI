@@ -37,4 +37,9 @@ public class TalentPoolQueryRequest {
      * 标签ID筛选（可选，精确匹配某个标签）
      */
     private Long tagId;
+
+    /**
+     * 关键词：姓名、来源岗位、归档原因
+     */
+    private String keyword;
 }

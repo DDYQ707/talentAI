@@ -56,6 +56,16 @@ public class TalentPoolRecord implements Serializable {
     private Long sourceApplicationId;
 
     /**
+     * 来源岗位名称快照
+     */
+    private String sourceJobTitle;
+
+    /**
+     * 面试评价摘要
+     */
+    private String interviewSummary;
+
+    /**
      * 人才分类
      */
     private Byte talentCategory;

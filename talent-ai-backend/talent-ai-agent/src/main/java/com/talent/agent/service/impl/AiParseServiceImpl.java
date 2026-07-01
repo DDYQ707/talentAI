@@ -1,16 +1,22 @@
 package com.talent.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.talent.agent.client.ResumeFeignClient;
+import com.talent.agent.domain.dto.AiParseRetryRequest;
 import com.talent.agent.domain.dto.ParseTaskRequest;
 import com.talent.agent.domain.entity.AiParseTask;
 import com.talent.agent.domain.vo.ParseTaskVO;
 import com.talent.agent.mapper.AiParseTaskMapper;
 import com.talent.agent.service.AiParseService;
 import com.talent.agent.service.AiParseTaskProcessor;
+import com.talent.agent.service.ParseTaskContextService;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiParseServiceImpl implements AiParseService {
@@ -19,6 +25,8 @@ public class AiParseServiceImpl implements AiParseService {
 
     private final AiParseTaskMapper parseTaskMapper;
     private final AiParseTaskProcessor parseTaskProcessor;
+    private final ParseTaskContextService parseTaskContextService;
+    private final ResumeFeignClient resumeFeignClient;
 
     @Override
     @Transactional
@@ -56,8 +64,37 @@ public class AiParseServiceImpl implements AiParseService {
         parseTaskMapper.insert(task);
 
         request.setParseSource(parseSource);
+        markResumeParsing(request.getResumeId());
         parseTaskProcessor.processAsync(task.getId(), request);
         return toVO(task);
+    }
+
+    @Override
+    public ParseTaskVO submitReparse(AiParseRetryRequest request) {
+        if (request == null || request.getResumeId() == null) {
+            throw new IllegalArgumentException("resumeId 不能为空");
+        }
+        ParseTaskRequest parseRequest = parseTaskContextService.buildFromResumeContext(
+                request.getResumeId(),
+                request.getApplicationId(),
+                request.getJobId(),
+                request.getCandidateId());
+        return submitParseTask(parseRequest);
+    }
+
+    private void markResumeParsing(Long resumeId) {
+        if (resumeId == null) {
+            return;
+        }
+        try {
+            Map<String, Object> res = resumeFeignClient.markParseProcessing(resumeId);
+            Object code = res != null ? res.get("code") : null;
+            if (code instanceof Number n && n.intValue() != 200) {
+                log.warn("简历解析中状态回写失败 resumeId={} msg={}", resumeId, res != null ? res.get("msg") : null);
+            }
+        } catch (Exception e) {
+            log.warn("简历解析中状态回写异常 resumeId={} reason={}", resumeId, e.getMessage());
+        }
     }
 
     private String resolveParseSource(ParseTaskRequest request) {

@@ -2,6 +2,13 @@ import request from '@/utils/request'
 
 // ==================== Offer 状态常量 ====================
 
+/** Offer 审批节点状态 */
+export const OFFER_APPROVAL_STATUS = {
+  PENDING: 1,
+  APPROVED: 2,
+  REJECTED: 3,
+} as const
+
 /** Offer 状态码（与后端 OfferConstants 一致） */
 export const OFFER_STATUS = {
   PENDING: 1,      // 待审批
@@ -34,6 +41,7 @@ export interface OfferApproval {
 export interface OfferListVO {
   id: number
   offerNo: string
+  applicationId?: number | null
   jobTitle: string
   candidateName: string
   deptName: string
@@ -46,6 +54,8 @@ export interface OfferListVO {
   statusText: string
   hrName: string
   createdAt: string
+  jobId?: number | null
+  candidateId?: number | null
 }
 
 /** Offer 详情视图对象（含审批链） */
@@ -90,6 +100,8 @@ export interface OfferQueryParams {
   jobTitle?: string
   /** 岗位 ID 精确过滤 */
   jobId?: number
+  /** 投递 ID 精确过滤 */
+  applicationId?: number
 }
 
 /** Offer 列表分页响应 */
@@ -117,6 +129,18 @@ export interface OfferCreatePayload {
   approverIds?: number[]
 }
 
+/** 更新 Offer 请求体 */
+export interface OfferUpdatePayload {
+  baseSalary?: number
+  annualSalary?: number
+  bonus?: number
+  salaryRemark?: string
+  positionLevel?: string
+  expectedOnboardDate?: string
+  probationMonths?: number
+  remark?: string
+}
+
 // ==================== API 方法 ====================
 
 /**
@@ -132,7 +156,16 @@ export function fetchOfferList(params: OfferQueryParams = {}) {
   if (params.candidateName?.trim()) query.candidateName = params.candidateName.trim()
   if (params.jobTitle?.trim()) query.jobTitle = params.jobTitle.trim()
   if (params.jobId != null) query.jobId = params.jobId
+  if (params.applicationId != null) query.applicationId = params.applicationId
   return request.get<OfferPageData>('/api/offer/list', { params: query }) as Promise<OfferPageData>
+}
+
+/**
+ * 按投递 ID 查询 Offer
+ * GET /api/offer/by-application/{applicationId}
+ */
+export function fetchOfferByApplication(applicationId: number) {
+  return request.get<OfferDetailVO | null>(`/api/offer/by-application/${applicationId}`) as Promise<OfferDetailVO | null>
 }
 
 /**
@@ -149,6 +182,22 @@ export function fetchOfferDetail(id: number) {
  */
 export function createOffer(data: OfferCreatePayload) {
   return request.post<OfferDetailVO>('/api/offer', data) as Promise<OfferDetailVO>
+}
+
+/**
+ * HR 更新 Offer
+ * PUT /api/offer/{id}
+ */
+export function updateOffer(id: number, data: OfferUpdatePayload) {
+  return request.put<OfferDetailVO>(`/api/offer/${id}`, data) as Promise<OfferDetailVO>
+}
+
+/**
+ * HR 发放 Offer
+ * PUT /api/offer/{id}/issue
+ */
+export function issueOffer(id: number) {
+  return request.put<null>(`/api/offer/${id}/issue`) as Promise<null>
 }
 
 /**

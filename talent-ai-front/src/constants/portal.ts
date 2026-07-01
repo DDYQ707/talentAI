@@ -11,7 +11,7 @@ export type PortalRoleItem = {
 export const PORTAL_ROLES: PortalRoleItem[] = [
   { id: 'hr', label: 'HR', optionLabel: 'HR（企业招聘）', path: '/hr' },
   { id: 'candidate', label: '求职者', optionLabel: '求职者（候选人端）', path: '/candidate' },
-  { id: 'interviewer', label: '面试官', optionLabel: '面试官（评估端）', path: '/interviewer' },
+  { id: 'interviewer', label: '面试官', optionLabel: '面试官（评估端）', path: '/interviewer/workbench' },
   { id: 'admin', label: '管理员', optionLabel: '系统管理员', path: '/admin/permissions' },
 ]
 

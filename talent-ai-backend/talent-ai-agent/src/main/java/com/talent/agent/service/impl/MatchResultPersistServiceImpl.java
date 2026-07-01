@@ -9,6 +9,7 @@ import com.talent.agent.domain.entity.AiMatchRecord;
 import com.talent.agent.exception.AgentBusinessException;
 import com.talent.agent.mapper.AiMatchRecordMapper;
 import com.talent.agent.service.MatchResultPersistService;
+import com.talent.agent.util.MatchLevelUtil;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ public class MatchResultPersistServiceImpl implements MatchResultPersistService 
         update.setResumeId(request.getResumeId());
         update.setMatchScore(match.getMatchScore() != null ? match.getMatchScore() : 0);
         update.setMatchStatus(STATUS_SUCCESS);
-        update.setMatchLevel(match.getMatchLevel());
+        update.setMatchLevel(MatchLevelUtil.resolveLevel(match.getMatchScore()));
         update.setMatchReason(match.getMatchReason());
         update.setAdvantages(toJson(match.getAdvantages()));
         update.setDisadvantages(toJson(match.getDisadvantages()));

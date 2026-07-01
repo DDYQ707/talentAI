@@ -65,7 +65,21 @@ public class MinioStorageService {
         if (!StringUtils.hasText(bucket) || !StringUtils.hasText(objectKey)) {
             throw new IllegalArgumentException("附件存储信息不完整，无法预览");
         }
-        return getPresignedUrl(bucket, objectKey, expireHours);
+        String disposition = "inline; filename=\"" + encodeFilename(fileName) + "\"";
+        Map<String, String> extra = new HashMap<>();
+        extra.put("response-content-disposition", disposition);
+        String contentType = resolveContentType(fileType);
+        if (StringUtils.hasText(contentType)) {
+            extra.put("response-content-type", contentType);
+        }
+        return minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .method(Method.GET)
+                        .bucket(bucket)
+                        .object(objectKey)
+                        .expiry(expireHours, TimeUnit.HOURS)
+                        .extraQueryParams(extra)
+                        .build());
     }
 
     private String encodeFilename(String fileName) {

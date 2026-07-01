@@ -3,6 +3,7 @@ package com.talent.job.service;
 import com.talent.common.api.R;
 import com.talent.job.dto.OfferCreateRequest;
 import com.talent.job.dto.OfferQueryRequest;
+import com.talent.job.dto.OfferUpdateRequest;
 import com.talent.job.entity.Offer;
 import com.talent.job.vo.OfferDetailVO;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -30,19 +31,13 @@ public interface IOfferService extends IService<Offer> {
 
     /**
      * 分页查询 Offer 列表
-     *
-     * @param request 查询参数
-     * @return 分页结果
      */
-    R<Map<String, Object>> listOffers(OfferQueryRequest request);
+    R<Map<String, Object>> listOffers(OfferQueryRequest request, Long userId, String role);
 
     /**
-     * 查询 Offer 详情（含审批链）
-     *
-     * @param offerId Offer ID
-     * @return Offer 详情
+     * 按投递 ID 查询最近一条 Offer（候选人仅能查本人投递）
      */
-    R<OfferDetailVO> getOfferDetail(Long offerId);
+    R<OfferDetailVO> getOfferByApplication(Long applicationId, Long userId, String role);
 
     /**
      * HR 撤回 Offer
@@ -70,4 +65,24 @@ public interface IOfferService extends IService<Offer> {
      * @return 操作结果
      */
     R<Void> rejectOffer(Long candidateId, Long offerId);
+
+    /**
+     * 查询 Offer 详情（含审批链）
+     */
+    R<OfferDetailVO> getOfferDetail(Long offerId);
+
+    /**
+     * 查询 Offer 详情（含权限校验）
+     */
+    R<OfferDetailVO> getOfferDetail(Long offerId, Long userId, String role);
+
+    /**
+     * HR 更新 Offer 薪资等信息
+     */
+    R<OfferDetailVO> updateOffer(Long hrId, Long offerId, OfferUpdateRequest request);
+
+    /**
+     * HR 发放 Offer（已通过 → 已发放）
+     */
+    R<Void> issueOffer(Long hrId, Long offerId);
 }

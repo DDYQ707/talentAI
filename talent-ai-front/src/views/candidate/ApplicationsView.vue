@@ -3,15 +3,16 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Clock, CheckCircle, XCircle, Calendar, Sparkles, ChevronRight, FileText, PenLine } from 'lucide-vue-next'
 import { fetchMyApplications, type DeliveryRecord } from '@/api/delivery'
+import { fetchOfferByApplication, OFFER_STATUS, type OfferDetailVO } from '@/api/offer'
 import { fetchResumePreviewByResume, openResumePreview } from '@/api/resume'
 import {
   APPLICATION_STAGES,
   computeDeliveryStats,
   formatMatchScore,
   isProgressConnectorComplete,
-  resolveStageIndex,
+  resolveStageIndexWithOffer,
+  resolveUiStatus,
   stageLabel,
-  statusToUi,
   stepProgressState,
   type ApplicationUiStatus,
 } from '@/constants/delivery'
@@ -38,6 +39,8 @@ interface AppItem {
   matchScore?: number | null
   matchPending?: boolean
   matchFailed?: boolean
+  offerStatus?: number | null
+  offerStatusText?: string | null
 }
 
 const router = useRouter()
@@ -55,7 +58,7 @@ const matchPoll = useMatchScorePoll(async () => {
   const batch = await loadApplicationMatchStates(rawRecords.value)
   matchPendingIds.value = batch.pendingIds
   matchFailedIds.value = batch.failedIds
-  apps.value = rawRecords.value.map((r) => mapRecord(r, batch.scores, batch.pendingIds, batch.failedIds))
+  apps.value = rawRecords.value.map((r) => mapRecord(r, batch.scores, batch.pendingIds, batch.failedIds, new Map()))
   return batch.pendingIds.size === 0
 })
 
@@ -73,14 +76,20 @@ function mapRecord(
   scoreMap: Map<number, number>,
   pendingIds: Set<number>,
   failedIds: Set<number>,
+  offerMap: Map<number, OfferDetailVO | null>,
 ): AppItem {
-  const uiStatus = statusToUi(record.status)
+  const offer = offerMap.get(record.id) ?? null
+  const uiStatus = resolveUiStatus(record.status, offer?.status ?? null)
   const stageName = stageLabel(record.currentStage)
-  const stageIndex = resolveStageIndex(record.currentStage)
+  const stageIndex = resolveStageIndexWithOffer(record.currentStage, offer?.status ?? null)
 
   let next = ''
-  if (uiStatus === 'offer') next = '请在规定时间内确认 Offer'
-  else if (uiStatus === '进行中') next = `当前阶段：${stageName}`
+  if (uiStatus === 'offer') {
+    if (offer?.status === OFFER_STATUS.ISSUED) next = 'HR 已发放 Offer，点击确认是否接受'
+    else if (offer?.status === OFFER_STATUS.ACCEPTED) next = '您已接受 Offer，请留意入职安排'
+    else if (offer?.status === OFFER_STATUS.DECLINED) next = '您已拒绝 Offer'
+    else next = '录用流程进行中，请等待 HR 发放 Offer'
+  } else if (uiStatus === '进行中') next = `当前阶段：${stageName}`
 
   const matchScore = scoreMap.get(record.id) ?? record.matchScore ?? null
   const matchPending = pendingIds.has(record.id)
@@ -104,7 +113,32 @@ function mapRecord(
     matchScore,
     matchPending,
     matchFailed,
+    offerStatus: offer?.status ?? null,
+    offerStatusText: offer?.statusText ?? null,
   }
+}
+
+async function loadOfferMap(records: DeliveryRecord[]) {
+  if (records.length === 0) return new Map<number, OfferDetailVO | null>()
+  const entries = await Promise.all(
+    records.map(async (record) => {
+      try {
+        const offer = await fetchOfferByApplication(record.id)
+        return [record.id, offer] as const
+      } catch {
+        return [record.id, null] as const
+      }
+    }),
+  )
+  return new Map(entries)
+}
+
+function goOfferConfirm(applicationId: number) {
+  router.push({ path: '/candidate/offer', query: { applicationId: String(applicationId) } })
+}
+
+function canOpenOffer(app: AppItem) {
+  return app.status === 'offer' && app.offerStatus === OFFER_STATUS.ISSUED
 }
 
 function displayMatchScore(app: AppItem): string {
@@ -141,10 +175,11 @@ async function previewAttachment(app: AppItem) {
 
 const summary = computed(() => {
   const stats = computeDeliveryStats(rawRecords.value, deliveryTotal.value || rawRecords.value.length)
+  const offerCount = apps.value.filter((a) => a.status === 'offer').length
   return [
     { label: '投递中', count: stats.inProgress, color: 'text-brand-blue bg-brand-tint' },
     { label: '面试中', count: stats.interviewing, color: 'text-brand-purple bg-brand-tint-2' },
-    { label: '收到Offer', count: stats.offer, color: 'text-brand-green bg-green-50' },
+    { label: '收到Offer', count: offerCount, color: 'text-brand-green bg-green-50' },
   ]
 })
 
@@ -160,7 +195,8 @@ async function loadApplications() {
     const batch = await loadApplicationMatchStates(records)
     matchPendingIds.value = batch.pendingIds
     matchFailedIds.value = batch.failedIds
-    apps.value = records.map((r) => mapRecord(r, batch.scores, batch.pendingIds, batch.failedIds))
+    const offerMap = await loadOfferMap(records)
+    apps.value = records.map((r) => mapRecord(r, batch.scores, batch.pendingIds, batch.failedIds, offerMap))
     if (batch.pendingIds.size > 0) {
       matchPoll.start()
     }
@@ -259,15 +295,18 @@ onMounted(() => {
           <Sparkles :size="12" />
           <span>AI 匹配度 {{ displayMatchScore(app) }}<span v-if="!app.matchPending && !app.matchFailed && app.matchScore"> 分</span></span>
         </div>
-        <div
+        <button
           v-if="app.next"
-          :class="['flex items-center gap-2 text-xs rounded-lg px-3 py-2 mt-2', app.status === 'offer' ? 'bg-green-50 text-brand-green' : 'bg-accent text-brand-purple']"
+          type="button"
+          :class="['flex items-center gap-2 text-xs rounded-lg px-3 py-2 mt-2 w-full text-left', app.status === 'offer' ? 'bg-green-50 text-brand-green' : 'bg-accent text-brand-purple']"
+          :disabled="app.status === 'offer' && !canOpenOffer(app)"
+          @click="app.status === 'offer' ? goOfferConfirm(app.id) : undefined"
         >
           <CheckCircle v-if="app.status === 'offer'" :size="12" />
           <Calendar v-else :size="12" />
-          <span>{{ app.next }}</span>
-          <ChevronRight :size="12" class="ml-auto" />
-        </div>
+          <span class="flex-1">{{ app.next }}</span>
+          <ChevronRight v-if="app.status === 'offer'" :size="12" />
+        </button>
         <div
           v-if="app.resumeId && (app.hasAttachment || app.resumeName)"
           class="flex items-center gap-2 mt-2 p-2 rounded-lg bg-muted/50 border border-border"

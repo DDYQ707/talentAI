@@ -38,6 +38,28 @@ export function statusToUi(status?: number | null): ApplicationUiStatus {
   }
 }
 
+/** 结合 Offer 状态推导 UI 状态（已发放 Offer 时即使投递 status=进行中也展示 Offer） */
+export function resolveUiStatus(
+  status?: number | null,
+  offerStatus?: number | null,
+): ApplicationUiStatus {
+  const base = statusToUi(status)
+  if (base === '已淘汰' || base === '已撤回') return base
+  // offerStatus: 5-已发放 6-已接受（与 OFFER_STATUS 一致）
+  if (offerStatus === 5 || offerStatus === 6) return 'offer'
+  return base
+}
+
+/** 结合 Offer 状态推导进度条阶段索引 */
+export function resolveStageIndexWithOffer(
+  currentStage?: number | null,
+  offerStatus?: number | null,
+): number {
+  if (offerStatus === 6) return resolveStageIndex(7)
+  if (offerStatus === 5) return resolveStageIndex(6)
+  return resolveStageIndex(currentStage)
+}
+
 /** 阶段在 APPLICATION_STAGES 中的 0-based 索引 */
 export function resolveStageIndex(currentStage?: number | null): number {
   const stageName = stageLabel(currentStage)

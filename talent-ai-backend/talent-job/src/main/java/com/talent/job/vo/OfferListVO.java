@@ -15,6 +15,12 @@ public class OfferListVO {
 
     private String offerNo;
 
+    private Long applicationId;
+
+    private Long jobId;
+
+    private Long candidateId;
+
     private String jobTitle;
 
     private String candidateName;

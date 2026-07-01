@@ -11,12 +11,17 @@ import com.talent.pool.dto.TalentPoolUpdateRequest;
 import com.talent.pool.entity.TalentPoolRecord;
 import com.talent.pool.entity.TalentPoolTag;
 import com.talent.pool.entity.TalentTag;
+import com.talent.pool.feign.AuthFeignClient;
+import com.talent.pool.feign.JobFeignClient;
+import com.talent.pool.feign.ResumeFeignClient;
 import com.talent.pool.mapper.TalentPoolRecordMapper;
 import com.talent.pool.service.ITalentPoolRecordService;
 import com.talent.pool.service.ITalentPoolTagService;
 import com.talent.pool.service.ITalentTagService;
+import com.talent.pool.util.FeignResponseHelper;
 import com.talent.pool.vo.TalentPoolRecordVO;
 import com.talent.pool.vo.TalentTagVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +30,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,13 +43,25 @@ import java.util.stream.Collectors;
  * @since 2026-06-17
  */
 @Service
+@Slf4j
 public class TalentPoolRecordServiceImpl extends ServiceImpl<TalentPoolRecordMapper, TalentPoolRecord> implements ITalentPoolRecordService {
+
+    private static final byte DEFAULT_JOB_SEEKING_STATUS = 3;
 
     @Autowired
     private ITalentPoolTagService talentPoolTagService;
 
     @Autowired
     private ITalentTagService talentTagService;
+
+    @Autowired
+    private JobFeignClient jobFeignClient;
+
+    @Autowired
+    private AuthFeignClient authFeignClient;
+
+    @Autowired
+    private ResumeFeignClient resumeFeignClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -62,15 +80,20 @@ public class TalentPoolRecordServiceImpl extends ServiceImpl<TalentPoolRecordMap
             return R.fail("该候选人已在人才库中，请勿重复归档");
         }
 
+        enrichArchiveRequest(req);
+
         LocalDateTime now = LocalDateTime.now();
         TalentPoolRecord record = new TalentPoolRecord();
         record.setCandidateId(req.getCandidateId());
-        record.setCandidateName(req.getCandidateName());
+        record.setCandidateName(req.getCandidateName().trim());
         record.setCurrentTitle(req.getCurrentTitle());
         record.setResumeId(req.getResumeId());
         record.setSourceApplicationId(req.getSourceApplicationId());
+        record.setSourceJobTitle(req.getSourceJobTitle());
+        record.setInterviewSummary(req.getInterviewSummary());
         record.setTalentCategory(req.getTalentCategory());
-        record.setJobSeekingStatus(req.getJobSeekingStatus());
+        record.setJobSeekingStatus(
+                req.getJobSeekingStatus() != null ? req.getJobSeekingStatus() : DEFAULT_JOB_SEEKING_STATUS);
         record.setMatchScore(req.getMatchScore());
         record.setCurrentCompany(req.getCurrentCompany());
         record.setIsSaved(false);
@@ -218,7 +241,8 @@ public class TalentPoolRecordServiceImpl extends ServiceImpl<TalentPoolRecordMap
                 req.getJobSeekingStatus(),
                 req.getMinScore(),
                 req.getMaxScore(),
-                req.getTagId()
+                req.getTagId(),
+                StringUtils.hasText(req.getKeyword()) ? req.getKeyword().trim() : null
         );
 
         Map<String, Object> data = new HashMap<>();
@@ -227,6 +251,124 @@ public class TalentPoolRecordServiceImpl extends ServiceImpl<TalentPoolRecordMap
         data.put("pages", page.getPages());
         data.put("records", records);
         return R.ok(data);
+    }
+
+    @Override
+    public boolean existsByCandidateId(Long candidateId) {
+        if (candidateId == null) {
+            return false;
+        }
+        return count(new LambdaQueryWrapper<TalentPoolRecord>().eq(TalentPoolRecord::getCandidateId, candidateId)) > 0;
+    }
+
+    @Override
+    public Map<Long, Boolean> existsByCandidateIds(List<Long> candidateIds) {
+        Map<Long, Boolean> result = new LinkedHashMap<>();
+        if (candidateIds == null || candidateIds.isEmpty()) {
+            return result;
+        }
+        for (Long candidateId : candidateIds) {
+            if (candidateId == null) {
+                continue;
+            }
+            result.put(candidateId, existsByCandidateId(candidateId));
+        }
+        return result;
+    }
+
+    private void enrichArchiveRequest(TalentPoolArchiveRequest req) {
+        if (req.getSourceApplicationId() != null) {
+            try {
+                Map<String, Object> res = jobFeignClient.applicationById(req.getSourceApplicationId());
+                if (FeignResponseHelper.code(res) == 200) {
+                    Map<String, Object> data = FeignResponseHelper.dataMap(res);
+                    if (req.getMatchScore() == null) {
+                        Integer score = FeignResponseHelper.intVal(data.get("matchScore"));
+                        if (score != null) {
+                            req.setMatchScore((byte) Math.max(0, Math.min(100, score)));
+                        }
+                    }
+                    if (!StringUtils.hasText(req.getSourceJobTitle())) {
+                        req.setSourceJobTitle(FeignResponseHelper.strVal(data.get("jobTitle")));
+                    }
+                    if (req.getResumeId() == null) {
+                        req.setResumeId(FeignResponseHelper.longVal(data.get("resumeId")));
+                    }
+                    if (!StringUtils.hasText(req.getCandidateName())) {
+                        req.setCandidateName(FeignResponseHelper.strVal(data.get("candidateName")));
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("归档补全投递信息失败 applicationId={} {}", req.getSourceApplicationId(), e.getMessage());
+            }
+        }
+
+        try {
+            Map<String, Object> brief = authFeignClient.candidateBrief(req.getCandidateId());
+            if (brief != null && !brief.isEmpty()) {
+                if (!StringUtils.hasText(req.getCandidateName())) {
+                    req.setCandidateName(FeignResponseHelper.strVal(brief.get("realName")));
+                }
+                if (!StringUtils.hasText(req.getCurrentTitle())) {
+                    req.setCurrentTitle(FeignResponseHelper.strVal(brief.get("currentTitle")));
+                }
+                if (req.getJobSeekingStatus() == null) {
+                    Integer status = FeignResponseHelper.intVal(brief.get("jobSeekingStatus"));
+                    if (status != null) {
+                        req.setJobSeekingStatus((byte) status.intValue());
+                    }
+                }
+                if (req.getMatchScore() == null) {
+                    Integer aiScore = FeignResponseHelper.intVal(brief.get("aiScore"));
+                    if (aiScore != null) {
+                        req.setMatchScore((byte) Math.max(0, Math.min(100, aiScore)));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("归档补全候选人档案失败 candidateId={} {}", req.getCandidateId(), e.getMessage());
+        }
+
+        if (req.getResumeId() != null) {
+            try {
+                Map<String, Object> res = resumeFeignClient.hrResumeBrief(req.getResumeId());
+                if (FeignResponseHelper.code(res) == 200) {
+                    Map<String, Object> data = FeignResponseHelper.dataMap(res);
+                    if (!StringUtils.hasText(req.getCurrentTitle())) {
+                        req.setCurrentTitle(FeignResponseHelper.strVal(data.get("currentTitle")));
+                    }
+                    if (req.getMatchScore() == null) {
+                        Integer score = FeignResponseHelper.intVal(data.get("matchScore"));
+                        if (score != null) {
+                            req.setMatchScore((byte) Math.max(0, Math.min(100, score)));
+                        }
+                    }
+                    if (!StringUtils.hasText(req.getSourceJobTitle())) {
+                        req.setSourceJobTitle(FeignResponseHelper.strVal(data.get("appliedJobTitle")));
+                    }
+                    if (!StringUtils.hasText(req.getCurrentCompany())) {
+                        req.setCurrentCompany(extractLatestCompany(data.get("workExperiences")));
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("归档补全简历信息失败 resumeId={} {}", req.getResumeId(), e.getMessage());
+            }
+        }
+
+        if (req.getJobSeekingStatus() == null) {
+            req.setJobSeekingStatus(DEFAULT_JOB_SEEKING_STATUS);
+        }
+    }
+
+    private String extractLatestCompany(Object workExperiences) {
+        if (!(workExperiences instanceof List<?> list) || list.isEmpty()) {
+            return null;
+        }
+        Object first = list.get(0);
+        if (first instanceof Map<?, ?> work) {
+            return FeignResponseHelper.strVal(work.get("companyName"));
+        }
+        return null;
     }
 
     /**
@@ -240,6 +382,8 @@ public class TalentPoolRecordServiceImpl extends ServiceImpl<TalentPoolRecordMap
         vo.setCurrentTitle(record.getCurrentTitle());
         vo.setResumeId(record.getResumeId());
         vo.setSourceApplicationId(record.getSourceApplicationId());
+        vo.setSourceJobTitle(record.getSourceJobTitle());
+        vo.setInterviewSummary(record.getInterviewSummary());
         vo.setTalentCategory(record.getTalentCategory());
         vo.setJobSeekingStatus(record.getJobSeekingStatus());
         vo.setMatchScore(record.getMatchScore());

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Calendar,
   Clock,
   User,
   Video,
@@ -11,30 +10,31 @@ import {
   ChevronRight,
   Briefcase,
   Star,
-  NotebookPen,
+  ExternalLink,
+  Copy,
 } from 'lucide-vue-next'
 import {
   fetchAiMatchScoresByApplications,
   fetchMyInterviewPage,
-  fetchMyInterviewStats,
   type InterviewListItem,
-  type InterviewStats,
 } from '@/api/interview'
 import {
+  INTERVIEW_MODE,
   INTERVIEW_STATUS,
   formatInterviewDateTime,
   interviewStatusClass,
   interviewStatusLabel,
 } from '@/constants/interview'
+import { canJoinMeeting, copyMeetingInfo, openMeeting } from '@/utils/interviewMeeting'
 import { getErrorMessage } from '@/utils/validators'
 
 const router = useRouter()
 const loading = ref(false)
 const errorMsg = ref('')
+const copyTip = ref('')
 const keyword = ref('')
 const statusTab = ref<number | ''>('')
 const interviews = ref<InterviewListItem[]>([])
-const stats = ref<InterviewStats | null>(null)
 const aiMatchScores = ref<Record<number, number>>({})
 
 const tabs = [
@@ -43,53 +43,17 @@ const tabs = [
   { key: INTERVIEW_STATUS.COMPLETED, label: '已完成' },
 ]
 
-const statCards = computed(() => [
-  {
-    label: '今日待进行',
-    value: stats.value?.todayPending ?? 0,
-    icon: Calendar,
-    color: 'text-brand-blue bg-brand-tint',
-  },
-  {
-    label: '本周合计',
-    value: stats.value?.weekTotal ?? 0,
-    icon: Clock,
-    color: 'text-brand-purple bg-brand-tint-2',
-  },
-  {
-    label: '已完成',
-    value: stats.value?.completed ?? 0,
-    icon: CheckCircle,
-    color: 'text-brand-green bg-green-50',
-  },
-  {
-    label: '待进行总数',
-    value: stats.value?.todayPending ?? 0,
-    icon: Star,
-    color: 'text-brand-orange bg-orange-50',
-  },
-])
-
-const headerHint = computed(() => {
-  const today = stats.value?.todayPending ?? 0
-  return today > 0 ? `您好，今天有 ${today} 场面试待进行` : '您好，今日暂无待进行面试'
-})
-
 async function loadData() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const [pageData, statsData] = await Promise.all([
-      fetchMyInterviewPage({
-        page: 1,
-        size: 50,
-        keyword: keyword.value.trim() || undefined,
-        status: statusTab.value === '' ? undefined : Number(statusTab.value),
-      }),
-      fetchMyInterviewStats(),
-    ])
+    const pageData = await fetchMyInterviewPage({
+      page: 1,
+      size: 50,
+      keyword: keyword.value.trim() || undefined,
+      status: statusTab.value === '' ? undefined : Number(statusTab.value),
+    })
     interviews.value = pageData.records ?? []
-    stats.value = statsData
     aiMatchScores.value = await fetchAiMatchScoresByApplications(
       interviews.value.map((item) => item.applicationId),
     )
@@ -109,9 +73,27 @@ function openDetail(interviewId: number) {
   router.push({ path: '/interviewer/detail', query: { id: String(interviewId) } })
 }
 
-function openNotes(interviewId: number, event: Event) {
+function openPrep(interviewId: number, event: Event) {
   event.stopPropagation()
-  router.push({ path: '/interviewer/notes', query: { id: String(interviewId) } })
+  router.push({ path: '/interviewer/prep', query: { id: String(interviewId) } })
+}
+
+function handleJoinMeeting(item: InterviewListItem, event: Event) {
+  event.stopPropagation()
+  if (!item.meetingUrl) return
+  openMeeting(item.meetingUrl)
+}
+
+async function handleCopyMeeting(item: InterviewListItem, event: Event) {
+  event.stopPropagation()
+  const text = [item.candidateName, item.jobTitle, formatInterviewDateTime(item.scheduledStart), item.meetingUrl]
+    .filter(Boolean)
+    .join(' · ')
+  const ok = await copyMeetingInfo(text)
+  copyTip.value = ok ? '已复制' : '复制失败'
+  setTimeout(() => {
+    copyTip.value = ''
+  }, 2000)
 }
 
 watch(statusTab, () => loadData())
@@ -122,36 +104,12 @@ onMounted(() => loadData())
 <template>
   <div data-cmp="InterviewList" class="p-8 h-full overflow-y-auto scrollbar-thin">
     <div class="max-w-5xl mx-auto">
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-2xl font-black text-foreground">我的面试列表</h1>
-          <p class="text-muted-foreground mt-1">{{ headerHint }}</p>
-        </div>
-        <button
-          type="button"
-          class="flex items-center gap-2 px-4 py-2 gradient-purple rounded-xl text-white text-sm font-medium shadow-custom"
-          @click="router.push('/interviewer/notes')"
-        >
-          <NotebookPen :size="15" />
-          <span>AI 面试笔记</span>
-        </button>
+      <div class="mb-8">
+        <h1 class="text-2xl font-black text-foreground">我的面试</h1>
+        <p class="text-muted-foreground mt-1">查看全部面试任务，进入详情提交评价</p>
       </div>
 
-      <div class="flex gap-4 mb-8">
-        <div
-          v-for="s in statCards"
-          :key="s.label"
-          class="flex-1 bg-card p-5 shadow-card border border-border"
-        >
-          <div :class="['w-10 h-10 rounded-xl flex items-center justify-center mb-3', s.color]">
-            <component :is="s.icon" :size="18" />
-          </div>
-          <div class="text-2xl font-black text-foreground">{{ s.value }}</div>
-          <div class="text-sm text-muted-foreground mt-1">{{ s.label }}</div>
-        </div>
-      </div>
-
-      <div class="flex gap-2 mb-6">
+      <div class="flex gap-2 mb-4">
         <button
           v-for="tab in tabs"
           :key="String(tab.key)"
@@ -169,6 +127,7 @@ onMounted(() => loadData())
       </div>
 
       <p v-if="errorMsg" class="text-xs text-red-600 mb-4">{{ errorMsg }}</p>
+      <p v-if="copyTip" class="text-xs text-brand-green mb-4">{{ copyTip }}</p>
       <p v-if="loading" class="text-sm text-muted-foreground mb-4">加载中...</p>
 
       <div v-if="!loading && interviews.length === 0" class="text-center text-sm text-muted-foreground py-12">
@@ -219,18 +178,47 @@ onMounted(() => loadData())
                 <span class="flex items-center gap-1"><Clock :size="13" />{{ formatInterviewDateTime(iv.scheduledStart) }}</span>
                 <span class="flex items-center gap-1"><Video :size="13" />{{ iv.interviewModeLabel }}</span>
               </div>
+              <div v-if="iv.interviewMode === INTERVIEW_MODE.VIDEO && iv.meetingUrl" class="text-xs text-muted-foreground mb-2 truncate">
+                会议：{{ iv.meetingUrl }}
+              </div>
               <div class="flex items-center justify-between">
                 <span class="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground">
                   {{ iv.roundTypeLabel }}
                 </span>
                 <div class="flex items-center gap-2">
                   <button
+                    v-if="iv.status === INTERVIEW_STATUS.PENDING && canJoinMeeting(iv)"
+                    type="button"
+                    class="flex items-center gap-1 text-xs px-2 py-1 rounded-lg gradient-blue text-white"
+                    @click="handleJoinMeeting(iv, $event)"
+                  >
+                    <ExternalLink :size="11" />
+                    进入会议
+                  </button>
+                  <button
+                    v-if="iv.status === INTERVIEW_STATUS.PENDING && iv.meetingUrl"
+                    type="button"
+                    class="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-border hover:bg-muted"
+                    @click="handleCopyMeeting(iv, $event)"
+                  >
+                    <Copy :size="11" />
+                  </button>
+                  <button
                     v-if="iv.status === INTERVIEW_STATUS.PENDING"
                     type="button"
                     class="text-xs px-2 py-1 rounded-lg border border-brand-purple/30 text-brand-purple hover:bg-brand-tint-2"
-                    @click="openNotes(iv.interviewId, $event)"
+                    @click="openPrep(iv.interviewId, $event)"
                   >
-                    记笔记
+                    去准备
+                  </button>
+                  <button
+                    v-if="iv.status === INTERVIEW_STATUS.COMPLETED"
+                    type="button"
+                    class="text-xs px-2 py-1 rounded-lg border border-brand-green/30 text-brand-green hover:bg-green-50"
+                    @click="openDetail(iv.interviewId)"
+                  >
+                    <CheckCircle :size="11" class="inline mr-0.5" />
+                    查看评价
                   </button>
                   <ChevronRight :size="16" class="text-muted-foreground flex-shrink-0" />
                 </div>

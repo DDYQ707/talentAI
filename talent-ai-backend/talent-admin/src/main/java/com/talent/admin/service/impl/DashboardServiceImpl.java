@@ -18,7 +18,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -56,19 +55,30 @@ public class DashboardServiceImpl implements IDashboardService {
         return data;
     }
 
-    /** overview：4 个真查 + 4 个写死环比 */
+    /** overview：4 个真查 + 4 个写死环比（真实值为 0 时环比强制归 0，避免“0 个却上涨”的矛盾） */
     private OverviewVO buildOverview() {
         OverviewVO vo = new OverviewVO();
-        vo.setTotalUsers(safe("totalUsers", dashboardAuthMapper::countUsers, 0L));
-        vo.setTotalEnterprises(safe("totalEnterprises", dashboardMasterMapper::countEnterprises, 0L));
-        vo.setAiRiskBlocked(safe("aiRiskBlocked", dashboardMasterMapper::countRiskBlocked, 0L));
-        vo.setTodayDeliveryPeak(safe("todayDeliveryPeak", dashboardJobMapper::countTodayDelivery, 0L));
-        // 环比无历史快照，写死合理值
-        vo.setTotalUsersTrend(12.6);
-        vo.setTotalEnterprisesTrend(5.3);
-        vo.setTodayDeliveryPeakTrend(-3.1);
-        vo.setAiRiskBlockedTrend(18.7);
+        long totalUsers = safe("totalUsers", dashboardAuthMapper::countUsers, 0L);
+        long totalEnterprises = safe("totalEnterprises", dashboardMasterMapper::countEnterprises, 0L);
+        long aiRiskBlocked = safe("aiRiskBlocked", dashboardMasterMapper::countRiskBlocked, 0L);
+        long todayDeliveryPeak = safe("todayDeliveryPeak", dashboardJobMapper::countTodayDelivery, 0L);
+
+        vo.setTotalUsers(totalUsers);
+        vo.setTotalEnterprises(totalEnterprises);
+        vo.setAiRiskBlocked(aiRiskBlocked);
+        vo.setTodayDeliveryPeak(todayDeliveryPeak);
+
+        // 环比暂无历史快照数据源，返回 0 表示「暂无对比」
+        vo.setTotalUsersTrend(0.0);
+        vo.setTotalEnterprisesTrend(0.0);
+        vo.setTodayDeliveryPeakTrend(0.0);
+        vo.setAiRiskBlockedTrend(0.0);
         return vo;
+    }
+
+    /** 真实值为 0 时环比归 0（保留供后续接入历史快照） */
+    private double trendFor(long actualValue, double presetTrend) {
+        return actualValue == 0L ? 0.0 : presetTrend;
     }
 
     /** supplyDemandTrend：近30天，补 0，MM-dd 升序 */
@@ -106,21 +116,9 @@ public class DashboardServiceImpl implements IDashboardService {
                     toLong(row.get("value"))));
         }
         if (list.isEmpty()) {
-            return mockIndustry();
+            return Collections.emptyList();
         }
         return list;
-    }
-
-    private List<IndustryVO> mockIndustry() {
-        return new ArrayList<>(Arrays.asList(
-                new IndustryVO("互联网/IT", 320),
-                new IndustryVO("金融", 180),
-                new IndustryVO("制造业", 150),
-                new IndustryVO("教育", 90),
-                new IndustryVO("医疗健康", 75),
-                new IndustryVO("电子商务", 60),
-                new IndustryVO("房地产", 45),
-                new IndustryVO("其他", 110)));
     }
 
     /** 将 [{d,c}] 行转为 {yyyy-MM-dd -> count} */

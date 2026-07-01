@@ -59,6 +59,12 @@ public class GlobalExceptionHandler {
         return R.fail(e.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public R<Void> handleIllegalStateException(IllegalStateException e) {
+        log.warn("状态异常: {}", e.getMessage());
+        return R.fail(e.getMessage());
+    }
+
     /**
      * 兜底：处理所有未知异常
      */

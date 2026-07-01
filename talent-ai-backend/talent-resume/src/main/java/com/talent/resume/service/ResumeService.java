@@ -29,6 +29,7 @@ import com.talent.resume.dto.OnlineResumeEducationDTO;
 import com.talent.resume.dto.OnlineResumeProjectDTO;
 import com.talent.resume.dto.OnlineResumeSkillDTO;
 import com.talent.resume.dto.OnlineResumeWorkDTO;
+import com.talent.resume.dto.ScreenStatusUpdateRequest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -50,7 +51,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class ResumeService {
 
-    private static final Set<String> ALLOWED_EXT = Set.of("pdf", "doc", "docx");
+    private static final Set<String> ALLOWED_EXT = Set.of("pdf");
     private static final long MAX_BYTES = 10L * 1024 * 1024;
 
     private final ResumeMapper resumeMapper;
@@ -181,7 +182,7 @@ public class ResumeService {
         List<Resume> allMatching = resumeMapper.selectList(wrapper);
         List<Long> allIds = allMatching.stream().map(Resume::getId).toList();
         Map<Long, ResumeAttachment> allAttMap = loadLatestAttachments(allIds);
-        List<Resume> deduped = consolidationService.dedupeForHrList(allMatching, allAttMap);
+        List<Resume> deduped = new ArrayList<>(consolidationService.dedupeForHrList(allMatching, allAttMap));
         deduped.sort((a, b) -> {
             if (a.getUpdatedAt() == null && b.getUpdatedAt() == null) {
                 return Long.compare(b.getId(), a.getId());
@@ -229,7 +230,7 @@ public class ResumeService {
         if (keywordTrimmed != null) {
             filteredRecords = allRecords.stream()
                     .filter(vo -> matchesKeyword(vo, keywordTrimmed))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         }
 
         total = filteredRecords.size();
@@ -237,7 +238,7 @@ public class ResumeService {
         int from = Math.min((pageNum - 1) * pageSize, total);
         int to = Math.min(from + pageSize, total);
         List<HrResumeListVO> records =
-                total == 0 ? List.of() : filteredRecords.subList(from, to);
+                total == 0 ? new ArrayList<>() : new ArrayList<>(filteredRecords.subList(from, to));
 
         fillLatestApplicationsForList(records);
 
@@ -590,15 +591,14 @@ public class ResumeService {
         return primary.getId();
     }
 
-    /** 微服务内部：同步主简历筛选状态（安排面试等场景） */
+    /** 微服务内部：仅更新主简历筛选状态（不回写投递单，供 Offer 等场景使用） */
     @Transactional(rollbackFor = Exception.class)
-    public void internalSyncScreenStatus(
-            Long resumeId, Long candidateId, Integer screenStatus, Long operatorId, String remark) {
+    public void internalSetScreenStatusOnly(Long resumeId, Long candidateId, Integer screenStatus) {
         if (candidateId == null) {
             throw new IllegalArgumentException("candidateId 不能为空");
         }
         if (!ResumeConstants.isValidScreenStatus(screenStatus)) {
-            throw new IllegalArgumentException("筛选状态无效，应为 1～4");
+            throw new IllegalArgumentException("筛选状态无效，应为 1～5");
         }
 
         Resume primary = consolidationService.getPrimaryResume(candidateId);
@@ -616,7 +616,38 @@ public class ResumeService {
             primary.setScreenStatus(screenStatus);
             primary.setUpdatedAt(LocalDateTime.now());
             resumeMapper.updateById(primary);
-            syncApplicationScreenStatus(candidateId, screenStatus, operatorId, remark);
+        }
+    }
+
+    /** 微服务内部：同步主简历筛选状态（安排面试等场景） */
+    @Transactional(rollbackFor = Exception.class)
+    public void internalSyncScreenStatus(
+            Long resumeId, Long candidateId, Integer screenStatus, Long operatorId, String remark) {
+        if (candidateId == null) {
+            throw new IllegalArgumentException("candidateId 不能为空");
+        }
+        if (!ResumeConstants.isValidScreenStatus(screenStatus)) {
+            throw new IllegalArgumentException("筛选状态无效，应为 1～5");
+        }
+
+        Resume primary = consolidationService.getPrimaryResume(candidateId);
+        if (primary == null && resumeId != null) {
+            primary = resumeMapper.selectById(resumeId);
+        }
+        if (primary == null) {
+            throw new IllegalArgumentException("简历不存在");
+        }
+        if (!candidateId.equals(primary.getCandidateId())) {
+            throw new IllegalArgumentException("简历与候选人不匹配");
+        }
+
+        if (!screenStatus.equals(primary.getScreenStatus())) {
+            primary.setScreenStatus(screenStatus);
+            primary.setUpdatedAt(LocalDateTime.now());
+            resumeMapper.updateById(primary);
+            ScreenStatusUpdateRequest syncRequest = new ScreenStatusUpdateRequest();
+            syncRequest.setRemark(remark);
+            syncApplicationScreenStatus(candidateId, screenStatus, operatorId, syncRequest);
         }
     }
 
@@ -697,10 +728,11 @@ public class ResumeService {
 
     @Transactional(rollbackFor = Exception.class)
     public HrResumeDetailVO updateHrScreenStatus(
-            String role, Long operatorId, Long resumeId, Integer screenStatus, String remark) {
+            String role, Long operatorId, Long resumeId, ScreenStatusUpdateRequest body) {
         assertHrRole(role);
+        Integer screenStatus = body != null ? body.getScreenStatus() : null;
         if (!ResumeConstants.isValidScreenStatus(screenStatus)) {
-            throw new IllegalArgumentException("筛选状态无效，应为 1～4");
+            throw new IllegalArgumentException("筛选状态无效，应为 1～5");
         }
 
         Resume resume = resumeMapper.selectById(resumeId);
@@ -714,32 +746,49 @@ public class ResumeService {
             resume = primary;
         }
 
+        Integer currentStatus = resume.getScreenStatus();
+        if (currentStatus != null
+                && (currentStatus == ResumeConstants.SCREEN_HIRED || currentStatus == ResumeConstants.SCREEN_REJECTED)) {
+            throw new IllegalArgumentException("已录用或已淘汰为终态，不可再变更筛选状态");
+        }
+
         if (!screenStatus.equals(resume.getScreenStatus())) {
             resume.setScreenStatus(screenStatus);
             resume.setUpdatedAt(LocalDateTime.now());
             resumeMapper.updateById(resume);
-            syncApplicationScreenStatus(resume.getCandidateId(), screenStatus, operatorId, remark);
+            syncApplicationScreenStatus(resume.getCandidateId(), screenStatus, operatorId, body);
         }
 
         return getHrResumeDetail(role, resumeId);
     }
 
     private void syncApplicationScreenStatus(
-            Long candidateId, Integer screenStatus, Long operatorId, String remark) {
+            Long candidateId, Integer screenStatus, Long operatorId, ScreenStatusUpdateRequest body) {
         if (candidateId == null) {
             return;
         }
-        Map<String, Object> body = new HashMap<>();
-        body.put("candidateId", candidateId);
-        body.put("screenStatus", screenStatus);
+        Map<String, Object> syncBody = new HashMap<>();
+        syncBody.put("candidateId", candidateId);
+        syncBody.put("screenStatus", screenStatus);
         if (operatorId != null) {
-            body.put("operatorId", operatorId);
+            syncBody.put("operatorId", operatorId);
         }
-        body.put("operatorName", resolveOperatorName(operatorId));
-        if (StringUtils.hasText(remark)) {
-            body.put("remark", remark.trim());
+        syncBody.put("operatorName", resolveOperatorName(operatorId));
+        if (body != null) {
+            if (StringUtils.hasText(body.getRemark())) {
+                syncBody.put("remark", body.getRemark().trim());
+            }
+            if (Boolean.TRUE.equals(body.getArchiveToTalentPool())) {
+                syncBody.put("archiveToTalentPool", true);
+            }
+            if (StringUtils.hasText(body.getArchiveReason())) {
+                syncBody.put("archiveReason", body.getArchiveReason().trim());
+            }
+            if (StringUtils.hasText(body.getInterviewSummary())) {
+                syncBody.put("interviewSummary", body.getInterviewSummary().trim());
+            }
         }
-        Map<String, Object> res = jobFeignClient.syncApplicationByScreenStatus(body);
+        Map<String, Object> res = jobFeignClient.syncApplicationByScreenStatus(syncBody);
         if (res == null) {
             return;
         }
@@ -1055,7 +1104,7 @@ public class ResumeService {
         }
         String ext = extractExtension(file.getOriginalFilename());
         if (!ALLOWED_EXT.contains(ext)) {
-            throw new IllegalArgumentException("仅支持 pdf、doc、docx 格式");
+            throw new IllegalArgumentException("仅支持 PDF 格式");
         }
     }
 

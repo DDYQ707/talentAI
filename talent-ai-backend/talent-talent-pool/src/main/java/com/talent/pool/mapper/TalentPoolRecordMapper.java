@@ -33,6 +33,7 @@ public interface TalentPoolRecordMapper extends BaseMapper<TalentPoolRecord> {
             @Param("jobSeekingStatus") Byte jobSeekingStatus,
             @Param("minScore") Integer minScore,
             @Param("maxScore") Integer maxScore,
-            @Param("tagId") Long tagId
+            @Param("tagId") Long tagId,
+            @Param("keyword") String keyword
     );
 }

@@ -10,7 +10,6 @@ import {
   Star,
   Settings,
   LogOut,
-  Sparkles,
   AlertCircle,
   Calendar,
 } from 'lucide-vue-next'
@@ -199,16 +198,6 @@ onActivated(() => {
             <dd class="text-foreground font-medium truncate">{{ profile?.currentTitle || '—' }}</dd>
           </div>
         </dl>
-      </div>
-
-      <div class="relative z-10 rounded-2xl border border-border bg-card p-4 shadow-card">
-        <div class="flex items-center gap-2 mb-3">
-          <Sparkles :size="14" class="text-brand-purple" />
-          <span class="text-sm font-semibold text-foreground">AI职业画像</span>
-          <span class="ml-auto text-xs text-muted-foreground">敬请期待</span>
-        </div>
-        <p v-if="profile?.aiScore" class="text-xs text-muted-foreground mb-2">AI 评分 {{ profile.aiScore }}</p>
-        <p v-else class="text-xs text-muted-foreground">完善简历与档案后，将生成职业标签与能力分析</p>
       </div>
 
       <div class="overflow-hidden rounded-2xl border border-border bg-card shadow-card">

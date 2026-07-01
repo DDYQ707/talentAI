@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronLeft, FileText, Sparkles, CheckCircle, Upload, X, PenLine } from 'lucide-vue-next'
+import { ChevronLeft, FileText, CheckCircle, Upload, X, PenLine } from 'lucide-vue-next'
 import { fetchProfileCompleteness } from '@/api/candidateProfile'
 import { fetchActiveAppliedJobIds, submitApplication } from '@/api/delivery'
 import { fetchOnlineResumeList, fetchOnlineResumeDetail, type OnlineResumeListItem } from '@/api/onlineResume'
@@ -9,7 +9,6 @@ import { deleteResume, fetchAttachmentResumes, uploadResumeFile, type ResumeList
 import { ONLINE_RESUME_MIN_SUBMIT_SCORE } from '@/constants/onlineResume'
 import { analyzeOnlineResumeDetail } from '@/utils/onlineResumeCompleteness'
 import { getErrorMessage } from '@/utils/validators'
-import { useCandidateHint } from '@/composables/useCandidateHint'
 
 interface ResumeOption {
   id: number
@@ -19,7 +18,6 @@ interface ResumeOption {
 
 const router = useRouter()
 const route = useRoute()
-const { showComingSoon } = useCandidateHint()
 
 const activeTab = ref<'attachment' | 'online'>('attachment')
 const resumes = ref<ResumeOption[]>([])
@@ -173,8 +171,8 @@ function onFileSelected(ev: Event) {
 
   errorMsg.value = ''
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  if (!['pdf', 'doc', 'docx'].includes(ext)) {
-    errorMsg.value = '仅支持 pdf、doc、docx 格式'
+  if (ext !== 'pdf') {
+    errorMsg.value = '仅支持 PDF 格式'
     return
   }
   if (file.size > 10 * 1024 * 1024) {
@@ -481,7 +479,7 @@ onMounted(async () => {
         <template v-if="activeTab === 'attachment'">
         <p v-if="loadingResumes" class="text-xs text-muted-foreground py-2">加载中...</p>
         <p v-else-if="resumes.length === 0 && !pendingFile" class="text-xs text-muted-foreground py-2">
-          暂无附件，请上传 pdf/doc/docx 用于投递
+          暂无附件，请上传 PDF 格式简历（最大 10MB）
         </p>
 
         <div
@@ -536,7 +534,7 @@ onMounted(async () => {
         <input
           ref="fileInputRef"
           type="file"
-          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,application/pdf"
           class="hidden"
           @change="onFileSelected"
         />
@@ -623,21 +621,6 @@ onMounted(async () => {
             <CheckCircle v-if="selectedResumeId === o.id" :size="16" class="text-brand-blue flex-shrink-0" />
           </div>
         </template>
-      </div>
-
-      <div class="bg-accent rounded-2xl p-4 border border-brand-border/50">
-        <div class="flex items-center gap-2 mb-3">
-          <Sparkles :size="14" class="text-brand-purple" />
-          <span class="text-xs font-semibold text-brand-purple">AI简历优化</span>
-        </div>
-        <p class="text-xs text-muted-foreground leading-relaxed mb-3">AI分析发现，针对此岗位可优化以下内容，提升匹配度</p>
-        <button
-          type="button"
-          class="mt-3 w-full py-2 rounded-xl gradient-purple text-white text-xs font-medium opacity-90"
-          @click="showComingSoon('AI 简历优化')"
-        >
-          AI一键优化简历
-        </button>
       </div>
 
       <p v-if="errorMsg" class="text-xs text-red-600" role="alert">{{ errorMsg }}</p>

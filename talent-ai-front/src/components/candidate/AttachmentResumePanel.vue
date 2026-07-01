@@ -57,6 +57,16 @@ async function onFileSelected(ev: Event) {
   input.value = ''
   if (!file) return
 
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (ext !== 'pdf') {
+    errorMsg.value = '仅支持 PDF 格式'
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    errorMsg.value = '文件大小不能超过 10MB'
+    return
+  }
+
   uploading.value = true
   errorMsg.value = ''
   message.value = ''
@@ -111,8 +121,8 @@ onMounted(() => {
   <div :class="embedded ? '' : 'space-y-4'">
     <div class="bg-card shadow-card p-4 border border-border">
       <div class="flex items-center justify-between mb-3">
-        <span v-if="!embedded" class="text-sm text-muted-foreground">上传 pdf / doc / docx，最大 10MB，用于岗位投递</span>
-        <span v-else class="text-xs text-muted-foreground">上传文件后可用于岗位投递</span>
+        <span v-if="!embedded" class="text-sm text-muted-foreground">请上传 PDF 格式简历（最大 10MB）</span>
+        <span v-else class="text-xs text-muted-foreground">请上传 PDF 格式简历（最大 10MB）</span>
         <button
           type="button"
           class="flex items-center gap-1 text-xs text-brand-blue disabled:opacity-50"
@@ -123,7 +133,7 @@ onMounted(() => {
           {{ uploading ? '上传中' : '上传' }}
         </button>
       </div>
-      <input ref="fileInputRef" type="file" accept=".pdf,.doc,.docx" class="hidden" @change="onFileSelected" />
+      <input ref="fileInputRef" type="file" accept=".pdf,application/pdf" class="hidden" @change="onFileSelected" />
       <p v-if="loading" class="text-xs text-muted-foreground">加载中...</p>
       <p v-else-if="attachments.length === 0" class="text-xs text-muted-foreground">暂无附件，请先上传</p>
       <div

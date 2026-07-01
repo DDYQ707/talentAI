@@ -1,0 +1,9 @@
+# talent-auth 远程配置（Nacos Data ID: talent-auth.yaml）
+# 修改后发布即可热更新，无需重启服务
+
+talent:
+  auth:
+    otp:
+      expire-seconds: 300
+      send-cooldown-seconds: 60
+      dev-expose: true

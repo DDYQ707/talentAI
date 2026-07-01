@@ -2,6 +2,8 @@ package com.talent.resume.controller;
 
 import com.talent.resume.dto.InternalScreenSyncRequest;
 import com.talent.resume.dto.OnDeliveryScreenRequest;
+import com.talent.resume.dto.ParseResultBackfillRequest;
+import com.talent.resume.service.ResumeParseBackfillService;
 import com.talent.resume.service.ResumeService;
 import com.talent.resume.vo.HrResumeDetailVO;
 import java.util.Map;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ResumeInternalController {
 
     private final ResumeService resumeService;
+    private final ResumeParseBackfillService parseBackfillService;
 
     /** AI 助手：分页搜索 HR 简历列表 */
     @GetMapping("/hr/page")
@@ -77,6 +80,42 @@ public class ResumeInternalController {
         return resumeService.getPrimaryResumeBrief(candidateId);
     }
 
+    /** AI 解析成功后回填在线简历子表与候选人档案 */
+    @PostMapping("/parse-backfill")
+    public Map<String, Object> parseBackfill(@RequestBody ParseResultBackfillRequest request) {
+        if (request == null || request.getResumeId() == null) {
+            return Map.of("code", 400, "msg", "resumeId 不能为空");
+        }
+        try {
+            parseBackfillService.backfill(request);
+            return Map.of("code", 200, "msg", "ok");
+        } catch (IllegalArgumentException e) {
+            return Map.of("code", 400, "msg", e.getMessage());
+        } catch (Exception e) {
+            return Map.of("code", 500, "msg", "解析结果回填失败：" + e.getMessage());
+        }
+    }
+
+    /** AI 解析失败时更新 parse_status */
+    @PostMapping("/parse-failed")
+    public Map<String, Object> parseFailed(@RequestParam("resumeId") Long resumeId) {
+        if (resumeId == null) {
+            return Map.of("code", 400, "msg", "resumeId 不能为空");
+        }
+        parseBackfillService.markParseFailed(resumeId);
+        return Map.of("code", 200, "msg", "ok");
+    }
+
+    /** AI 解析开始时更新 parse_status 为解析中 */
+    @PostMapping("/parse-processing")
+    public Map<String, Object> parseProcessing(@RequestParam("resumeId") Long resumeId) {
+        if (resumeId == null) {
+            return Map.of("code", 400, "msg", "resumeId 不能为空");
+        }
+        parseBackfillService.markParseProcessing(resumeId);
+        return Map.of("code", 200, "msg", "ok");
+    }
+
     /** 供 AI 解析：附件摘要或在线简历结构化数据 */
     @GetMapping("/ai-parse-context")
     public Map<String, Object> aiParseContext(@RequestParam("resumeId") Long resumeId) {
@@ -99,6 +138,23 @@ public class ResumeInternalController {
         try {
             Long primaryResumeId = resumeService.markPendingOnDelivery(request.getResumeId(), request.getCandidateId());
             return Map.of("code", 200, "msg", "ok", "primaryResumeId", primaryResumeId);
+        } catch (IllegalArgumentException e) {
+            return Map.of("code", 400, "msg", e.getMessage());
+        }
+    }
+
+    /** 微服务内部：仅更新主简历筛选状态（不回写投递单） */
+    @PostMapping("/set-screen-status-only")
+    public Map<String, Object> setScreenStatusOnly(@RequestBody InternalScreenSyncRequest request) {
+        if (request == null || request.getCandidateId() == null || request.getScreenStatus() == null) {
+            return Map.of("code", 400, "msg", "candidateId 与 screenStatus 不能为空");
+        }
+        try {
+            resumeService.internalSetScreenStatusOnly(
+                    request.getResumeId(),
+                    request.getCandidateId(),
+                    request.getScreenStatus());
+            return Map.of("code", 200, "msg", "ok");
         } catch (IllegalArgumentException e) {
             return Map.of("code", 400, "msg", e.getMessage());
         }

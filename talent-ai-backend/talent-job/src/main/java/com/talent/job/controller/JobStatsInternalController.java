@@ -122,7 +122,7 @@ public class JobStatsInternalController {
      * 最近N个月的每月投递量
      */
     @GetMapping("/monthly-applications")
-    public List<MonthlyCountVO> getMonthlyApplications(@RequestParam(defaultValue = "6") int months) {
+    public List<MonthlyCountVO> getMonthlyApplications(@RequestParam(value = "months", defaultValue = "6") int months) {
         LocalDateTime startDate = LocalDate.now().minusMonths(months - 1).withDayOfMonth(1).atStartOfDay();
         List<JobApplication> apps = jobApplicationService.list(
                 new LambdaQueryWrapper<JobApplication>()
@@ -140,7 +140,7 @@ public class JobStatsInternalController {
      * 最近N个月的每月Offer发放量（已发放状态：已通过/已发放/已接受/已拒绝）
      */
     @GetMapping("/monthly-offers")
-    public List<MonthlyCountVO> getMonthlyOffers(@RequestParam(defaultValue = "6") int months) {
+    public List<MonthlyCountVO> getMonthlyOffers(@RequestParam(value = "months", defaultValue = "6") int months) {
         LocalDateTime startDate = LocalDate.now().minusMonths(months - 1).withDayOfMonth(1).atStartOfDay();
         List<Byte> sentStatuses = List.of(
                 OfferConstants.OFFER_STATUS_APPROVED,

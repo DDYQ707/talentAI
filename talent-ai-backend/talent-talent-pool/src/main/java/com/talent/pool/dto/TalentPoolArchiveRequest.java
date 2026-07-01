@@ -34,6 +34,11 @@ public class TalentPoolArchiveRequest {
     private Long sourceApplicationId;
 
     /**
+     * 来源岗位名称快照
+     */
+    private String sourceJobTitle;
+
+    /**
      * 人才分类
      */
     private Byte talentCategory;
@@ -57,4 +62,9 @@ public class TalentPoolArchiveRequest {
      * 归档原因
      */
     private String archiveReason;
+
+    /**
+     * 面试评价摘要（结论、分数等）
+     */
+    private String interviewSummary;
 }

@@ -416,7 +416,7 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
             return result;
         }
         Integer screenStatus = request.getScreenStatus();
-        if (screenStatus == null || screenStatus < 1 || screenStatus > 4) {
+        if (screenStatus == null || screenStatus < 1 || screenStatus > 5) {
             result.put("code", 400);
             result.put("msg", "screenStatus 无效");
             return result;
@@ -481,13 +481,9 @@ public class JobApplicationServiceImpl extends ServiceImpl<JobApplicationMapper,
         }
 
         // ========== 状态流转联动 ==========
-        // 录用 → 自动创建 Offer 草稿（同库事务内）
-        if (newStatus == JobApplicationConstants.STATUS_HIRED) {
-            candidateStatusHookService.onHired(app, request.getOperatorId());
-        }
-        // 淘汰 → 自动归档至人才库（跨服务调用，失败不回滚）
-        if (newStatus == JobApplicationConstants.STATUS_REJECTED) {
-            candidateStatusHookService.onRejected(app);
+        // 淘汰 + HR 确认归档 → 联动人才库
+        if (screenStatus == 4 && Boolean.TRUE.equals(request.getArchiveToTalentPool())) {
+            candidateStatusHookService.archiveToTalentPool(app, request);
         }
         // 可选：触发 AI 人才画像生成（fire-and-forget）
         candidateStatusHookService.triggerAiProfile(app);

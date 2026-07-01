@@ -26,7 +26,7 @@ spring:
         - id: job_route
           uri: lb://talent-job
           predicates:
-            - Path=/api/job/**, /api/delivery/**, /api/jobApplication/**
+            - Path=/api/job/**, /api/delivery/**
         # Offer 路由（Controller 映射 /offer，网关 StripPrefix 剥离 /api）
         - id: offer_route
           uri: lb://talent-job
@@ -75,3 +75,13 @@ spring:
           uri: lb://talent-analytics
           predicates:
             - Path=/api/analytics/**
+    sentinel:
+      eager: true
+      scg:
+        fallback:
+          mode: response
+          response-status: 429
+          content-type: application/json;charset=UTF-8
+          response-body: '{"code":429,"msg":"请求过于频繁，请稍后再试"}'
+      filter:
+        enabled: true

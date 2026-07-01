@@ -3,6 +3,7 @@ package com.talent.analytics.feign;
 import com.talent.analytics.feign.dto.OfferStatsDTO;
 import com.talent.analytics.feign.dto.MonthlyCountDTO;
 import com.talent.analytics.feign.dto.DepartmentJobStatDTO;
+import com.talent.analytics.feign.fallback.JobFeignFallback;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -10,7 +11,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "talent-job", contextId = "analyticsJobFeignClient", path = "/api/job/internal/stats")
+@FeignClient(name = "talent-job", contextId = "analyticsJobFeignClient", path = "/api/job/internal/stats",
+        fallback = JobFeignFallback.class)
 public interface JobFeignClient {
 
     @GetMapping("/active-job-count")
@@ -29,10 +31,10 @@ public interface JobFeignClient {
     OfferStatsDTO getOfferMetrics();
 
     @GetMapping("/monthly-applications")
-    List<MonthlyCountDTO> getMonthlyApplications(@RequestParam(defaultValue = "6") int months);
+    List<MonthlyCountDTO> getMonthlyApplications(@RequestParam(value = "months", defaultValue = "6") int months);
 
     @GetMapping("/monthly-offers")
-    List<MonthlyCountDTO> getMonthlyOffers(@RequestParam(defaultValue = "6") int months);
+    List<MonthlyCountDTO> getMonthlyOffers(@RequestParam(value = "months", defaultValue = "6") int months);
 
     @GetMapping("/department-job-stats")
     List<DepartmentJobStatDTO> getDepartmentJobStats();

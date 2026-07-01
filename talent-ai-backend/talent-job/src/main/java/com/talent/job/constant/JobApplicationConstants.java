@@ -26,6 +26,9 @@ public final class JobApplicationConstants {
     /** 招聘阶段：Offer */
     public static final byte STAGE_OFFER = 6;
 
+    /** 招聘阶段：已入职 */
+    public static final byte STAGE_ONBOARDED = 7;
+
     /** 投递状态：已录用 */
     public static final byte STATUS_HIRED = 2;
 
@@ -39,12 +42,12 @@ public final class JobApplicationConstants {
 
     /**
      * resume.screen_status → job_application.current_stage
-     * 1-待初筛 2-面试中 3-已录用 4-已淘汰
+     * 1-待筛选 2-面试中 3-已录用 4-已淘汰 5-待录用
      */
     public static byte stageForScreenStatus(int screenStatus) {
         return switch (screenStatus) {
             case 2 -> STAGE_HR_INTERVIEW;
-            case 3 -> STAGE_OFFER;
+            case 3, 5 -> STAGE_OFFER;
             case 4 -> STAGE_AI_SCREENING;
             default -> STAGE_RESUME_SUBMITTED;
         };
@@ -62,9 +65,10 @@ public final class JobApplicationConstants {
     public static String actionNoteForScreenStatus(int screenStatus) {
         return switch (screenStatus) {
             case 2 -> "HR 标记为面试中";
-            case 3 -> "HR 标记为已录用";
+            case 3 -> "候选人已接受 Offer，标记为已录用";
             case 4 -> "HR 标记为已淘汰";
-            default -> "HR 标记为待初筛";
+            case 5 -> "面试通过，待录用";
+            default -> "HR 标记为待筛选";
         };
     }
 }

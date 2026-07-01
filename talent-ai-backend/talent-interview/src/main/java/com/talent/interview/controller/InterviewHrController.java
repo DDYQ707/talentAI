@@ -1,6 +1,7 @@
 package com.talent.interview.controller;
 
 import com.talent.common.api.R;
+import com.talent.interview.dto.InterviewReassignRequest;
 import com.talent.interview.dto.InterviewScheduleRequest;
 import com.talent.interview.service.InterviewService;
 import com.talent.interview.vo.InterviewDetailVO;
@@ -86,6 +87,22 @@ public class InterviewHrController {
             @PathVariable("interviewId") Long interviewId) {
         try {
             interviewService.cancelForHr(role, interviewId);
+            return R.ok();
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{interviewId}/reassign")
+    public R<Void> reassign(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestHeader(value = "X-User-Id", required = false) Long hrId,
+            @RequestHeader(value = "X-User-Name", required = false) String hrName,
+            @PathVariable("interviewId") Long interviewId,
+            @RequestBody InterviewReassignRequest request) {
+        try {
+            Long interviewerId = request != null ? request.getInterviewerId() : null;
+            interviewService.reassignForHr(role, hrId, hrName, interviewId, interviewerId);
             return R.ok();
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());

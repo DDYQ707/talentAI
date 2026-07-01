@@ -48,4 +48,22 @@ public class InterviewListVO {
     private String statusLabel;
 
     private BigDecimal totalScore;
+
+    /** 评价结论：1-通过 2-待定 3-不通过（仅已完成面试可能有值） */
+    private Integer evaluationConclusion;
+
+    private String evaluationConclusionLabel;
+
+    /** 面试官评价详情（已完成且有评价时返回） */
+    private InterviewEvaluationVO evaluation;
+
+    /** 关联简历 ID（HR 列表跳转详情用） */
+    private Long resumeId;
+
+    /** 关联投递单最新 Offer 状态（HR 列表操作联动） */
+    private Integer offerStatus;
+
+    private String offerStatusText;
+
+    private Long offerId;
 }

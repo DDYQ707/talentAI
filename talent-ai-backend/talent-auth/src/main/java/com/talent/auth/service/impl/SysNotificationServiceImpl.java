@@ -4,23 +4,30 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.talent.auth.dto.NotificationBroadcastRequest;
 import com.talent.auth.dto.NotificationCreateRequest;
 import com.talent.auth.entity.SysNotification;
+import com.talent.auth.entity.SysUser;
 import com.talent.auth.mapper.SysNotificationMapper;
 import com.talent.auth.service.ISysNotificationService;
+import com.talent.auth.service.ISysUserService;
 import com.talent.auth.vo.NotificationVO;
 import com.talent.common.api.R;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
+@RequiredArgsConstructor
 public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMapper, SysNotification>
         implements ISysNotificationService {
+
+    private final ISysUserService sysUserService;
 
     @Override
     public R<Map<String, Object>> listMyNotifications(Long userId, Integer current, Integer size) {
@@ -115,6 +122,49 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
         entity.setIsDeleted(false);
         save(entity);
         return R.ok(toVO(entity));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public R<Map<String, Object>> broadcastAnnouncement(NotificationBroadcastRequest request) {
+        if (request == null || !StringUtils.hasText(request.getTitle())) {
+            return R.fail("公告标题不能为空");
+        }
+        if (!StringUtils.hasText(request.getContent())) {
+            return R.fail("公告内容不能为空");
+        }
+
+        List<SysUser> users = listUsersByTarget(request.getTarget());
+        int pushed = 0;
+        for (SysUser user : users) {
+            NotificationCreateRequest create = new NotificationCreateRequest();
+            create.setUserId(user.getId());
+            create.setTitle(request.getTitle().trim());
+            create.setContent(request.getContent().trim());
+            create.setNotifyType((byte) 3);
+            create.setBizType("announcement");
+            create.setBizId(request.getAnnouncementId());
+            R<NotificationVO> created = createNotification(create);
+            if (created.getCode() == 200) {
+                pushed++;
+            }
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("pushedCount", pushed);
+        data.put("targetUsers", users.size());
+        return R.ok(data, "广播完成");
+    }
+
+    private List<SysUser> listUsersByTarget(String target) {
+        LambdaQueryWrapper<SysUser> w = new LambdaQueryWrapper<>();
+        w.eq(SysUser::getStatus, (byte) 1);
+        if ("candidate".equalsIgnoreCase(target)) {
+            w.eq(SysUser::getUserType, (byte) 1);
+        } else if ("hr".equalsIgnoreCase(target)) {
+            w.in(SysUser::getUserType, (byte) 2, (byte) 3, (byte) 4);
+        }
+        return sysUserService.list(w);
     }
 
     private NotificationVO toVO(SysNotification entity) {

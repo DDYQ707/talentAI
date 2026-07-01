@@ -8,8 +8,20 @@ public final class InterviewConstants {
     private InterviewConstants() {
     }
 
-    /** 待进行 */
+    /** 待面试 */
     public static final int STATUS_PENDING = 1;
+
+    /** 评价维度：沟通能力 */
+    public static final String DIM_COMMUNICATION = "沟通能力";
+
+    /** 评价维度：专业技能 */
+    public static final String DIM_PROFESSIONAL = "专业技能";
+
+    /** 评价维度：岗位匹配度 */
+    public static final String DIM_JOB_MATCH = "岗位匹配度";
+
+    public static final java.util.List<String> REQUIRED_EVALUATION_DIMENSIONS =
+            java.util.List.of(DIM_COMMUNICATION, DIM_PROFESSIONAL, DIM_JOB_MATCH);
 
     /** 已完成 */
     public static final int STATUS_COMPLETED = 2;
@@ -87,7 +99,7 @@ public final class InterviewConstants {
             return "未知";
         }
         return switch (status) {
-            case STATUS_PENDING -> "待进行";
+            case STATUS_PENDING -> "待面试";
             case STATUS_COMPLETED -> "已完成";
             case STATUS_TO_SCHEDULE -> "待安排";
             case STATUS_CANCELLED -> "已取消";

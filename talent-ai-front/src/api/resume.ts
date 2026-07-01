@@ -42,7 +42,7 @@ export function fetchMyResumes() {
   return fetchAttachmentResumes()
 }
 
-/** 上传简历附件（pdf/doc/docx，最大 10MB）→ MinIO + 落库 */
+/** 上传简历附件（PDF，最大 10MB）→ MinIO + 落库 */
 export function uploadResumeFile(
   file: File,
   options?: { resumeId?: number; resumeName?: string },

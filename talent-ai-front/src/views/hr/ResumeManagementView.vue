@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next'
 import { consolidateHrResumes, fetchHrResumePage, fetchHrResumePreview, type HrResumeListItem } from '@/api/hrResume'
 import { fetchHrCandidateBrief } from '@/api/hrCandidate'
+import { fetchTalentPoolExistsBatch } from '@/api/talentPool'
 import { openResumePreview } from '@/api/resume'
 import { RESUME_SCREEN_STATUS, screenStatusLabel } from '@/constants/resume'
 import { formatDegree } from '@/utils/resumeFormat'
@@ -23,15 +24,17 @@ const router = useRouter()
 
 const filterTags = [
   { label: '全部', value: undefined as number | undefined },
-  { label: '待初筛', value: RESUME_SCREEN_STATUS.PENDING },
+  { label: '待筛选', value: RESUME_SCREEN_STATUS.PENDING },
   { label: '面试中', value: RESUME_SCREEN_STATUS.INTERVIEWING },
+  { label: '待录用', value: RESUME_SCREEN_STATUS.OFFER_PENDING },
   { label: '已录用', value: RESUME_SCREEN_STATUS.HIRED },
   { label: '已淘汰', value: RESUME_SCREEN_STATUS.REJECTED },
 ]
 
 const statusStyles: Record<string, string> = {
-  待初筛: 'bg-muted text-muted-foreground border-border',
+  待筛选: 'bg-muted text-muted-foreground border-border',
   面试中: 'bg-orange-50 text-brand-orange border-orange-200',
+  待录用: 'bg-purple-50 text-brand-purple border-purple-200',
   已录用: 'bg-green-50 text-brand-green border-green-200',
   已淘汰: 'bg-red-50 text-brand-red border-red-200',
 }
@@ -43,8 +46,13 @@ const keyword = ref('')
 const viewMode = ref<'grid' | 'list'>('grid')
 const activeFilter = ref('全部')
 const previewingId = ref<number | null>(null)
+const inPoolMap = ref<Record<string, boolean>>({})
 
 const filtered = computed(() => candidates.value)
+
+function isInTalentPool(item: HrResumeListItem) {
+  return inPoolMap.value[String(item.candidateId)] === true
+}
 
 function screenStatusForItem(item: HrResumeListItem) {
   return screenStatusLabel(item.screenStatus)
@@ -109,6 +117,16 @@ async function loadList() {
       screenStatus: tag?.value,
     })
     candidates.value = await enrichListProfile(data.records ?? [])
+    const ids = candidates.value.map((c) => c.candidateId).filter((id) => id > 0)
+    if (ids.length) {
+      try {
+        inPoolMap.value = await fetchTalentPoolExistsBatch(ids)
+      } catch {
+        inPoolMap.value = {}
+      }
+    } else {
+      inPoolMap.value = {}
+    }
   } catch (e) {
     errorMsg.value = getErrorMessage(e, '简历列表加载失败')
     candidates.value = []
@@ -225,7 +243,15 @@ onMounted(() => {
                 <User :size="14" class="text-white" />
               </div>
               <div class="min-w-0">
-                <div class="text-sm font-semibold text-foreground truncate">{{ c.candidateName }}</div>
+                <div class="flex items-center gap-2 min-w-0">
+                  <div class="text-sm font-semibold text-foreground truncate">{{ c.candidateName }}</div>
+                  <span
+                    v-if="isInTalentPool(c)"
+                    class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-50 text-brand-purple border border-purple-200 flex-shrink-0"
+                  >
+                    人才库
+                  </span>
+                </div>
                 <div class="text-xs text-muted-foreground truncate">{{ c.currentTitle || c.resumeName }}</div>
                 <div v-if="c.fileName" class="text-[11px] text-muted-foreground truncate mt-0.5">{{ c.fileName }}</div>
               </div>
@@ -242,7 +268,7 @@ onMounted(() => {
               <span v-else class="text-xs text-muted-foreground">—</span>
             </div>
             <div class="text-center">
-              <span :class="['text-xs px-2 py-0.5 rounded-full border inline-block', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">
+              <span :class="['text-xs px-2 py-0.5 rounded-full border inline-block', statusStyles[screenStatusForItem(c)] || statusStyles['待筛选']]">
                 {{ screenStatusForItem(c) }}
               </span>
             </div>
@@ -273,7 +299,15 @@ onMounted(() => {
                     <User :size="16" class="text-white" />
                   </div>
                   <div>
-                    <div class="text-sm font-semibold text-foreground">{{ c.candidateName }}</div>
+                    <div class="flex items-center gap-1.5">
+                      <div class="text-sm font-semibold text-foreground">{{ c.candidateName }}</div>
+                      <span
+                        v-if="isInTalentPool(c)"
+                        class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-50 text-brand-purple border border-purple-200"
+                      >
+                        人才库
+                      </span>
+                    </div>
                     <div class="text-xs text-muted-foreground truncate max-w-[140px]">
                       {{ c.currentTitle || c.resumeName }}
                     </div>
@@ -304,7 +338,7 @@ onMounted(() => {
                 <span class="text-sm" :class="matchScoreClass(c)">AI 匹配 {{ matchScoreText(c) }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span :class="['text-xs px-2 py-0.5 rounded-full border', statusStyles[screenStatusForItem(c)] || statusStyles['待初筛']]">
+                <span :class="['text-xs px-2 py-0.5 rounded-full border', statusStyles[screenStatusForItem(c)] || statusStyles['待筛选']]">
                   {{ screenStatusForItem(c) }}
                 </span>
                 <div class="flex items-center gap-1">

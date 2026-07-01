@@ -1,13 +1,13 @@
-﻿<script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup lang="ts">
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Bot,
   Send,
   User,
   Sparkles,
   Briefcase,
-  Zap,
+  Calendar,
   Plus,
   Search,
   ThumbsUp,
@@ -24,12 +24,17 @@ import {
   type ChatMessage,
   type ChatSession,
 } from '@/api/chat'
-import { fetchHrResumePreview } from '@/api/hrResume'
+import { fetchHrResumePreview, fetchHrResumePage } from '@/api/hrResume'
 import { openResumePreview } from '@/api/resume'
+import { fetchHrInterviewStats } from '@/api/interview'
+import { fetchOfferList, OFFER_STATUS } from '@/api/offer'
+import { fetchHrAiInsights, type HrAiInsights } from '@/api/ai'
+import { RESUME_SCREEN_STATUS } from '@/constants/resume'
 import { parseInlineIdSegments, type ChatMessageSegment } from '@/utils/chatMessage'
 import { getErrorMessage } from '@/utils/validators'
 
 const router = useRouter()
+const route = useRoute()
 
 type UiMessage = {
   id?: number
@@ -37,14 +42,97 @@ type UiMessage = {
   content: string
 }
 
-const quickCommands = [
-  { icon: Search, label: '待初筛简历', cmd: '搜一下待初筛的简历' },
-  { icon: Search, label: '智能搜索候选人', cmd: '帮我找姓名包含「张」的候选人' },
-  { icon: Briefcase, label: '生成岗位JD', cmd: '帮我写一份高级产品经理的职位描述' },
-  { icon: Sparkles, label: '查匹配分', cmd: '查投递单 6 的匹配分和优劣势' },
-  { icon: Zap, label: '招聘策略建议', cmd: '我们的面试通过率只有20%，如何提升？' },
-  { icon: Sparkles, label: '招聘流程FAQ', cmd: '标准招聘流程是什么？各筛选状态代表什么？' },
-]
+type QuickCommand = {
+  icon: typeof Search
+  label: string
+  cmd: string
+}
+
+const todoCounts = ref({
+  pendingScreen: 0,
+  toSchedule: 0,
+  offerToIssue: 0,
+  todayInterview: 0,
+})
+const aiInsights = ref<HrAiInsights | null>(null)
+
+const quickCommands = computed<QuickCommand[]>(() => {
+  const c = todoCounts.value
+  const ai = aiInsights.value
+  const items: QuickCommand[] = []
+
+  if (c.pendingScreen > 0) {
+    items.push({
+      icon: Search,
+      label: `待初筛(${c.pendingScreen})`,
+      cmd: `搜一下待初筛的简历，共 ${c.pendingScreen} 份`,
+    })
+  }
+  if (c.toSchedule > 0) {
+    items.push({
+      icon: Calendar,
+      label: `待安排面试(${c.toSchedule})`,
+      cmd: `列出待安排面试的候选人，共 ${c.toSchedule} 位`,
+    })
+  }
+  if (c.offerToIssue > 0) {
+    items.push({
+      icon: Briefcase,
+      label: `Offer待发放(${c.offerToIssue})`,
+      cmd: `汇总待发放的 Offer，共 ${c.offerToIssue} 份`,
+    })
+  }
+  if (c.todayInterview > 0) {
+    items.push({
+      icon: Calendar,
+      label: `今日面试(${c.todayInterview})`,
+      cmd: `今天有哪些面试安排？共 ${c.todayInterview} 场`,
+    })
+  }
+  if (ai && ai.pendingAiTasks > 0) {
+    items.push({
+      icon: Sparkles,
+      label: `AI待处理(${ai.pendingAiTasks})`,
+      cmd: `汇总当前 AI 待处理任务，共 ${ai.pendingAiTasks} 项`,
+    })
+  }
+  if (ai && ai.highMatchCount > 0) {
+    items.push({
+      icon: Sparkles,
+      label: `高匹配(${ai.highMatchCount})`,
+      cmd: `列出本月高匹配候选人，共 ${ai.highMatchCount} 人`,
+    })
+  }
+
+  items.push(
+    { icon: Briefcase, label: '生成岗位JD', cmd: '帮我写一份高级前端工程师的职位描述' },
+    { icon: Sparkles, label: '招聘流程FAQ', cmd: '标准招聘流程是什么？各筛选状态代表什么？' },
+  )
+
+  return items.slice(0, 6)
+})
+
+async function loadQuickCommandContext() {
+  const [
+    pendingScreen,
+    offerToIssue,
+    interviewStats,
+    ai,
+  ] = await Promise.all([
+    fetchHrResumePage({ current: 1, size: 1, screenStatus: RESUME_SCREEN_STATUS.PENDING }).catch(() => ({ total: 0 })),
+    fetchOfferList({ current: 1, size: 1, status: OFFER_STATUS.APPROVED }).catch(() => ({ total: 0 })),
+    fetchHrInterviewStats().catch(() => ({ todayPending: 0, toSchedule: 0 })),
+    fetchHrAiInsights().catch(() => null),
+  ])
+
+  todoCounts.value = {
+    pendingScreen: pendingScreen.total ?? 0,
+    toSchedule: interviewStats.toSchedule ?? 0,
+    offerToIssue: offerToIssue.total ?? 0,
+    todayInterview: interviewStats.todayPending ?? 0,
+  }
+  aiInsights.value = ai
+}
 
 const candidateResults = ref<ChatCandidateCard[]>([])
 const previewingAttachmentId = ref<number | null>(null)
@@ -265,8 +353,22 @@ const showWelcome = computed(
 )
 
 onMounted(async () => {
-  await loadSessions()
+  await Promise.all([loadSessions(), loadQuickCommandContext()])
+  const q = typeof route.query.q === 'string' ? route.query.q.trim() : ''
+  if (q) {
+    input.value = q
+  }
 })
+
+watch(
+  () => route.query.q,
+  (value) => {
+    const q = typeof value === 'string' ? value.trim() : ''
+    if (q) {
+      input.value = q
+    }
+  },
+)
 </script>
 
 <template>
@@ -441,7 +543,7 @@ onMounted(async () => {
               v-model="input"
               rows="2"
               class="w-full bg-transparent text-sm outline-none resize-none text-foreground placeholder:text-muted-foreground"
-              placeholder="向AI助手发送指令，例如：帮我写一份高级产品经理 JD..."
+              placeholder="向 AI 助手发送指令，例如：搜一下待初筛的简历..."
               :disabled="sending"
               @keydown="handleKeydown"
             />
@@ -476,7 +578,7 @@ onMounted(async () => {
           v-if="candidateResults.length === 0"
           class="text-xs text-muted-foreground text-center px-2 py-8 leading-relaxed"
         >
-          发送「搜待初筛简历」或「查某某匹配分」等指令后，相关候选人将展示在这里
+          发送指令后，相关候选人将展示在这里
         </p>
         <div
           v-for="c in candidateResults"

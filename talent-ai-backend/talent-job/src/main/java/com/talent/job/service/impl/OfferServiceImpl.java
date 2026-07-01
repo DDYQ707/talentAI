@@ -4,23 +4,27 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.talent.common.api.R;
+import com.talent.job.constant.JobApplicationConstants;
 import com.talent.job.constant.OfferConstants;
 import com.talent.job.dto.OfferCreateRequest;
 import com.talent.job.dto.OfferQueryRequest;
+import com.talent.job.dto.OfferUpdateRequest;
+import com.talent.job.entity.JobApplication;
 import com.talent.job.entity.JobPost;
 import com.talent.job.entity.Offer;
 import com.talent.job.entity.OfferApproval;
 import com.talent.job.exception.BusinessException;
+import com.talent.job.mapper.JobApplicationMapper;
 import com.talent.job.mapper.OfferMapper;
 import com.talent.job.service.IOfferApprovalService;
 import com.talent.job.service.IOfferService;
 import com.talent.job.service.IJobPostService;
+import com.talent.job.service.OfferLifecycleHookService;
 import com.talent.job.vo.OfferDetailVO;
 import com.talent.job.vo.OfferListVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -47,6 +51,12 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
 
     @Autowired
     private IJobPostService jobPostService;
+
+    @Autowired
+    private JobApplicationMapper jobApplicationMapper;
+
+    @Autowired
+    private OfferLifecycleHookService offerLifecycleHookService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -85,44 +95,28 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
         offer.setHrId(hrId);
         offer.setRemark(request.getRemark());
 
-        // 4. 判断是否需要审批
-        List<Long> approverIds = request.getApproverIds();
-        boolean needApproval = !CollectionUtils.isEmpty(approverIds);
-
-        if (needApproval) {
-            // 有审批人 → 初始状态为"审批中"
-            offer.setStatus(OfferConstants.OFFER_STATUS_APPROVING);
-        } else {
-            // 无审批人 → 直接进入"已通过"状态
-            offer.setStatus(OfferConstants.OFFER_STATUS_APPROVED);
-        }
+        // 4. 简化流程：创建后直接进入「已通过」，由 HR 完善信息并发放（不启用审批链）
+        offer.setStatus(OfferConstants.OFFER_STATUS_APPROVED);
 
         // 5. 保存 Offer
         this.save(offer);
 
-        // 6. 初始化审批链
-        if (needApproval) {
-            List<OfferApproval> approvals = new ArrayList<>();
-            for (int i = 0; i < approverIds.size(); i++) {
-                OfferApproval approval = new OfferApproval();
-                approval.setOfferId(offer.getId());
-                approval.setSeq(i + 1);
-                approval.setApproverId(approverIds.get(i));
-                approval.setStatus(OfferConstants.APPROVAL_STATUS_PENDING);
-                approvals.add(approval);
-            }
-            offerApprovalService.saveBatch(approvals);
-        }
-
-        // 7. 返回详情
+        // 6. 返回详情
         return getOfferDetail(offer.getId());
     }
 
     @Override
-    public R<Map<String, Object>> listOffers(OfferQueryRequest request) {
+    public R<Map<String, Object>> listOffers(OfferQueryRequest request, Long userId, String role) {
         Page<Offer> pageParam = new Page<>(request.getCurrent(), request.getSize());
 
         LambdaQueryWrapper<Offer> queryWrapper = new LambdaQueryWrapper<>();
+
+        if (JobApplicationConstants.ROLE_CANDIDATE.equals(role)) {
+            if (userId == null) {
+                throw new BusinessException("未检测到登录用户信息");
+            }
+            queryWrapper.eq(Offer::getCandidateId, userId);
+        }
 
         // 可选过滤条件
         if (request.getStatus() != null) {
@@ -137,6 +131,9 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
         if (request.getJobId() != null) {
             queryWrapper.eq(Offer::getJobId, request.getJobId());
         }
+        if (request.getApplicationId() != null) {
+            queryWrapper.eq(Offer::getApplicationId, request.getApplicationId());
+        }
 
         queryWrapper.orderByDesc(Offer::getCreatedAt);
 
@@ -148,6 +145,9 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
             OfferListVO vo = new OfferListVO();
             vo.setId(offer.getId());
             vo.setOfferNo(offer.getOfferNo());
+            vo.setApplicationId(offer.getApplicationId());
+            vo.setJobId(offer.getJobId());
+            vo.setCandidateId(offer.getCandidateId());
             vo.setJobTitle(offer.getJobTitle());
             vo.setCandidateName(offer.getCandidateName());
             vo.setDeptName(offer.getDeptName());
@@ -172,6 +172,20 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
 
     @Override
     public R<OfferDetailVO> getOfferDetail(Long offerId) {
+        return R.ok(buildOfferDetail(offerId));
+    }
+
+    @Override
+    public R<OfferDetailVO> getOfferDetail(Long offerId, Long userId, String role) {
+        Offer offer = this.getById(offerId);
+        if (offer == null) {
+            throw new BusinessException("Offer 不存在");
+        }
+        assertCandidateOfferAccess(offer, userId, role);
+        return getOfferDetail(offerId);
+    }
+
+    private OfferDetailVO buildOfferDetail(Long offerId) {
         Offer offer = this.getById(offerId);
         if (offer == null) {
             throw new BusinessException("Offer 不存在");
@@ -210,7 +224,7 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
         vo.setUpdatedAt(offer.getUpdatedAt());
         vo.setApprovals(approvals);
 
-        return R.ok(vo);
+        return vo;
     }
 
     @Override
@@ -254,6 +268,7 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
 
         offer.setStatus(OfferConstants.OFFER_STATUS_ACCEPTED);
         this.updateById(offer);
+        offerLifecycleHookService.onOfferAccepted(offer, candidateId);
 
         return R.ok();
     }
@@ -276,8 +291,123 @@ public class OfferServiceImpl extends ServiceImpl<OfferMapper, Offer> implements
 
         offer.setStatus(OfferConstants.OFFER_STATUS_DECLINED);
         this.updateById(offer);
+        offerLifecycleHookService.onOfferDeclined(offer, candidateId);
 
         return R.ok();
+    }
+
+    @Override
+    public R<OfferDetailVO> getOfferByApplication(Long applicationId, Long userId, String role) {
+        if (applicationId == null || applicationId <= 0) {
+            throw new BusinessException("applicationId 无效");
+        }
+        if (JobApplicationConstants.ROLE_CANDIDATE.equals(role)) {
+            assertApplicationOwnedByCandidate(applicationId, userId);
+        }
+        Offer offer = this.getOne(
+                new LambdaQueryWrapper<Offer>()
+                        .eq(Offer::getApplicationId, applicationId)
+                        .orderByDesc(Offer::getCreatedAt)
+                        .last("LIMIT 1"),
+                false);
+        if (offer == null) {
+            return R.ok(null);
+        }
+        if (JobApplicationConstants.ROLE_CANDIDATE.equals(role)) {
+            assertCandidateOfferAccess(offer, userId, role);
+        }
+        return getOfferDetail(offer.getId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public R<OfferDetailVO> updateOffer(Long hrId, Long offerId, OfferUpdateRequest request) {
+        if (request == null) {
+            throw new BusinessException("请求体不能为空");
+        }
+        Offer offer = this.getById(offerId);
+        if (offer == null) {
+            throw new BusinessException("Offer 不存在");
+        }
+        byte currentStatus = offer.getStatus();
+        if (currentStatus == OfferConstants.OFFER_STATUS_REVOKED
+                || currentStatus == OfferConstants.OFFER_STATUS_ACCEPTED
+                || currentStatus == OfferConstants.OFFER_STATUS_DECLINED) {
+            throw new BusinessException("当前状态不允许修改 Offer");
+        }
+        if (request.getBaseSalary() != null) {
+            offer.setBaseSalary(request.getBaseSalary());
+        }
+        if (request.getAnnualSalary() != null) {
+            offer.setAnnualSalary(request.getAnnualSalary());
+        }
+        if (request.getBonus() != null) {
+            offer.setBonus(request.getBonus());
+        }
+        if (request.getSalaryRemark() != null) {
+            offer.setSalaryRemark(request.getSalaryRemark());
+        }
+        if (request.getPositionLevel() != null) {
+            offer.setPositionLevel(request.getPositionLevel());
+        }
+        if (request.getExpectedOnboardDate() != null) {
+            offer.setExpectedOnboardDate(request.getExpectedOnboardDate());
+        }
+        if (request.getProbationMonths() != null) {
+            offer.setProbationMonths(request.getProbationMonths());
+        }
+        if (request.getRemark() != null) {
+            offer.setRemark(request.getRemark());
+        }
+        if (hrId != null && hrId > 0) {
+            offer.setHrId(hrId);
+        }
+        this.updateById(offer);
+        return getOfferDetail(offerId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public R<Void> issueOffer(Long hrId, Long offerId) {
+        Offer offer = this.getById(offerId);
+        if (offer == null) {
+            throw new BusinessException("Offer 不存在");
+        }
+        if (offer.getStatus() != OfferConstants.OFFER_STATUS_APPROVED) {
+            throw new BusinessException("仅「已通过」状态的 Offer 可发放");
+        }
+        offer.setStatus(OfferConstants.OFFER_STATUS_ISSUED);
+        if (hrId != null && hrId > 0) {
+            offer.setHrId(hrId);
+        }
+        this.updateById(offer);
+        offerLifecycleHookService.onOfferIssued(offer);
+        return R.ok();
+    }
+
+    private void assertApplicationOwnedByCandidate(Long applicationId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException("未检测到登录用户信息");
+        }
+        JobApplication app = jobApplicationMapper.selectById(applicationId);
+        if (app == null) {
+            throw new BusinessException("投递记录不存在");
+        }
+        if (!userId.equals(app.getCandidateId())) {
+            throw new BusinessException("无权查看此 Offer");
+        }
+    }
+
+    private void assertCandidateOfferAccess(Offer offer, Long userId, String role) {
+        if (!JobApplicationConstants.ROLE_CANDIDATE.equals(role)) {
+            return;
+        }
+        if (userId == null) {
+            throw new BusinessException("未检测到登录用户信息");
+        }
+        if (offer.getCandidateId() == null || !offer.getCandidateId().equals(userId)) {
+            throw new BusinessException("无权操作此 Offer");
+        }
     }
 
     // ==================== 私有方法 ====================

@@ -43,6 +43,18 @@ export function fetchAiParseLatest(resumeId: number) {
   }) as Promise<AiParseTaskResult | null>
 }
 
+export interface AiParseRetryPayload {
+  resumeId: number
+  applicationId?: number | null
+  jobId?: number | null
+  candidateId?: number | null
+}
+
+/** HR 手动重新解析简历 */
+export function retryAiParse(payload: AiParseRetryPayload) {
+  return request.post<AiParseTaskResult>('/api/ai/parse/retry', payload) as Promise<AiParseTaskResult>
+}
+
 export function fetchAiMatchByApplication(applicationId: number) {
   return request.get<AiMatchResult | null>('/api/ai/match/by-application', {
     params: { applicationId },
@@ -53,6 +65,46 @@ export function fetchAiMatchLatest(resumeId: number, jobId: number) {
   return request.get<AiMatchResult | null>('/api/ai/match/latest', {
     params: { resumeId, jobId },
   }) as Promise<AiMatchResult | null>
+}
+
+export interface AiMatchTriggerPayload {
+  resumeId: number
+  jobId: number
+  applicationId?: number | null
+  candidateId?: number | null
+}
+
+/** HR 手动触发人岗匹配分析 */
+export function triggerAiMatch(payload: AiMatchTriggerPayload) {
+  return request.post<AiMatchResult>('/api/ai/match/trigger', payload, {
+    timeout: 30000,
+  }) as Promise<AiMatchResult>
+}
+
+/** 按分数映射匹配等级（与后端 MatchLevelUtil 一致） */
+export function formatMatchLevel(score?: number | null, fallback?: string | null): string {
+  if (score != null && score > 0) {
+    if (score >= 80) return '强烈推荐'
+    if (score >= 60) return '可考虑'
+    return '暂不匹配'
+  }
+  return fallback?.trim() || '—'
+}
+
+/** 匹配失败时的友好提示 */
+export function formatMatchErrorMessage(errorMessage?: string | null): string {
+  if (!errorMessage) return 'AI服务繁忙，请稍后重试'
+  const lower = errorMessage.toLowerCase()
+  if (
+    lower.includes('timeout')
+    || lower.includes('timed out')
+    || lower.includes('超时')
+    || lower.includes('繁忙')
+    || lower.includes('rate limit')
+  ) {
+    return 'AI服务繁忙，请稍后重试'
+  }
+  return errorMessage
 }
 
 /** 查询岗位预览匹配（不触发新任务） */
@@ -77,6 +129,23 @@ export function triggerPreviewMatch(jobId: number) {
   return request.post<AiMatchResult>('/api/ai/match/preview', null, {
     params: { jobId },
   }) as Promise<AiMatchResult>
+}
+
+/** HR 工作台 — AI 今日洞察 GET /api/ai/hr/insights */
+export interface HrAiInsights {
+  parsedToday: number
+  parsedThisMonth: number
+  highMatchCount: number
+  matchSuccessThisMonth: number
+  pendingAiTasks: number
+  failedToday: number
+  healthScore: number
+  healthLabel: string
+  summary: string
+}
+
+export function fetchHrAiInsights() {
+  return request.get<HrAiInsights>('/api/ai/hr/insights') as Promise<HrAiInsights>
 }
 
 export interface AiInterviewQuestion {
@@ -129,10 +198,19 @@ export interface AiInterviewNote {
   updatedAt?: string
 }
 
-export function fetchAiInterviewNote(interviewId: number) {
-  return request.get<AiInterviewNote | null>('/api/ai/interview-notes', {
-    params: { interviewId },
-  }) as Promise<AiInterviewNote | null>
+export async function fetchAiInterviewNote(interviewId: number) {
+  const raw = await request.get<AiInterviewNote | { data?: AiInterviewNote | null } | null>(
+    '/api/ai/interview-notes',
+    { params: { interviewId } },
+  )
+  if (raw && typeof raw === 'object' && 'interviewId' in raw) {
+    return raw as AiInterviewNote
+  }
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    const nested = (raw as { data?: AiInterviewNote | null }).data
+    return nested ?? null
+  }
+  return null
 }
 
 export function saveAiInterviewNote(payload: { interviewId: number; noteContent?: string }) {
@@ -143,6 +221,7 @@ export function synthesizeAiInterviewNote(payload: { interviewId: number; noteCo
   return request.post<AiInterviewNote>(
     '/api/ai/interview-notes/synthesize',
     payload,
+    { timeout: 60000 },
   ) as Promise<AiInterviewNote>
 }
 
